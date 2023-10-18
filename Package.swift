@@ -1,7 +1,7 @@
-// swift-tools-version:5.8
+// swift-tools-version:5.9
 
 //
-// This source file is part of the TemplatePackage open source project
+// This source file is part of the Stanford Spezi open source project
 // 
 // SPDX-FileCopyrightText: 2022 Stanford University and the project authors (see CONTRIBUTORS.md)
 // 
@@ -12,22 +12,31 @@ import PackageDescription
 
 
 let package = Package(
-    name: "TemplatePackage",
+    name: "SpeziBluetooth",
+    defaultLocalization: "en",
     platforms: [
-        .iOS(.v16),
-        .watchOS(.v9)
+        .iOS(.v16)
     ],
     products: [
-        .library(name: "TemplatePackage", targets: ["TemplatePackage"])
+        .library(name: "SpeziBluetooth", targets: ["SpeziBluetooth"])
+    ],
+    dependencies: [
+        .package(url: "https://github.com/StanfordSpezi/Spezi", .upToNextMinor(from: "0.7.0"))
     ],
     targets: [
         .target(
-            name: "TemplatePackage"
+            name: "SpeziBluetooth",
+            dependencies: [
+                .product(name: "Spezi", package: "Spezi")
+            ],
+            resources: [
+                .process("Resources")
+            ]
         ),
         .testTarget(
-            name: "TemplatePackageTests",
+            name: "SpeziBluetoothTests",
             dependencies: [
-                .target(name: "TemplatePackage")
+                .target(name: "SpeziBluetooth")
             ]
         )
     ]
