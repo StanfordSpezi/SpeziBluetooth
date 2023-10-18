@@ -13,7 +13,7 @@
 		2F64EA8E2A86B46B006789D0 /* Spezi in Frameworks */ = {isa = PBXBuildFile; productRef = 2F64EA8D2A86B46B006789D0 /* Spezi */; };
 		2F68C3C8292EA52000B3E12C /* SpeziBluetooth in Frameworks */ = {isa = PBXBuildFile; productRef = 2F68C3C7292EA52000B3E12C /* SpeziBluetooth */; };
 		2F6D139A28F5F386007C25D6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2F6D139928F5F386007C25D6 /* Assets.xcassets */; };
-		2FA43E922AE057CA009B1B2C /* FHIRMockWebServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FA43E912AE057CA009B1B2C /* FHIRMockWebServiceTests.swift */; };
+		2FA43E922AE057CA009B1B2C /* SpeziBluetoothTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FA43E912AE057CA009B1B2C /* SpeziBluetoothTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -46,7 +46,7 @@
 		2F6D139228F5F384007C25D6 /* TestApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TestApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2F6D139928F5F386007C25D6 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2F6D13AC28F5F386007C25D6 /* TestAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TestAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		2FA43E912AE057CA009B1B2C /* FHIRMockWebServiceTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FHIRMockWebServiceTests.swift; sourceTree = "<group>"; };
+		2FA43E912AE057CA009B1B2C /* SpeziBluetoothTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SpeziBluetoothTests.swift; sourceTree = "<group>"; };
 		2FB0758A299DDB9000C0B37F /* TestApp.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TestApp.xctestplan; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -105,7 +105,7 @@
 		2F6D13AF28F5F386007C25D6 /* TestAppUITests */ = {
 			isa = PBXGroup;
 			children = (
-				2FA43E912AE057CA009B1B2C /* FHIRMockWebServiceTests.swift */,
+				2FA43E912AE057CA009B1B2C /* SpeziBluetoothTests.swift */,
 			);
 			path = TestAppUITests;
 			sourceTree = "<group>";
@@ -237,7 +237,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2FA43E922AE057CA009B1B2C /* FHIRMockWebServiceTests.swift in Sources */,
+				2FA43E922AE057CA009B1B2C /* SpeziBluetoothTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
