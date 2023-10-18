@@ -18,7 +18,7 @@ import UIKit
 
 /// Enable applications to connect to Bluetooth devices.
 ///
-/// > Important: If your application is not yet configured to use Spezi, follow the [Spezi setup article](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/setup) setup the core Spezi infrastructure.
+/// > Important: If your application is not yet configured to use Spezi, follow the [Spezi setup article](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/setup) to setup the core Spezi infrastructure.
 ///
 /// The component needs to be registered in a Spezi-based application using the [`configuration`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/speziappdelegate/configuration)
 /// in a [`SpeziAppDelegate`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/speziappdelegate):
@@ -26,7 +26,7 @@ import UIKit
 /// class ExampleAppDelegate: SpeziAppDelegate {
 ///     override var configuration: Configuration {
 ///         Configuration {
-///             Bluetooth()
+///             Bluetooth(services: [/* ... */])
 ///             // ...
 ///         }
 ///     }
@@ -34,13 +34,53 @@ import UIKit
 /// ```
 /// > Tip: You can learn more about a [`Component` in the Spezi documentation](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/component).
 ///
+/// You will have to ensure that the ``Bluetooth`` component is correctly set up with the right services, e.g., as shown in the example shown in the <doc:SpeziBluetooth> documentation.
 ///
 /// ## Usage
 ///
-/// ...
+/// The most common usage of the ``Bluetooth`` component is using it as a dependency using the [`@Dependency`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/component/dependency) property wrapper within an other Spezi [`Component`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/component).
+///
+/// [You can learn more about the Spezi dependency injection mechanisms in the Spezi documentation](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/component#Dependencies).
+///
+/// The following example demonstrates the usage of this mechanism.
 /// ```swift
-/// ...
+/// class BluetoothExample: Component, BluetoothMessageHandler {
+///     @Dependency private var bluetooth: Bluetooth
+///
+///
+///     /// The current Bluetooth connection state.
+///     var bluetoothState: BluetoothState {
+///         bluetooth.state
+///     }
+///     
+///
+///     // ...
+///
+///     
+///     /// Configuration method to register the `BluetoothExample` as a ``BluetoothMessageHandler`` for the Bluetooth component.
+///     func configure() {
+///         bluetooth.add(messageHandler: self)
+///     }
+///     
+///     
+///     /// Sends a string message over Bluetooth.
+///     ///
+///     /// - Parameter information: The string message to be sent.
+///     func send(information: String) async throws {
+///         try await bluetooth.write(
+///             Data(information.utf8),
+///             service: Self.exampleService.serviceUUID,
+///             characteristic: Self.exampleCharacteristic
+///         )
+///     }
+///     
+///     func recieve(_ data: Data, service: CBUUID, characteristic: CBUUID) {
+///         // ...
+///     }
+/// }
 /// ```
+///
+/// > Tip: You can find a more extensive example in the main <doc:SpeziBluetooth> documentation.
 public class Bluetooth: Component, DefaultInitializable, ObservableObjectProvider, ObservableObject {
     private let initialServices: [BluetoothService]
     private lazy var bluetoothManager: BluetoothManager = BluetoothManager(services: initialServices, messageHandlers: messageHandlers)
