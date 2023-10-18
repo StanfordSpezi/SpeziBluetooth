@@ -13,8 +13,8 @@
       "targets" : [
         {
           "containerPath" : "container:..\/..",
-          "identifier" : "TemplatePackage",
-          "name" : "TemplatePackage"
+          "identifier" : "SpeziBluetooth",
+          "name" : "SpeziBluetooth"
         }
       ]
     },
