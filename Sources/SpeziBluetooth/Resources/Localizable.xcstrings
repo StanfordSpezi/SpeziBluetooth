@@ -1,0 +1,26 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "BLUETOOTH_ERROR_DEVICE_TIME_OUT" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The device no longer sends new measurement values. The connection seemed to have timed out."
+          }
+        }
+      }
+    },
+    "BLUETOOTH_ERROR_NOT_CONNECTED" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The device is not connected. Please ensure that the device is powered on or try to restart the device."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
