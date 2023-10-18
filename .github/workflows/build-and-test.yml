@@ -1,0 +1,82 @@
+#
+# This source file is part of the TemplatePackage open source project
+#
+# SPDX-FileCopyrightText: 2022 Stanford University and the project authors (see CONTRIBUTORS.md)
+#
+# SPDX-License-Identifier: MIT
+#
+
+name: Build and Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  packageios:
+    name: Build and Test Swift Package iOS
+    uses: StanfordBDHG/.github/.github/workflows/xcodebuild-or-fastlane.yml@v2
+    with:
+      scheme: TemplatePackage
+      artifactname: TemplatePackage.xcresult
+  packagewatchos:
+    name: Build and Test Swift Package watchOS
+    uses: StanfordBDHG/.github/.github/workflows/xcodebuild-or-fastlane.yml@v2
+    with:
+      scheme: TemplatePackage
+      resultBundle: TemplatePackageWatchOS.xcresult
+      destination: 'platform=watchOS Simulator,name=Apple Watch Series 8 (45mm)'
+      artifactname: TemplatePackageWatchOS.xcresult
+  packagevisionos:
+    name: Build and Test Swift Package visionOS
+    uses: StanfordBDHG/.github/.github/workflows/xcodebuild-or-fastlane.yml@v2
+    with:
+      xcodeversion: latest
+      scheme: TemplatePackage
+      resultBundle: TemplatePackageVisionOS.xcresult
+      destination: 'platform=visionOS Simulator,name=Apple Vision Pro'
+      artifactname: TemplatePackageVisionOS.xcresult
+  ios:
+    name: Build and Test iOS
+    uses: StanfordBDHG/.github/.github/workflows/xcodebuild-or-fastlane.yml@v2
+    with:
+      path: 'Tests/UITests'
+      scheme: TestApp
+      artifactname: TestApp.xcresult
+  ipados:
+    name: Build and Test iPadOS
+    uses: StanfordBDHG/.github/.github/workflows/xcodebuild-or-fastlane.yml@v2
+    with:
+      path: 'Tests/UITests'
+      scheme: TestApp
+      resultBundle: TestAppiPadOS.xcresult
+      destination: 'platform=iOS Simulator,name=iPad mini (6th generation)'
+      artifactname: TestAppiPadOS.xcresult
+  watchos:
+    name: Build and Test watchOS
+    uses: StanfordBDHG/.github/.github/workflows/xcodebuild-or-fastlane.yml@v2
+    with:
+      path: 'Tests/UITests'
+      scheme: TestAppWatchApp
+      resultBundle: TestAppWatchApp.xcresult
+      destination: 'platform=watchOS Simulator,name=Apple Watch Series 8 (45mm)'
+      artifactname: TestAppWatchApp.xcresult
+  codeql:
+    name: CodeQL
+    uses: StanfordBDHG/.github/.github/workflows/xcodebuild-or-fastlane.yml@v2
+    with:
+      codeql: true
+      xcodeversion: '14.3.1'
+      scheme: TemplatePackage
+    permissions:
+      security-events: write
+      actions: read
+  uploadcoveragereport:
+    name: Upload Coverage Report
+    needs: [packageios, packagewatchos, packagevisionos, ios, ipados, watchos]
+    uses: StanfordBDHG/.github/.github/workflows/create-and-upload-coverage-report.yml@v2
+    with:
+      coveragereports: TemplatePackage.xcresult TemplatePackageWatchOS.xcresult TemplatePackageVisionOS.xcresult TestApp.xcresult TestAppiPadOS.xcresult TestAppWatchApp.xcresult
