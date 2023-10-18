@@ -30,7 +30,7 @@ public class BluetoothExample: DefaultInitializable, Component, ObservableObject
     private var bluetoothAnyCancellable: AnyCancellable?
     
     /// Array of messages received from the Bluetooth connection.
-    @Published private(set) public var messages: [String] = []
+    @Published public private(set) var messages: [String] = []
     
     /// The current Bluetooth connection state.
     public var bluetoothState: BluetoothState {

@@ -9,7 +9,6 @@
 
 /// Represents the various states of a Bluetooth component.
 public enum BluetoothState: String {
-    
     /// The Bluetooth component is turned off.
     case poweredOff
     

@@ -13,7 +13,6 @@ import NIO
 import NIOFoundationCompat
 import Spezi
 import UIKit
-@_exported import class CoreBluetooth.CBUUID
 
 
 /// Enable applications to connect to Bluetooth devices.
@@ -83,7 +82,7 @@ import UIKit
 /// > Tip: You can find a more extensive example in the main <doc:SpeziBluetooth> documentation.
 public class Bluetooth: Component, DefaultInitializable, ObservableObjectProvider, ObservableObject {
     private let initialServices: [BluetoothService]
-    private lazy var bluetoothManager: BluetoothManager = BluetoothManager(services: initialServices, messageHandlers: messageHandlers)
+    private lazy var bluetoothManager = BluetoothManager(services: initialServices, messageHandlers: messageHandlers)
     private var messageHandlers: [BluetoothMessageHandler] = []
     private var anyCancellable: AnyCancellable?
     

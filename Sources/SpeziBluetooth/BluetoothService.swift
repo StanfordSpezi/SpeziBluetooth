@@ -11,7 +11,6 @@ import CoreBluetooth
 
 /// Represents a Bluetooth service with its associated characteristics.
 public struct BluetoothService {
-    
     /// The unique identifier for the Bluetooth service.
     public let serviceUUID: CBUUID
     

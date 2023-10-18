@@ -12,7 +12,6 @@ import Foundation
 
 /// Protocol defining methods for handling Bluetooth messages.
 public protocol BluetoothMessageHandler: AnyObject {
-    
     /// Handles the receipt of Bluetooth data from a specified service and characteristic.
     ///
     /// - Parameters:
