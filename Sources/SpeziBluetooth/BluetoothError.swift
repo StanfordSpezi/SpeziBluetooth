@@ -9,21 +9,26 @@
 import Foundation
 
 
+/// Represents errors that can occur during Bluetooth operations.
 public enum BluetoothError: String, Error, CustomStringConvertible, LocalizedError {
+    /// Error indicating that the device is not connected.
     case notConnected
+    /// Error indicating that the device connection has timed out.
     case deviceTimedOut
     
     
+    /// Provides a human-readable description of the error.
     public var description: String {
         errorDescription ?? "BluetoothError: \(rawValue)"
     }
     
+    /// Provides a detailed description of the error.
     public var errorDescription: String? {
         switch self {
         case .notConnected:
-            return "The device is not connected. Please ensure that the device is powered on or try to restart the device."
+            String(localized: "BLUETOOTH_ERROR_NOT_CONNECTED", bundle: .module)
         case .deviceTimedOut:
-            return "The device no longer sends new measurement values. The connection seemed to have timed out."
+            String(localized: "BLUETOOTH_ERROR_DEVICE_TIME_OUT", bundle: .module)
         }
     }
 }

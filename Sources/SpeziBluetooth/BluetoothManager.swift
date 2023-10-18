@@ -12,6 +12,7 @@ import NIO
 import OSLog
 
 
+/// Manages the Bluetooth connections, state, and data transfer.
 class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate, ObservableObject {
     // We use an implicity unwrapped optional here as we can gurantee that the value will be available after the initialization of the
     // `BluetoothManager` and we refer to the `self` in the initializer of the `CBCentralManager`.
@@ -26,7 +27,8 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothManager")
     private let messageHandlerQueue = DispatchQueue(label: "edu.stanford.spezi.bluetooth", qos: .userInitiated, attributes: .concurrent)
     
-    @Published private(set) var state: BluetoothModuleState
+    /// Represents the current state of Bluetooth connection.
+    @Published private(set) var state: BluetoothState
     
     
     private var serviceIDs: [CBUUID] {
@@ -38,11 +40,12 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     }
     
     
-    /// <#Description#>
+    /// Initializes the BluetoothManager with provided services and optional message handlers.
+    ///
     /// - Parameters:
-    ///   - services: <#services description#>
-    ///   - messageHandlers: <#messageHandlers description#>
-    ///   - minimumRSSI: <#minimumRSSI description#>
+    ///   - services: List of Bluetooth services to manage.
+    ///   - messageHandlers: List of handlers for processing incoming Bluetooth messages.
+    ///   - minimumRSSI: Minimum RSSI value to consider when discovering peripherals.
     init(services: [BluetoothService], messageHandlers: [BluetoothMessageHandler] = [], minimumRSSI: Int = -65) {
         self.minimumRSSI = minimumRSSI
         self.services = services
@@ -55,10 +58,12 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     }
     
     
-    /// Write a `ByteBuffer` to the connected peripheral.
-    /// - Parameter data: <#data description#>
-    /// - Parameter service: <#service description#>
-    /// - Parameter characteristic: <#characteristic description#>
+    /// Sends data to the connected peripheral.
+    ///
+    /// - Parameters:
+    ///   - data: Data to send.
+    ///   - service: UUID of the service.
+    ///   - characteristic: UUID of the characteristic.
     func write(data: Data, service: CBUUID, characteristic: CBUUID) throws {
         guard let discoveredPeripheral = discoveredPeripheral,
               let transferCharacteristic = transferCharacteristics.first(where: { $0.uuid == characteristic }),
@@ -74,14 +79,16 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         discoveredPeripheral.writeValue(data, for: transferCharacteristic, type: .withResponse)
     }
     
-    /// <#Description#>
-    /// - Parameter messageHandler: <#messageHandler description#>
+    /// Adds a new message handler to the list.
+    ///
+    /// - Parameter messageHandler: The handler to add.
     func add(messageHandler: BluetoothMessageHandler) {
         messageHandlers.append(messageHandler)
     }
     
-    /// <#Description#>
-    /// - Parameter messageHandler: <#messageHandler description#>
+    /// Removes a specified message handler from the list.
+    ///
+    /// - Parameter messageHandler: The handler to remove.
     func remove(messageHandler: BluetoothMessageHandler) {
         messageHandlers.removeAll(where: { $0 === messageHandler })
     }

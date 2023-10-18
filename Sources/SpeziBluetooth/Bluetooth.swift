@@ -13,6 +13,7 @@ import NIO
 import NIOFoundationCompat
 import Spezi
 import UIKit
+@_exported import class CoreBluetooth.CBUUID
 
 
 /// Enable applications to connect to Bluetooth devices.
@@ -47,22 +48,21 @@ public class Bluetooth: Component, DefaultInitializable, ObservableObjectProvide
     private var anyCancellable: AnyCancellable?
     
     
-    /// <#Description#>
-    public var state: BluetoothModuleState {
+    /// Represents the current state of the Bluetooth connection.
+    public var state: BluetoothState {
         bluetoothManager.state
     }
     
     
-    /// <#Description#>
+    /// Initializes the Bluetooth component with provided services.
+    ///
     /// - Parameters:
-    ///   - services: <#services description#>
-    ///   - messageHandler: <#messageHandler description#>
+    ///   - services: List of Bluetooth services to manage.
     public init(services: [BluetoothService]) {
         initialServices = services
     }
     
-    
-    /// <#Description#>
+    /// Default initializer with no services specified.
     public required convenience init() {
         self.init(services: [])
     }
@@ -75,11 +75,12 @@ public class Bluetooth: Component, DefaultInitializable, ObservableObjectProvide
         }
     }
     
-    
-    /// <#Description#>
-    /// - Parameter byteBuffer: <#byteBuffer description#>
-    /// - Parameter service: <#service description#>
-    /// - Parameter characteristic: <#characteristic description#>
+    /// Sends a ByteBuffer to the connected Bluetooth device.
+    ///
+    /// - Parameters:
+    ///   - byteBuffer: Data in ByteBuffer format to send.
+    ///   - service: UUID of the Bluetooth service.
+    ///   - characteristic: UUID of the Bluetooth characteristic.
     public func write(_ byteBuffer: inout ByteBuffer, service: CBUUID, characteristic: CBUUID) async throws {
         guard let data = byteBuffer.readData(length: byteBuffer.readableBytes) else {
             return
@@ -88,10 +89,12 @@ public class Bluetooth: Component, DefaultInitializable, ObservableObjectProvide
         try await write(data, service: service, characteristic: characteristic)
     }
     
-    /// <#Description#>
-    /// - Parameter data: <#data description#>
-    /// - Parameter service: <#service description#>
-    /// - Parameter characteristic: <#characteristic description#>
+    /// Sends data to the connected Bluetooth device.
+    ///
+    /// - Parameters:
+    ///   - data: Data to send.
+    ///   - service: UUID of the Bluetooth service.
+    ///   - characteristic: UUID of the Bluetooth characteristic.
     public func write(_ data: Data, service: CBUUID, characteristic: CBUUID) async throws {
         let writeTask = Task {
             try bluetoothManager.write(data: data, service: service, characteristic: characteristic)
@@ -99,14 +102,16 @@ public class Bluetooth: Component, DefaultInitializable, ObservableObjectProvide
         try await writeTask.value
     }
     
-    /// <#Description#>
-    /// - Parameter messageHandler: <#messageHandler description#>
+    /// Adds a new message handler to process incoming Bluetooth messages.
+    ///
+    /// - Parameter messageHandler: The message handler to add.
     public func add(messageHandler: BluetoothMessageHandler) {
         bluetoothManager.add(messageHandler: messageHandler)
     }
     
-    /// <#Description#>
-    /// - Parameter messageHandler: <#messageHandler description#>
+    /// Removes a specified message handler.
+    ///
+    /// - Parameter messageHandler: The message handler to remove.
     public func remove(messageHandler: BluetoothMessageHandler) {
         bluetoothManager.remove(messageHandler: messageHandler)
     }

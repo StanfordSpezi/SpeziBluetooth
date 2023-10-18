@@ -10,12 +10,14 @@ import CoreBluetooth
 import Foundation
 
 
-/// <#Description#>
+/// Protocol defining methods for handling Bluetooth messages.
 public protocol BluetoothMessageHandler: AnyObject {
-    /// <#Description#>
+    
+    /// Handles the receipt of Bluetooth data from a specified service and characteristic.
+    ///
     /// - Parameters:
-    ///   - data: <#data description#>
-    ///   - service: <#service description#>
-    ///   - characteristic: <#characteristic description#>
+    ///   - data: The received Bluetooth data.
+    ///   - service: The UUID of the Bluetooth service from which the data was received.
+    ///   - characteristic: The UUID of the characteristic from which the data was received.
     func recieve(_ data: Data, service: CBUUID, characteristic: CBUUID) async
 }

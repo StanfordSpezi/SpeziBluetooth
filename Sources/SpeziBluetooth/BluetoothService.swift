@@ -9,19 +9,20 @@
 import CoreBluetooth
 
 
-/// <#Description#>
+/// Represents a Bluetooth service with its associated characteristics.
 public struct BluetoothService {
-    /// <#Description#>
+    
+    /// The unique identifier for the Bluetooth service.
     public let serviceUUID: CBUUID
-    /// <#Description#>
+    
+    /// A list of unique identifiers for the characteristics associated with the service.
     public let characteristicUUIDs: [CBUUID]
     
-    
-    /// <#Description#>
+    /// Initializes a new Bluetooth service with the specified service UUID and characteristic UUIDs.
+    ///
     /// - Parameters:
-    ///   - serviceUUID: <#serviceUUID description#>
-    ///   - characteristicUUID: <#characteristicUUID description#>
-    ///   - minimumRSSI: <#minimumRSSI description#>
+    ///   - serviceUUID: The unique identifier for the Bluetooth service.
+    ///   - characteristicUUIDs: A list of unique identifiers for the characteristics associated with the service.
     public init(serviceUUID: CBUUID, characteristicUUIDs: [CBUUID]) {
         self.serviceUUID = serviceUUID
         self.characteristicUUIDs = characteristicUUIDs
