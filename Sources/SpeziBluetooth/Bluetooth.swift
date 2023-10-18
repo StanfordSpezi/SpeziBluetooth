@@ -1,13 +1,13 @@
 //
-// This source file is part of the QDG project
+// This source file is part of the Stanford Spezi open source project
 //
-// SPDX-FileCopyrightText: 2023 QDG
+// SPDX-FileCopyrightText: 2022 Stanford University and the project authors (see CONTRIBUTORS.md)
 //
-// SPDX-License-Identifier: LicenseRef-QDG
+// SPDX-License-Identifier: MIT
 //
 
 import Combine
-import CoreBluetooth
+@_exported import class CoreBluetooth.CBUUID
 import Foundation
 import NIO
 import NIOFoundationCompat
