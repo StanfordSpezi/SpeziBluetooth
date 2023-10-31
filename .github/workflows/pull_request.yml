@@ -21,4 +21,4 @@ jobs:
     uses: StanfordSpezi/.github/.github/workflows/swiftlint.yml@v2
   markdown_link_check:
     name: Markdown Link Check
-    uses: StanfordBDHG/.github/.github/workflows/markdown-link-check.yml@2
+    uses: StanfordBDHG/.github/.github/workflows/markdown-link-check.yml@v2
