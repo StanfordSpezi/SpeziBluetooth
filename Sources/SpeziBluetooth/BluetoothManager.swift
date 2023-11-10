@@ -366,6 +366,10 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         if characteristic.isNotifying {
             // Notification has started
             logger.log("Notification began on \(characteristic.uuid.uuidString)")
+            
+            if characteristic.properties.contains(.read) {
+                discoveredPeripheral?.readValue(for: characteristic)
+            }
         } else {
             // Notification has stopped, so disconnect from the peripheral
             logger.log("Notification stopped on \(characteristic.uuid.uuidString). Disconnecting")
