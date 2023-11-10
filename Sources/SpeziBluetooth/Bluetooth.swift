@@ -141,6 +141,11 @@ public class Bluetooth: Component, DefaultInitializable, ObservableObjectProvide
         try await writeTask.value
     }
     
+    /// Requests a read of a combination of service and characteristic
+    public func read(service: CBUUID, characteristic: CBUUID) throws {
+        try bluetoothManager.read(service: service, characteristic: characteristic)
+    }
+    
     /// Adds a new message handler to process incoming Bluetooth messages.
     ///
     /// - Parameter messageHandler: The message handler to add.

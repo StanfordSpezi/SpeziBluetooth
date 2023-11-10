@@ -79,6 +79,18 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         discoveredPeripheral.writeValue(data, for: transferCharacteristic, type: .withResponse)
     }
     
+    /// Requests a read of a combination of service and characteristic
+    public func read(service: CBUUID, characteristic: CBUUID) throws {
+        guard let discoveredPeripheral = discoveredPeripheral,
+              let readCharacteristic = transferCharacteristics.first(where: { $0.uuid == characteristic }),
+              readCharacteristic.service?.uuid == service else {
+            throw BluetoothError.notConnected
+        }
+        
+        discoveredPeripheral.readValue(for: readCharacteristic)
+    }
+    
+    
     /// Adds a new message handler to the list.
     ///
     /// - Parameter messageHandler: The handler to add.
