@@ -87,6 +87,10 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
             throw BluetoothError.notConnected
         }
         
+        guard readCharacteristic.properties.contains(.read) else {
+            throw BluetoothError.notAReadableCharacteristic
+        }
+        
         discoveredPeripheral.readValue(for: readCharacteristic)
     }
     
