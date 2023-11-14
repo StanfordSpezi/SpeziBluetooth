@@ -20,6 +20,16 @@
           }
         }
       }
+    },
+    "BLUETOOTH_ERROR_NOT_READABLE" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The characteristic you requested was not readable."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

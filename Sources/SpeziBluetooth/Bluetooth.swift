@@ -11,6 +11,7 @@ import Combine
 import Foundation
 import NIO
 import NIOFoundationCompat
+import Observation
 import Spezi
 import UIKit
 
@@ -19,7 +20,7 @@ import UIKit
 ///
 /// > Important: If your application is not yet configured to use Spezi, follow the [Spezi setup article](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/setup) to setup the core Spezi infrastructure.
 ///
-/// The component needs to be registered in a Spezi-based application using the [`configuration`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/speziappdelegate/configuration)
+/// The module needs to be registered in a Spezi-based application using the [`configuration`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/speziappdelegate/configuration)
 /// in a [`SpeziAppDelegate`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/speziappdelegate):
 /// ```swift
 /// class ExampleAppDelegate: SpeziAppDelegate {
@@ -31,19 +32,19 @@ import UIKit
 ///     }
 /// }
 /// ```
-/// > Tip: You can learn more about a [`Component` in the Spezi documentation](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/component).
+/// > Tip: You can learn more about a [`Module` in the Spezi documentation](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module).
 ///
-/// You will have to ensure that the ``Bluetooth`` component is correctly set up with the right services, e.g., as shown in the example shown in the <doc:SpeziBluetooth> documentation.
+/// You will have to ensure that the ``Bluetooth`` module is correctly set up with the right services, e.g., as shown in the example shown in the <doc:SpeziBluetooth> documentation.
 ///
 /// ## Usage
 ///
-/// The most common usage of the ``Bluetooth`` component is using it as a dependency using the [`@Dependency`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/component/dependency) property wrapper within an other Spezi [`Component`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/component).
+/// The most common usage of the ``Bluetooth`` module is using it as a dependency using the [`@Dependency`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module/dependency) property wrapper within an other Spezi [`Module`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module).
 ///
-/// [You can learn more about the Spezi dependency injection mechanisms in the Spezi documentation](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/component#Dependencies).
+/// [You can learn more about the Spezi dependency injection mechanisms in the Spezi documentation](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module-dependency).
 ///
 /// The following example demonstrates the usage of this mechanism.
 /// ```swift
-/// class BluetoothExample: Component, BluetoothMessageHandler {
+/// class BluetoothExample: Module, BluetoothMessageHandler {
 ///     @Dependency private var bluetooth: Bluetooth
 ///
 ///
@@ -56,7 +57,7 @@ import UIKit
 ///     // ...
 ///
 ///     
-///     /// Configuration method to register the `BluetoothExample` as a ``BluetoothMessageHandler`` for the Bluetooth component.
+///     /// Configuration method to register the `BluetoothExample` as a ``BluetoothMessageHandler`` for the Bluetooth module.
 ///     func configure() {
 ///         bluetooth.add(messageHandler: self)
 ///     }
@@ -80,11 +81,9 @@ import UIKit
 /// ```
 ///
 /// > Tip: You can find a more extensive example in the main <doc:SpeziBluetooth> documentation.
-public class Bluetooth: Component, DefaultInitializable, ObservableObjectProvider, ObservableObject {
-    private let initialServices: [BluetoothService]
-    private lazy var bluetoothManager = BluetoothManager(services: initialServices, messageHandlers: messageHandlers)
-    private var messageHandlers: [BluetoothMessageHandler] = []
-    private var anyCancellable: AnyCancellable?
+@Observable
+public class Bluetooth: Module, DefaultInitializable {
+    private let bluetoothManager: BluetoothManager
     
     
     /// Represents the current state of the Bluetooth connection.
@@ -93,25 +92,17 @@ public class Bluetooth: Component, DefaultInitializable, ObservableObjectProvide
     }
     
     
-    /// Initializes the Bluetooth component with provided services.
+    /// Initializes the Bluetooth module with provided services.
     ///
     /// - Parameters:
     ///   - services: List of Bluetooth services to manage.
     public init(services: [BluetoothService]) {
-        initialServices = services
+        bluetoothManager = BluetoothManager(services: services)
     }
     
     /// Default initializer with no services specified.
     public required convenience init() {
         self.init(services: [])
-    }
-    
-    
-    @_documentation(visibility: internal)
-    public func configure() {
-        anyCancellable = bluetoothManager.objectWillChange.sink {
-            self.objectWillChange.send()
-        }
     }
     
     /// Sends a ByteBuffer to the connected Bluetooth device.
@@ -141,6 +132,11 @@ public class Bluetooth: Component, DefaultInitializable, ObservableObjectProvide
         try await writeTask.value
     }
     
+    /// Requests a read of a combination of service and characteristic
+    public func read(service: CBUUID, characteristic: CBUUID) throws {
+        try bluetoothManager.read(service: service, characteristic: characteristic)
+    }
+    
     /// Adds a new message handler to process incoming Bluetooth messages.
     ///
     /// - Parameter messageHandler: The message handler to add.
@@ -153,10 +149,5 @@ public class Bluetooth: Component, DefaultInitializable, ObservableObjectProvide
     /// - Parameter messageHandler: The message handler to remove.
     public func remove(messageHandler: BluetoothMessageHandler) {
         bluetoothManager.remove(messageHandler: messageHandler)
-    }
-    
-    
-    deinit {
-        anyCancellable?.cancel()
     }
 }

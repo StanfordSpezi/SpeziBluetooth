@@ -9,26 +9,28 @@
 import Combine
 import CoreBluetooth
 import NIO
+import Observation
 import OSLog
 
 
 /// Manages the Bluetooth connections, state, and data transfer.
-class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate, ObservableObject {
+@Observable
+class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
     // We use an implicity unwrapped optional here as we can gurantee that the value will be available after the initialization of the
     // `BluetoothManager` and we refer to the `self` in the initializer of the `CBCentralManager`.
     // swiftlint:disable:next implicitly_unwrapped_optional
-    private var centralManager: CBCentralManager!
-    private var discoveredPeripheral: CBPeripheral?
-    private var transferCharacteristics: [CBCharacteristic] = []
+    @ObservationIgnored private var centralManager: CBCentralManager!
+    @ObservationIgnored private var discoveredPeripheral: CBPeripheral?
+    @ObservationIgnored private var transferCharacteristics: [CBCharacteristic] = []
     private let minimumRSSI: Int
     
-    private var messageHandlers: [BluetoothMessageHandler]
+    @ObservationIgnored private var messageHandlers: [BluetoothMessageHandler]
     private let services: [BluetoothService]
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothManager")
     private let messageHandlerQueue = DispatchQueue(label: "edu.stanford.spezi.bluetooth", qos: .userInitiated, attributes: .concurrent)
     
     /// Represents the current state of Bluetooth connection.
-    @Published private(set) var state: BluetoothState
+    private(set) var state: BluetoothState
     
     
     private var serviceIDs: [CBUUID] {
@@ -78,6 +80,22 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         
         discoveredPeripheral.writeValue(data, for: transferCharacteristic, type: .withResponse)
     }
+    
+    /// Requests a read of a combination of service and characteristic
+    func read(service: CBUUID, characteristic: CBUUID) throws {
+        guard let discoveredPeripheral = discoveredPeripheral,
+              let readCharacteristic = transferCharacteristics.first(where: { $0.uuid == characteristic }),
+              readCharacteristic.service?.uuid == service else {
+            throw BluetoothError.notConnected
+        }
+        
+        guard readCharacteristic.properties.contains(.read) else {
+            throw BluetoothError.notAReadableCharacteristic
+        }
+        
+        discoveredPeripheral.readValue(for: readCharacteristic)
+    }
+    
     
     /// Adds a new message handler to the list.
     ///
@@ -350,6 +368,10 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         if characteristic.isNotifying {
             // Notification has started
             logger.log("Notification began on \(characteristic.uuid.uuidString)")
+            
+            if characteristic.properties.contains(.read) {
+                discoveredPeripheral?.readValue(for: characteristic)
+            }
         } else {
             // Notification has stopped, so disconnect from the peripheral
             logger.log("Notification stopped on \(characteristic.uuid.uuidString). Disconnecting")

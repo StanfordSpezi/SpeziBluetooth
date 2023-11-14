@@ -15,6 +15,8 @@ public enum BluetoothError: String, Error, CustomStringConvertible, LocalizedErr
     case notConnected
     /// Error indicating that the device connection has timed out.
     case deviceTimedOut
+    /// The characteristic you requested was not readable.
+    case notAReadableCharacteristic
     
     
     /// Provides a human-readable description of the error.
@@ -29,6 +31,8 @@ public enum BluetoothError: String, Error, CustomStringConvertible, LocalizedErr
             String(localized: "BLUETOOTH_ERROR_NOT_CONNECTED", bundle: .module)
         case .deviceTimedOut:
             String(localized: "BLUETOOTH_ERROR_DEVICE_TIME_OUT", bundle: .module)
+        case .notAReadableCharacteristic:
+            String(localized: "BLUETOOTH_ERROR_NOT_READABLE", bundle: .module)
         }
     }
 }
