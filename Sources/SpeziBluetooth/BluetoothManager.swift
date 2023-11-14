@@ -82,7 +82,7 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     }
     
     /// Requests a read of a combination of service and characteristic
-    public func read(service: CBUUID, characteristic: CBUUID) throws {
+    func read(service: CBUUID, characteristic: CBUUID) throws {
         guard let discoveredPeripheral = discoveredPeripheral,
               let readCharacteristic = transferCharacteristics.first(where: { $0.uuid == characteristic }),
               readCharacteristic.service?.uuid == service else {

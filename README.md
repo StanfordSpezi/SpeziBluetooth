@@ -21,7 +21,7 @@ Connect and communicate with Bluetooth devices.
 
 ## Overview
 
-The Spezi Bluetooth component provides a convenient way to handle state management with a Bluetooth device, retrieve data from different services and characteristics, and write data to a combination of services and characteristics.
+The Spezi Bluetooth module provides a convenient way to handle state management with a Bluetooth device, retrieve data from different services and characteristics, and write data to a combination of services and characteristics.
 
 > [!NOTE]  
 > You will need a basic understanding of the Bluetooth Terminology and the underlying software model to understand the structure and API of the Spezi Bluetooth module. You can find a good overview in the [Wikipedia Bluetooth Low Energy (LE) Software Model section](https://en.wikipedia.org/wiki/Bluetooth_Low_Energy#Software_model) or the [Developer’s Guide
@@ -41,9 +41,9 @@ You need to add the Spezi Bluetooth Swift package to
 > If your application is not yet configured to use Spezi, follow the [Spezi setup article](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/initial-setup) to setup the core Spezi infrastructure.
 
 
-### 2. Register the Component
+### 2. Register the Module
 
-The [`Bluetooth`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth) component needs to be registered in a Spezi-based application using the 
+The [`Bluetooth`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth) module needs to be registered in a Spezi-based application using the 
 [`configuration`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/speziappdelegate/configuration) in a
 [`SpeziAppDelegate`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/speziappdelegate):
 ```swift
@@ -58,15 +58,15 @@ class ExampleAppDelegate: SpeziAppDelegate {
 ```
 
 > [!NOTE]  
-> You can learn more about a [`Component` in the Spezi documentation](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/component).
+> You can learn more about a [`Module` in the Spezi documentation](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module).
 
 
 ## Example
 
 `MyDeviceModel` demonstrates the capabilities of the Spezi Bluetooth module.
-This class integrates the [`Bluetooth`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth) component to create a `MyDevice` instance injected in the SwiftUI environment to send string messages over Bluetooth and collect them in a messages array.
+This class integrates the [`Bluetooth`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth) module to create a `MyDevice` instance injected in the SwiftUI environment to send string messages over Bluetooth and collect them in a messages array.
 
-> Tip: The type uses the Spezi dependency injection of the `Bluetooth` component, the most common usage of the [`Bluetooth`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth) component. [You can learn more about the Spezi dependency injection mechanisms in the Spezi documentation](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/component#Dependencies).
+> Tip: The type uses the Spezi dependency injection of the `Bluetooth` module, the most common usage of the [`Bluetooth`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth) module. [You can learn more about the Spezi dependency injection mechanisms in the Spezi documentation](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module-dependency).
 
 ```swift
 import Spezi
@@ -74,7 +74,7 @@ import SpeziBluetooth
 
 
 public class MyDeviceModel: DefaultInitializable, Module { // your model the app configures
-    /// Spezi dependency injection of the `Bluetooth` component; see https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/component#Dependencies for more details.
+    /// Spezi dependency injection of the `Bluetooth` module; see https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module-dependency for more details.
     @Dependency private var bluetooth: Bluetooth
     /// Injecting the `MyDevice` class in the SwiftUI environment as documented at https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/interactions-with-swiftui
     @Model private var myDevice: MyDevice
@@ -83,7 +83,7 @@ public class MyDeviceModel: DefaultInitializable, Module { // your model the app
     public required init() {}
     
     
-    /// Configuration method to register the `MyDevice` as a ``BluetoothMessageHandler`` for the Bluetooth component.
+    /// Configuration method to register the `MyDevice` as a ``BluetoothMessageHandler`` for the Bluetooth module.
     @_documentation(visibility: internal)
     public func configure() {
         bluetooth.add(messageHandler: myDevice)
@@ -104,7 +104,7 @@ enum MyDeviceBluetoothConstants {
 }
 ```
 
-You will have to ensure that the [`Bluetooth`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth) component is correctly setup with the right services, e.g., as shown in the following example:
+You will have to ensure that the [`Bluetooth`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth) module is correctly setup with the right services, e.g., as shown in the following example:
 ```swift
 class ExampleAppDelegate: SpeziAppDelegate {
     override var configuration: Configuration {
@@ -129,7 +129,7 @@ import OSLog
 
 @Observable
 public class MyDevice: BluetoothMessageHandler {
-    /// Spezi dependency injection of the `Bluetooth` component; see https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/component#Dependencies for more details.
+    /// Spezi dependency injection of the `Bluetooth` module; see https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module-dependency for more details.
     private let bluetooth: Bluetooth
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "Example")
     

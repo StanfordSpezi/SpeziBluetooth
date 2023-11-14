@@ -7,20 +7,20 @@
 //
 
 
-/// Represents the various states of a Bluetooth component.
+/// Represents the various states of a Bluetooth module.
 public enum BluetoothState: String {
-    /// The Bluetooth component is turned off.
+    /// The Bluetooth module is turned off.
     case poweredOff
     
     /// The application does not have permission to use Bluetooth features.
     case unauthorized
     
-    /// The Bluetooth component is not connected to any device.
+    /// The Bluetooth module is not connected to any device.
     case disconnected
     
-    /// The Bluetooth component is actively scanning for nearby devices.
+    /// The Bluetooth module is actively scanning for nearby devices.
     case scanning
     
-    /// The Bluetooth component is successfully connected to a device.
+    /// The Bluetooth module is successfully connected to a device.
     case connected
 }
