@@ -63,7 +63,7 @@ class ExampleAppDelegate: SpeziAppDelegate {
 
 ## Example
 
-`MyDeviceModel` demonstrates the capabilities of the Spezi Bluetooth module.
+`MyDeviceModule` demonstrates the capabilities of the Spezi Bluetooth module.
 This class integrates the [`Bluetooth`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth) module to create a `MyDevice` instance injected in the SwiftUI environment to send string messages over Bluetooth and collect them in a messages array.
 
 > [!NOTE]  
@@ -74,7 +74,7 @@ import Spezi
 import SpeziBluetooth
 
 
-public class MyDeviceModel: DefaultInitializable, Module { // your model the app configures
+public class MyDeviceModule: DefaultInitializable, Module {
     /// Spezi dependency injection of the `Bluetooth` module; see https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module-dependency for more details.
     @Dependency private var bluetooth: Bluetooth
     /// Injecting the `MyDevice` class in the SwiftUI environment as documented at https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/interactions-with-swiftui
