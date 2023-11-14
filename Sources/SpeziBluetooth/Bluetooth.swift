@@ -11,6 +11,7 @@ import Combine
 import Foundation
 import NIO
 import NIOFoundationCompat
+import Observation
 import Spezi
 import UIKit
 
@@ -80,11 +81,9 @@ import UIKit
 /// ```
 ///
 /// > Tip: You can find a more extensive example in the main <doc:SpeziBluetooth> documentation.
-public class Bluetooth: Component, DefaultInitializable, ObservableObjectProvider, ObservableObject {
-    private let initialServices: [BluetoothService]
-    private lazy var bluetoothManager = BluetoothManager(services: initialServices, messageHandlers: messageHandlers)
-    private var messageHandlers: [BluetoothMessageHandler] = []
-    private var anyCancellable: AnyCancellable?
+@Observable
+public class Bluetooth: Module, DefaultInitializable {
+    private let bluetoothManager: BluetoothManager
     
     
     /// Represents the current state of the Bluetooth connection.
@@ -98,20 +97,12 @@ public class Bluetooth: Component, DefaultInitializable, ObservableObjectProvide
     /// - Parameters:
     ///   - services: List of Bluetooth services to manage.
     public init(services: [BluetoothService]) {
-        initialServices = services
+        bluetoothManager = BluetoothManager(services: services)
     }
     
     /// Default initializer with no services specified.
     public required convenience init() {
         self.init(services: [])
-    }
-    
-    
-    @_documentation(visibility: internal)
-    public func configure() {
-        anyCancellable = bluetoothManager.objectWillChange.sink {
-            self.objectWillChange.send()
-        }
     }
     
     /// Sends a ByteBuffer to the connected Bluetooth device.
@@ -158,10 +149,5 @@ public class Bluetooth: Component, DefaultInitializable, ObservableObjectProvide
     /// - Parameter messageHandler: The message handler to remove.
     public func remove(messageHandler: BluetoothMessageHandler) {
         bluetoothManager.remove(messageHandler: messageHandler)
-    }
-    
-    
-    deinit {
-        anyCancellable?.cancel()
     }
 }

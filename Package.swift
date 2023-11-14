@@ -15,7 +15,7 @@ let package = Package(
     name: "SpeziBluetooth",
     defaultLocalization: "en",
     platforms: [
-        .iOS(.v16)
+        .iOS(.v17)
     ],
     products: [
         .library(name: "SpeziBluetooth", targets: ["SpeziBluetooth"])
