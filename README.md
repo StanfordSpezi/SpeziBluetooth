@@ -66,7 +66,8 @@ class ExampleAppDelegate: SpeziAppDelegate {
 `MyDeviceModel` demonstrates the capabilities of the Spezi Bluetooth module.
 This class integrates the [`Bluetooth`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth) module to create a `MyDevice` instance injected in the SwiftUI environment to send string messages over Bluetooth and collect them in a messages array.
 
-> Tip: The type uses the Spezi dependency injection of the `Bluetooth` module, the most common usage of the [`Bluetooth`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth) module. [You can learn more about the Spezi dependency injection mechanisms in the Spezi documentation](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module-dependency).
+> [!NOTE]  
+> The type uses the Spezi dependency injection of the `Bluetooth` module, the most common usage of the [`Bluetooth`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth) module. [You can learn more about the Spezi dependency injection mechanisms in the Spezi documentation](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module-dependency).
 
 ```swift
 import Spezi
@@ -119,7 +120,8 @@ class ExampleAppDelegate: SpeziAppDelegate {
 The `MyDevice` type showcases the interaction with the ``BluetoothService`` and the implementation of the ``BluetoothMessageHandler`` protocol.
 It does all the message handling, and is responsible for parsing the information.
 
-> Tip: We highly recommend to use SwiftNIO [`ByteBuffer`](https://swiftpackageindex.com/apple/swift-nio/2.61.1/documentation/niocore/bytebuffer)s to parse more complex data coming in from the wire. You can learn more about creating a `ByteBuffer` from a Foundation `Data` instance using [NIOFoundationCompat](https://swiftpackageindex.com/apple/swift-nio/2.61.1/documentation/niofoundationcompat/niocore/bytebuffer).
+> [!NOTE]  
+> We highly recommend to use SwiftNIO [`ByteBuffer`](https://swiftpackageindex.com/apple/swift-nio/2.61.1/documentation/niocore/bytebuffer)s to parse more complex data coming in from the wire. You can learn more about creating a `ByteBuffer` from a Foundation `Data` instance using [NIOFoundationCompat](https://swiftpackageindex.com/apple/swift-nio/2.61.1/documentation/niofoundationcompat/niocore/bytebuffer).
 
 ```swift
 import Foundation
