@@ -84,10 +84,9 @@ public class MyDeviceModule: DefaultInitializable, Module {
     public required init() {}
     
     
-    /// Configuration method to register the `MyDevice` as a ``BluetoothMessageHandler`` for the Bluetooth module.
-    @_documentation(visibility: internal)
+    /// Configuration method to create the `MyDevice` and pass in the Bluetooth module.
     public func configure() {
-        bluetooth.add(messageHandler: myDevice)
+        self.myDevice = MyDevice(bluetooth: bluetooth)
     }
 }
 ```
@@ -163,7 +162,6 @@ public class MyDevice: BluetoothMessageHandler {
     }
     
     // Example implementation of the ``BluetoothMessageHandler`` requirements.
-    @_documentation(visibility: internal)
     public func recieve(_ data: Data, service: CBUUID, characteristic: CBUUID) {
         switch service {
         case MyDeviceBluetoothConstants.exampleService.serviceUUID:
