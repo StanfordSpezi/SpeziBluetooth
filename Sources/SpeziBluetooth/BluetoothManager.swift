@@ -20,7 +20,8 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     // `BluetoothManager` and we refer to the `self` in the initializer of the `CBCentralManager`.
     // swiftlint:disable:next implicitly_unwrapped_optional
     @ObservationIgnored private var centralManager: CBCentralManager!
-    @ObservationIgnored private var discoveredPeripheral: CBPeripheral?
+    // We can not use @ObservationIgnored here as this would introduce a weak reference.
+    private var discoveredPeripheral: CBPeripheral?
     @ObservationIgnored private var transferCharacteristics: [CBCharacteristic] = []
     private let minimumRSSI: Int
     
