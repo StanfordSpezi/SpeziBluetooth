@@ -6,41 +6,49 @@
 // SPDX-License-Identifier: MIT
 //
 
-import Combine
 import CoreBluetooth
 import NIO
 import Observation
 import OSLog
+import OrderedCollections
+
 
 
 /// Manages the Bluetooth connections, state, and data transfer.
 @Observable
-class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
-    // We use an implicity unwrapped optional here as we can gurantee that the value will be available after the initialization of the
-    // `BluetoothManager` and we refer to the `self` in the initializer of the `CBCentralManager`.
-    // swiftlint:disable:next implicitly_unwrapped_optional
-    @ObservationIgnored private var centralManager: CBCentralManager!
-    @ObservationIgnored private var discoveredPeripheral: CBPeripheral?
-    @ObservationIgnored private var transferCharacteristics: [CBCharacteristic] = []
-    private let minimumRSSI: Int
-    
-    @ObservationIgnored private var messageHandlers: [BluetoothMessageHandler]
-    private let services: [BluetoothService]
+public class BluetoothManager: NSObject, CBCentralManagerDelegate {
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothManager")
+    // TODO: whats the reason for this queue here?
     private let messageHandlerQueue = DispatchQueue(label: "edu.stanford.spezi.bluetooth", qos: .userInitiated, attributes: .concurrent)
-    
+
+    private let discoveryCriteria: Set<DiscoveryCriteria>
+    private let minimumRSSI: Int // TODO: configurable
+
     /// Represents the current state of Bluetooth connection.
-    private(set) var state: BluetoothState
-    
-    
-    private var serviceIDs: [CBUUID] {
-        services.map(\.serviceUUID)
+    private(set) var state: BluetoothState // TODO: decouple from central state!
+    /// The list of discovered and connected bluetooth devices indexed by their identifier UUID.
+    private var discoveredDevices: OrderedDictionary<UUID, BluetoothPeripheral> = [:]
+
+    @ObservationIgnored private var centralManager: CBCentralManager! // swiftlint:disable:this implicitly_unwrapped_optional
+
+
+    public var nearbyDevices: [BluetoothPeripheral] {
+        Array(discoveredDevices.values)
     }
-    
-    private var characteristicUUIDs: [CBUUID] {
-        services.flatMap(\.characteristicUUIDs)
+
+    public var nearbyDevicesView: OrderedDictionary<UUID, BluetoothPeripheral>.Values {
+        discoveredDevices.values
     }
-    
+
+    private var serviceDiscoveryIds: [CBUUID] {
+        discoveryCriteria.compactMap { criteria in
+            if case let .primaryService(uuid) = criteria {
+                return uuid
+            }
+            return nil
+        }
+    }
+
     
     /// Initializes the BluetoothManager with provided services and optional message handlers.
     ///
@@ -48,128 +56,52 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     ///   - services: List of Bluetooth services to manage.
     ///   - messageHandlers: List of handlers for processing incoming Bluetooth messages.
     ///   - minimumRSSI: Minimum RSSI value to consider when discovering peripherals.
-    init(services: [BluetoothService], messageHandlers: [BluetoothMessageHandler] = [], minimumRSSI: Int = -65) {
+    init(discoverBy discoveryCriteria: Set<DiscoveryCriteria>, minimumRSSI: Int = -65) {
+        self.discoveryCriteria = discoveryCriteria
         self.minimumRSSI = minimumRSSI
-        self.services = services
-        self.messageHandlers = messageHandlers
-        self.state = .poweredOff
+        self.state = .poweredOff // TODO: really? why do we map these states?
         
         super.init()
-        
+
+        // TODO one cannot manage when this is displayed!
+        // TODO: custom queue for that?
+
+        // TODO: we might just not show the alert, only when we query and are authorized?
+        // TODO: instantiate later?
         centralManager = CBCentralManager(delegate: self, queue: nil, options: [CBCentralManagerOptionShowPowerAlertKey: true])
     }
-    
-    
-    /// Sends data to the connected peripheral.
-    ///
-    /// - Parameters:
-    ///   - data: Data to send.
-    ///   - service: UUID of the service.
-    ///   - characteristic: UUID of the characteristic.
-    func write(data: Data, service: CBUUID, characteristic: CBUUID) throws {
-        guard let discoveredPeripheral = discoveredPeripheral,
-              let transferCharacteristic = transferCharacteristics.first(where: { $0.uuid == characteristic }),
-              transferCharacteristic.service?.uuid == service else {
-            throw BluetoothError.notConnected
-        }
-        
-        let hexDescription = data.reduce(into: "") {
-            $0.append(String(format: "%02x", $1))
-        }
-        logger.debug("Write \(data.count) bytes: \(hexDescription)")
-        
-        discoveredPeripheral.writeValue(data, for: transferCharacteristic, type: .withResponse)
-    }
-    
-    /// Requests a read of a combination of service and characteristic
-    func read(service: CBUUID, characteristic: CBUUID) throws {
-        guard let discoveredPeripheral = discoveredPeripheral,
-              let readCharacteristic = transferCharacteristics.first(where: { $0.uuid == characteristic }),
-              readCharacteristic.service?.uuid == service else {
-            throw BluetoothError.notConnected
-        }
-        
-        guard readCharacteristic.properties.contains(.read) else {
-            throw BluetoothError.notAReadableCharacteristic
-        }
-        
-        discoveredPeripheral.readValue(for: readCharacteristic)
-    }
-    
-    
-    /// Adds a new message handler to the list.
-    ///
-    /// - Parameter messageHandler: The handler to add.
-    func add(messageHandler: BluetoothMessageHandler) {
-        messageHandlers.append(messageHandler)
-    }
-    
-    /// Removes a specified message handler from the list.
-    ///
-    /// - Parameter messageHandler: The handler to remove.
-    func remove(messageHandler: BluetoothMessageHandler) {
-        messageHandlers.removeAll(where: { $0 === messageHandler })
-    }
-    
 
-    // MARK: - Helper Methods
-    
-    /// We will first check if we are already connected to our counterpart
-    /// Otherwise, scan for peripherals - specifically for our service's 128bit CBUUID
-    private func retrievePeripheral() {
-        self.state = .scanning
-        
-        let connectedPeripherals = centralManager.retrieveConnectedPeripherals(withServices: services.map(\.serviceUUID))
-        
-        logger.debug("Found connected Peripherals with transfer service: \(connectedPeripherals.debugDescription)")
-        
-        if let connectedPeripheral = connectedPeripherals.last {
-            logger.debug("Connecting to peripheral \(connectedPeripheral)")
-            self.discoveredPeripheral = connectedPeripheral
-            centralManager.connect(connectedPeripheral, options: nil)
-        } else {
-            // We were not connected to our counterpart, so start scanning
-            centralManager.scanForPeripherals(
-                withServices: serviceIDs,
-                options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
-            )
-        }
+    public func scanNearbyDevices() {
+        // TODO: just scan for nearby devices? or also call retrieveConnectedPeripherals?
+        //   let connectedPeripherals = centralManager.retrieveConnectedPeripherals(withServices: services.map(\.serviceUUID))
+        //   logger.debug("Found connected Peripherals with transfer service: \(connectedPeripherals.debugDescription)")
+        //   => might need to call connect on this?
+
+        centralManager.scanForPeripherals(
+            withServices: serviceDiscoveryIds,
+            options: [
+                CBCentralManagerScanOptionAllowDuplicatesKey: true,
+                CBCentralManagerOptionShowPowerAlertKey: true // TODO: does this work?
+            ]
+        )
     }
-    
-    
-    /// Call this when things either go wrong, or you're done with the connection.
-    /// This cancels any subscriptions if there are any, or straight disconnects if not.
-    /// (didUpdateNotificationStateForCharacteristic will cancel the connection if a subscription is involved)
-    private func cleanup() {
-        self.state = .disconnected
-        
-        // Don't do anything if we're not connected
-        guard let discoveredPeripheral = discoveredPeripheral,
-              case .connected = discoveredPeripheral.state else {
-            return
-        }
-        
-        for service in discoveredPeripheral.services ?? [] {
-            for characteristic in service.characteristics ?? [] {
-                if characteristicUUIDs.contains(characteristic.uuid) && characteristic.isNotifying {
-                    // It is notifying, so unsubscribe
-                    self.discoveredPeripheral?.setNotifyValue(false, for: characteristic)
-                }
-            }
-        }
-        
-        // If we've gotten this far, we're connected, but we're not subscribed, so we just disconnect
-        centralManager.cancelPeripheralConnection(discoveredPeripheral)
+
+    public func stopScanning() {
+        centralManager.stopScan()
+        logger.log("Scanning stopped")
     }
     
     
     // MARK: - CBCentralManagerDelegate
-    func centralManagerDidUpdateState(_ central: CBCentralManager) {
+    public func centralManagerDidUpdateState(_ central: CBCentralManager) {
+        // TODO: move into extension!
         switch central.state {
         case .poweredOn:
             // Start working with the peripheral
             logger.info("CBManager is powered on")
-            retrievePeripheral()
+            self.state = .poweredOn
+
+            // TODO: configure auto discovery?
         case .poweredOff:
             logger.info("CBManager is not powered on")
             self.state = .poweredOff
@@ -188,212 +120,87 @@ class BluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
             self.state = .unauthorized
         case .unknown:
             logger.log("CBManager state is unknown")
-            self.state = .poweredOff
+            self.state = .unsupported
         case .unsupported:
             logger.log("Bluetooth is not supported on this device")
-            self.state = .poweredOff
+            self.state = .unsupported
         @unknown default:
             logger.log("A previously unknown central manager state occurred")
-            self.state = .poweredOff
+            self.state = .unsupported
         }
     }
 
-    func centralManager(
+    // TODO: 10s a good advertising max?
+    public func centralManager(
         _ central: CBCentralManager,
         didDiscover peripheral: CBPeripheral,
         advertisementData: [String: Any],
-        // We have to use NSNumber to confrom to the `CBCentralManagerDelegate` delegate methods.
+        // We have to use NSNumber to conform to the `CBCentralManagerDelegate` delegate methods.
         // swiftlint:disable:next legacy_objc_type
         rssi: NSNumber
     ) {
         // This callback comes whenever a peripheral that is advertising the transfer serviceUUID is discovered.
-        // We check the RSSI, to make sure it's close enough that we're interested in it, and if it is,
-        // we start the connection process
-                                                                                                    
-        // Reject if the signal strength is too low to attempt data transfer.
-        // Change the minimum RSSI value depending on your app’s use case.
-        guard rssi.intValue >= minimumRSSI else {
-            logger.info("Discovered perhiperal not in expected range, at \(rssi.intValue)")
+
+        guard rssi.intValue >= minimumRSSI else { // ensure the signal strength is not too low
+            logger.debug("Discovered peripheral not in expected range, at \(rssi.intValue)")
             return
         }
-        
-        logger.info("Discovered \(peripheral.name ?? "unknown device") at \(rssi.intValue)")
-        
-        // Device is in range - have we already seen it?
-        if discoveredPeripheral != peripheral {
-            // Save a local copy of the peripheral, so CoreBluetooth doesn't get rid of it.
-            discoveredPeripheral = peripheral
-            
-            // And finally, connect to the peripheral.
-            logger.info("Connecting to perhiperal \(peripheral)")
-            centralManager.connect(peripheral, options: nil)
+
+
+        // TODO:
+
+        // check if we already seen this device!
+        if let device = discoveredDevices[peripheral.identifier] {
+            // TODO: reset stale timer!
+            return
         }
+
+        logger.debug("Discovered \(peripheral.name ?? "unknown device") at \(rssi.intValue)")
+
+        let device = BluetoothPeripheral(peripheral: peripheral, rssi: rssi)
+        discoveredDevices[peripheral.identifier] = device // save local-copy, such CB doesn't deallocate it
+
+        // TODO: how to notify clients?
+        // TODO: support auto-connect (more options?)
     }
 
-    func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
-        // If the connection fails for whatever reason, we need to deal with it.
-        logger.error("Failed to connect to \(peripheral): \(String(describing: error))")
-        cleanup()
-        self.state = .disconnected
-    }
-    
-    func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
-        // We've connected to the peripheral, now we need to discover the services and characteristics to find the 'transfer' characteristic.
-        logger.log("Peripheral Connected")
-        self.state = .connected
-        
-        // Stop scanning
-        centralManager.stopScan()
-        logger.log("Scanning stopped")
-        
-        // Make sure we get the discovery callbacks
-        peripheral.delegate = self
-        
-        // Search only for services that match our UUID
-        peripheral.discoverServices(serviceIDs)
-    }
-    
-
-    func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
-        // Once the disconnection happens, we need to clean up our local copy of the peripheral
-        logger.log("Perhiperal Disconnected")
-        discoveredPeripheral = nil
-        transferCharacteristics = []
-        self.state = .disconnected
-        
-        retrievePeripheral()
-    }
-    
-    
-    // MARK: - CBPeripheralDelegate
-    
-    func peripheral(_ peripheral: CBPeripheral, didModifyServices invalidatedServices: [CBService]) {
-        // The peripheral letting us know when services have been invalidated.
-        for service in invalidatedServices where serviceIDs.contains(service.uuid) {
-            logger.log("Transfer service is invalidated - rediscover services")
-            peripheral.discoverServices(serviceIDs)
-        }
-    }
-
-    func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
-        // The Transfer Service was discovered
-        if let error = error {
-            logger.error("Error discovering services: \(error.localizedDescription)")
-            cleanup()
-            return
-        }
-        
-        // Discover the characteristic we want...
-        
-        // Loop through the newly filled peripheral.services array, just in case there's more than one.
-        guard let peripheralServices = peripheral.services else {
-            return
-        }
-        
-        for service in peripheralServices {
-            if let characteristicIDs = services.first(where: { $0.serviceUUID == service.uuid })?.characteristicUUIDs {
-                peripheral.discoverCharacteristics(characteristicIDs, for: service)
-            }
-        }
-    }
-    
-    func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
-        // The Transfer characteristic was discovered.
-        // Once this has been found, we want to subscribe to it, which lets the peripheral know we want the data it contains
-        
-        // Deal with errors (if any).
-        if let error = error {
-            logger.error("Error discovering characteristics: \(error.localizedDescription)")
-            cleanup()
-            return
-        }
-        
-        // Again, we loop through the array, just in case and check if it's the right one
-        guard let serviceCharacteristics = service.characteristics,
-              let serviceConfiguration = services.first(where: { $0.serviceUUID == service.uuid }) else {
-            return
-        }
-        
-        for characteristic in serviceCharacteristics where serviceConfiguration.characteristicUUIDs.contains(characteristic.uuid) {
-            // If it is, subscribe to it
-            transferCharacteristics.append(characteristic)
-            peripheral.setNotifyValue(true, for: characteristic)
-        }
-        
-        // Once this is complete, we just need to wait for the data to come in.
-    }
-    
-    func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
-        // This callback lets us know more data has arrived via notification on the characteristic
-        
-        // Deal with errors (if any)
-        if let error = error {
-            logger.error("Error discovering characteristics: \(error.localizedDescription)")
-            cleanup()
-            return
-        }
-        
-        guard let serviceId = characteristic.service?.uuid ?? serviceId(forCharacteristic: characteristic.uuid) else {
-            logger.error("Error identifying service id for characteristic \(characteristic.uuid)")
-            return
-        }
-        
-        guard let data = characteristic.value else {
-            return
-        }
-                
-        for messageHandler in messageHandlers {
-            messageHandlerQueue.async {
-                Task {
-                    await messageHandler.recieve(data, service: serviceId, characteristic: characteristic.uuid)
-                }
-            }
-        }
-    }
-
-    func peripheral(_ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic, error: Error?) {
-        // he peripheral letting us know whether our subscribe/unsubscribe happened or not
-        
-        // Deal with errors (if any)
-        if let error = error {
-            logger.error("Error changing notification state: \(error.localizedDescription)")
-            return
-        }
-        
-        // Exit if it's not the transfer characteristic
-        guard characteristicUUIDs.contains(characteristic.uuid) else {
-            return
-        }
-        
-        if characteristic.isNotifying {
-            // Notification has started
-            logger.log("Notification began on \(characteristic.uuid.uuidString)")
-            
-            if characteristic.properties.contains(.read) {
-                discoveredPeripheral?.readValue(for: characteristic)
-            }
+    public func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
+        if let device = discoveredDevices[peripheral.identifier] {
+            logger.error("Failed to connect to \(peripheral): \(String(describing: error))")
+            device.cleanup()
         } else {
-            // Notification has stopped, so disconnect from the peripheral
-            logger.log("Notification stopped on \(characteristic.uuid.uuidString). Disconnecting")
-            cleanup()
+            // TODO: logger messsag
         }
+
+        // finally clean up device connection?
+        centralManager.cancelPeripheralConnection(peripheral) // TODO: review what this code actually does?
     }
-    
-    func peripheralIsReady(toSendWriteWithoutResponse peripheral: CBPeripheral) {
-        // This is called when peripheral is ready to accept more data when using write without response
-        logger.log("Peripheral is ready")
-        self.state = .connected
+
+    public func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
+        guard let device = discoveredDevices[peripheral.identifier] else {
+            // TODO: error log message
+            return
+        }
+
+        logger.debug("Peripheral Connected") // TODO: log message
+        device.handleConnect()
     }
-    
-    
-    private func serviceId(forCharacteristic characteristic: CBUUID) -> CBUUID? {
-        services.first(where: { $0.characteristicUUIDs.contains(characteristic) })?.serviceUUID
+
+
+    public func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
+        // TODO: notify device class about disconnect?
+        guard let device = self.discoveredDevices.removeValue(forKey: peripheral.identifier) else {
+            // TODO: log
+            return
+        }
+
+        logger.debug("Peripheral Disconnected") // TODO: detailed log message
+        device.handleDisconnect()
     }
-    
+
     
     deinit {
-        centralManager.stopScan()
+        stopScanning()
         self.state = .poweredOff
-        logger.log("Scanning stopped")
     }
 }

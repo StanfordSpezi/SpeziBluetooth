@@ -8,6 +8,8 @@
 
 import Foundation
 
+// TODO just use CBError and GATError and make them Localized!
+
 
 /// Represents errors that can occur during Bluetooth operations.
 public enum BluetoothError: String, Error, CustomStringConvertible, LocalizedError {
@@ -15,9 +17,9 @@ public enum BluetoothError: String, Error, CustomStringConvertible, LocalizedErr
     case notConnected
     /// Error indicating that the device connection has timed out.
     case deviceTimedOut
-    /// The characteristic you requested was not readable.
-    case notAReadableCharacteristic
-    
+    /// There is an ongoing access for that characteristic.
+    case concurrentCharacteristicAccess
+
     
     /// Provides a human-readable description of the error.
     public var description: String {

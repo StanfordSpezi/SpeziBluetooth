@@ -22,7 +22,8 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/StanfordSpezi/Spezi", .upToNextMinor(from: "0.8.0")),
-        .package(url: "https://github.com/apple/swift-nio.git", from: "2.59.0")
+        .package(url: "https://github.com/apple/swift-nio.git", from: "2.59.0"),
+        .package(url: "https://github.com/apple/swift-collections.git", from: "1.0.4")
     ],
     targets: [
         .target(
@@ -30,7 +31,8 @@ let package = Package(
             dependencies: [
                 .product(name: "Spezi", package: "Spezi"),
                 .product(name: "NIO", package: "swift-nio"),
-                .product(name: "NIOFoundationCompat", package: "swift-nio")
+                .product(name: "NIOFoundationCompat", package: "swift-nio"),
+                .product(name: "OrderedCollections", package: "swift-collections")
             ],
             resources: [
                 .process("Resources")
