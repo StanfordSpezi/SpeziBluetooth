@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
+import Foundation
 import NIO
 
 
@@ -24,3 +25,28 @@ extension String: ByteCodable {
     }
 }
 
+
+extension Data: ByteCodable {
+    public init?(from byteBuffer: inout ByteBuffer) {
+        guard let data = byteBuffer.readData(length: byteBuffer.readableBytes) else {
+            return nil
+        }
+        self = data
+    }
+
+    public func encode(to byteBuffer: inout ByteBuffer) {
+        byteBuffer.writeData(self)
+    }
+}
+
+
+extension ByteBuffer: ByteCodable {
+    public init?(from byteBuffer: inout ByteBuffer) {
+        self = byteBuffer
+    }
+
+    public func encode(to byteBuffer: inout ByteBuffer) {
+        var this = self
+        byteBuffer.writeBuffer(&this)
+    }
+}

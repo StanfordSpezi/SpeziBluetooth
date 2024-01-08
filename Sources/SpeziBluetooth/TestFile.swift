@@ -11,26 +11,45 @@ import Foundation
 // TODO: delete this file!
 
 class Device: BluetoothDevice {
+    // TODO: bluetooth device accessors?
+
+    // TODO: how to "connect" and "disconnect"?
+
     @Service(id: "76763833-123123-123123")
     var primary = MyService()
+
+    @DeviceState(\.name) // TODO: there are also actor accesses?
+    var name
+
+    // TODO No dot allow @Characteristic definitions here!
+    required init() {}
 }
 
+
 class MyService: BluetoothServiceNew { // TODO conformance!
-    @Characteristic(id: CBUUID(string: "0000.--1238123"))
-    var model: String? // TODO: Data escape?
+    // TODO: do not allow nested Services
 
-    func test() async {
-        // TODO: withCharacteriticNotification
+    @Characteristic(id: "0000-789876-1238123")
+    var model: String?
+
+    @Characteristic(id: "FFFF")
+    var rawData: Data?
+
+    func test() async throws {
+        /*
+        // TODO: withCharacteriticNotification; capturing self?
         registerCharacteriticNotification(id: "asdf") { data in
-
         }
-
-        $model.subscribe(true)
-
         registerCharacteristicNotification(for: $model, perform: self.asdf)
 
-        _ = await withCharacteristicAccessors(id: "asdf", for: Data.self) { accessors in
-            await accessors.read()
+        try await $model.write("Hello World")
+        $model.subscribe(true)
+
+
+        // TODO: also needs a service accessor?; or just specify both ids?
+        _ = try await withCharacteristicAccessors(id: "asdf", for: Data.self) { accessors in
+            try await accessors.read()
         }
+         */
     }
 }

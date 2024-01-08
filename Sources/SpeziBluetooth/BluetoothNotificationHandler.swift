@@ -10,9 +10,6 @@ import CoreBluetooth
 import Foundation
 
 
-public typealias BluetoothNotificationHandler = (_ data: Data, _ service: CBUUID, _ characteristic: CBUUID) async -> Void
-
-
 /// Protocol defining methods for handling Bluetooth messages.
 public protocol BluetoothNotificationHandler2: AnyObject {
     // TODO: notification handler!
@@ -25,3 +22,7 @@ public protocol BluetoothNotificationHandler2: AnyObject {
     ///   - characteristic: The UUID of the characteristic from which the data was received.
     func notify(_ data: Data, service: CBUUID, characteristic: CBUUID) async
 }
+
+
+// TODO: how to document?
+public typealias BluetoothNotificationHandler = (_ data: Data, _ service: CBUUID, _ characteristic: CBUUID) async -> Void

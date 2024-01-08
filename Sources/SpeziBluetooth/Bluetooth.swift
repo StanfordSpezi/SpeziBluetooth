@@ -8,14 +8,12 @@
 
 import Combine
 import CoreBluetooth
-@_exported import class CoreBluetooth.CBUUID
 import Foundation
 import NIO
 import NIOFoundationCompat
 import Observation
 import Spezi
 import UIKit
-
 
 
 // TODO: "Enable applications to connect to Bluetooth devices using modern programming paradigms."???
@@ -86,7 +84,7 @@ import UIKit
 ///
 /// > Tip: You can find a more extensive example in the main <doc:SpeziBluetooth> documentation.
 @Observable
-public class Bluetooth: Module, DefaultInitializable {
+public class Bluetooth: Module {
     private let bluetoothManager: BluetoothManager
     
     
@@ -100,30 +98,32 @@ public class Bluetooth: Module, DefaultInitializable {
     ///
     /// - Parameters:
     ///   - services: List of Bluetooth services to manage.
-    public init(services: [BluetoothService]) {
-        bluetoothManager = BluetoothManager(services: services)
+    public init(discoverBy discoveryCriteria: Set<DiscoveryCriteria>, minimumRSSI: Int = -65) { // TODO: dup of default value
+        bluetoothManager = BluetoothManager(discoverBy: discoveryCriteria, minimumRSSI: minimumRSSI)
     }
 
     public init(devices: DeviceConfiguration...) {
         // TODO: parameter packs, if the thing is generic?
+        fatalError("Not implemented yet?")
     }
     
     /// Default initializer with no services specified.
-    public required convenience init() {
-        self.init(services: [])
+    public required convenience init(minimumRSSI: Int = -65) {
+        // TODO: support all discovery!!!?? does that make sense?
+        self.init(discoverBy: [.name("ALL")], minimumRSSI: minimumRSSI)
     }
     
     /// Adds a new message handler to process incoming Bluetooth messages.
     ///
     /// - Parameter messageHandler: The message handler to add.
     public func add(messageHandler: BluetoothNotificationHandler) {
-        bluetoothManager.add(messageHandler: messageHandler)
+        // TODO: bluetoothManager.add(messageHandler: messageHandler)
     }
     
     /// Removes a specified message handler.
     ///
     /// - Parameter messageHandler: The message handler to remove.
     public func remove(messageHandler: BluetoothNotificationHandler) {
-        bluetoothManager.remove(messageHandler: messageHandler)
+        // TODO: bluetoothManager.remove(messageHandler: messageHandler)
     }
 }

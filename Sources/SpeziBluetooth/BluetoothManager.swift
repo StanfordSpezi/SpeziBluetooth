@@ -9,33 +9,41 @@
 import CoreBluetooth
 import NIO
 import Observation
-import OSLog
 import OrderedCollections
-
+import OSLog
 
 
 /// Manages the Bluetooth connections, state, and data transfer.
 @Observable
-public class BluetoothManager: NSObject, CBCentralManagerDelegate {
+public class BluetoothManager: NSObject, CBCentralManagerDelegate { // TODO: make delegate separate?
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothManager")
     // TODO: whats the reason for this queue here?
     private let messageHandlerQueue = DispatchQueue(label: "edu.stanford.spezi.bluetooth", qos: .userInitiated, attributes: .concurrent)
+    @ObservationIgnored private var centralManager: CBCentralManager! // swiftlint:disable:this implicitly_unwrapped_optional
 
-    private let discoveryCriteria: Set<DiscoveryCriteria>
+    private let discoveryCriteria: Set<DiscoveryCriteria> // TODO: how to search for a name?
     private let minimumRSSI: Int // TODO: configurable
+    /// The time interval after which an advertisement is considered stale and the device is removed.
+    private let advertisementStaleTimeout: TimeInterval // TODO: enforce minimum time? e.g. 1s?
 
     /// Represents the current state of Bluetooth connection.
     private(set) var state: BluetoothState // TODO: decouple from central state!
     /// The list of discovered and connected bluetooth devices indexed by their identifier UUID.
-    private var discoveredDevices: OrderedDictionary<UUID, BluetoothPeripheral> = [:]
+    private var discoveredDevices: OrderedDictionary<UUID, BluetoothPeripheral> = [:] // TODO: those are never removed! what to do after disconnect?
 
-    @ObservationIgnored private var centralManager: CBCentralManager! // swiftlint:disable:this implicitly_unwrapped_optional
+    @ObservationIgnored private var devicesStaleTimer: Task<Void, Never>? {
+        // TODO: capture the scheduling time and/or the device for which we scheduled? so we can calculate the diff?
+        willSet {
+            devicesStaleTimer?.cancel()
+        }
+    }
 
-
+    // TODO: docs
     public var nearbyDevices: [BluetoothPeripheral] {
         Array(discoveredDevices.values)
     }
 
+    // TODO: docs
     public var nearbyDevicesView: OrderedDictionary<UUID, BluetoothPeripheral>.Values {
         discoveredDevices.values
     }
@@ -56,22 +64,25 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate {
     ///   - services: List of Bluetooth services to manage.
     ///   - messageHandlers: List of handlers for processing incoming Bluetooth messages.
     ///   - minimumRSSI: Minimum RSSI value to consider when discovering peripherals.
-    init(discoverBy discoveryCriteria: Set<DiscoveryCriteria>, minimumRSSI: Int = -65) {
+    init(discoverBy discoveryCriteria: Set<DiscoveryCriteria>, minimumRSSI: Int = -65, advertisementStaleTimeout: TimeInterval = 10) { // TODO: update docs!
         self.discoveryCriteria = discoveryCriteria
         self.minimumRSSI = minimumRSSI
-        self.state = .poweredOff // TODO: really? why do we map these states?
-        
+        self.advertisementStaleTimeout = advertisementStaleTimeout
+        self.state = .poweredOff // TODO: might be unauthorized as well?
+
         super.init()
 
-        // TODO one cannot manage when this is displayed!
-        // TODO: custom queue for that?
+        // TODO: use custom queue for central manager?
+        // TODO: instantiate central manager later for authorization pop up?
 
-        // TODO: we might just not show the alert, only when we query and are authorized?
-        // TODO: instantiate later?
-        centralManager = CBCentralManager(delegate: self, queue: nil, options: [CBCentralManagerOptionShowPowerAlertKey: true])
+        // we show the power alert upon scanning
+        centralManager = CBCentralManager(delegate: self, queue: nil, options: [CBCentralManagerOptionShowPowerAlertKey: false])
     }
 
     public func scanNearbyDevices() {
+        // TODO: make a simple modifier that registers all onAppear, onDisappear, onForeground, onBackground handlers!
+        // TODO: autoconnect modifier => find first and then connect if unique (for a certain back off period)?
+
         // TODO: just scan for nearby devices? or also call retrieveConnectedPeripherals?
         //   let connectedPeripherals = centralManager.retrieveConnectedPeripherals(withServices: services.map(\.serviceUUID))
         //   logger.debug("Found connected Peripherals with transfer service: \(connectedPeripherals.debugDescription)")
@@ -93,6 +104,7 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate {
     
     
     // MARK: - CBCentralManagerDelegate
+    
     public func centralManagerDidUpdateState(_ central: CBCentralManager) {
         // TODO: move into extension!
         switch central.state {
@@ -139,37 +151,59 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate {
         // swiftlint:disable:next legacy_objc_type
         rssi: NSNumber
     ) {
-        // This callback comes whenever a peripheral that is advertising the transfer serviceUUID is discovered.
-
         guard rssi.intValue >= minimumRSSI else { // ensure the signal strength is not too low
-            logger.debug("Discovered peripheral not in expected range, at \(rssi.intValue)")
-            return
+            return // TODO: we don't log. Just to verbose. Anything else?
         }
 
-
-        // TODO:
 
         // check if we already seen this device!
         if let device = discoveredDevices[peripheral.identifier] {
-            // TODO: reset stale timer!
-            return
+            Task {
+                await device.markActivity()
+                // TODO: reschedule timer based on the smallest timeout? (only relevant if we scheduled the current one for the current device?)
+            }
+            return // TODO: is the identifier stable??
         }
 
-        logger.debug("Discovered \(peripheral.name ?? "unknown device") at \(rssi.intValue)")
+        logger.debug("Discovered peripheral \(peripheral.logName) at \(rssi.intValue) dB")
 
-        let device = BluetoothPeripheral(peripheral: peripheral, rssi: rssi)
+        // TODO: are peripheral.services populated?
+
+        let device = BluetoothPeripheral(central: centralManager, peripheral: peripheral, rssi: rssi)
         discoveredDevices[peripheral.identifier] = device // save local-copy, such CB doesn't deallocate it
 
-        // TODO: how to notify clients?
+        // if there isn't a stale task already, we now
         // TODO: support auto-connect (more options?)
     }
 
+    private func scheduleStaleTask() {
+        guard devicesStaleTimer == nil else {
+            return // there is an earlier timeout!
+        }
+
+        self.devicesStaleTimer = Task { [weak self] in  // TODO: weak self!!!
+            try? await Task.sleep(for: .seconds(self?.advertisementStaleTimeout ?? 0))
+            // TODO: handle stale timer!
+
+            // TODO: check if we need to reschedule next smallest one?
+
+        }
+    }
+
     public func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
+        // Documentation reads: "Because connection attempts don’t time out, a failed connection usually indicates a transient issue,
+        // in which case you may attempt connecting to the peripheral again."
+        // TODO: attempt reconnect?
+
         if let device = discoveredDevices[peripheral.identifier] {
+            // TODO: is this logger message accurate?
             logger.error("Failed to connect to \(peripheral): \(String(describing: error))")
-            device.cleanup()
+            Task {
+                await device.cleanup()
+                // TODO: we don't wait for this before we call cancel!
+            }
         } else {
-            // TODO: logger messsag
+            logger.warning("Unknown peripheral \(peripheral.logName) failed with error: \(String(describing: error))")
         }
 
         // finally clean up device connection?
@@ -178,29 +212,45 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate {
 
     public func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
         guard let device = discoveredDevices[peripheral.identifier] else {
-            // TODO: error log message
+            logger.error("Received didConnect for unknown peripheral \(peripheral.logName). Cancelling connection ...")
+            centralManager.cancelPeripheralConnection(peripheral)
             return
         }
 
-        logger.debug("Peripheral Connected") // TODO: log message
-        device.handleConnect()
+        logger.debug("Peripheral \(peripheral.logName) connected ...")
+        Task {
+            await device.handleConnect()
+        }
     }
 
 
     public func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
-        // TODO: notify device class about disconnect?
         guard let device = self.discoveredDevices.removeValue(forKey: peripheral.identifier) else {
-            // TODO: log
+            logger.error("Received didDisconnect for unknown peripheral \(peripheral.logName).")
             return
         }
 
-        logger.debug("Peripheral Disconnected") // TODO: detailed log message
-        device.handleDisconnect()
+        logger.debug("Peripheral \(peripheral.logName) disconnected ...")
+        Task {
+            await device.handleDisconnect()
+        }
     }
 
     
     deinit {
         stopScanning()
+        devicesStaleTimer?.cancel()
         self.state = .poweredOff
+    }
+}
+
+
+extension CBPeripheral {
+    var logName: String { // TODO: rename and move!
+        if let name {
+            "'\(name)' @ \(identifier)"
+        } else {
+            "\(identifier)"
+        }
     }
 }

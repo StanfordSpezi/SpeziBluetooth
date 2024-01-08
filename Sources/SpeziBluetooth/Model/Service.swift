@@ -9,8 +9,6 @@
 import CoreBluetooth
 import Observation
 
-// TODO: DeviceInjectable protocol?
-
 
 // TODO rename:
 public protocol BluetoothServiceNew: AnyObject { // TODO GATTService name?
@@ -18,14 +16,14 @@ public protocol BluetoothServiceNew: AnyObject { // TODO GATTService name?
 }
 
 
-@Observable
 @propertyWrapper
 public class Service<S: BluetoothServiceNew> {
     private let id: CBUUID
 
     public let wrappedValue: S
 
-    // TODO: do we need a projected value?
+    // TODO: do we need a projected value? maybe for underlying access?
+
     public convenience init(wrappedValue: S, id: String) {
         self.init(wrappedValue: wrappedValue, id: CBUUID(string: id))
     }

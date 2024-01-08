@@ -74,17 +74,47 @@ private final class BluetoothPeripheralState {
     }
 }
 
+class PeripheralStateObserver: NSObject {
+    private unowned var device: BluetoothPeripheral!
 
-public actor BluetoothPeripheral {
+    private var observation: NSKeyValueObservation?
+
+
+    fileprivate init(peripheral: CBPeripheral) {
+        super.init()
+
+        observation = peripheral.observe(\.state) { [weak self] peripheral, _ in
+            self?.observeChange()
+        }
+    }
+    
+
+    func initDevice(_ device: BluetoothPeripheral) {
+        self.device = device
+    }
+
+    func observeChange() {
+        Task {
+            await device.observePeripheralStateChange()
+        }
+    }
+}
+
+
+public actor BluetoothPeripheral { // TODO: make it Equatable for easy onChange?
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothDevice")
 
+    private let central: CBCentralManager
     private let peripheral: CBPeripheral
     /// The list of requested characteristic uuids indexed by service uuids.
     private let requestedCharacteristics: [CBUUID: [CBUUID]] // TODO: check if that is queried often and a set makes sense?
 
-    private var delegate: Delegate! // swiftlint:disable:this implicitly_unwrapped_optional weak_delegate
+    private let delegate: Delegate
+    private let stateObserver: PeripheralStateObserver
+
     private var discoveredCharacteristics: [Id: CBCharacteristic] = [:] // TODO: are we using that?
     private var notificationHandler: [BluetoothNotificationHandler] = [] // TODO: integrate + inspect strong retain cycle??
+    private var lastActivity: Date
 
     /// Ongoing accessed indexed by characteristic uuid.
     private var ongoingAccesses: [Id: AccessorContinuation] = [:]
@@ -95,7 +125,6 @@ public actor BluetoothPeripheral {
 
     /// Observable state container for local state.
     private let stateContainer: BluetoothPeripheralState
-    private var observation: NSKeyValueObservation?
 
     public nonisolated var name: String? {
         stateContainer.name
@@ -110,27 +139,46 @@ public actor BluetoothPeripheral {
     }
 
 
-    init(peripheral: CBPeripheral, rssi: NSNumber) {
+    init(central: CBCentralManager, peripheral: CBPeripheral, rssi: NSNumber) {
+        self.central = central
         self.peripheral = peripheral
-        self.stateContainer = BluetoothPeripheralState(name: peripheral.name, rssi: rssi.intValue, state: peripheral.state)
         self.requestedCharacteristics = [:] // TODO: actually init these!
 
-        let delegate = Delegate(device: self)
+        self.stateContainer = BluetoothPeripheralState(name: peripheral.name, rssi: rssi.intValue, state: peripheral.state)
+        self.lastActivity = .now
+
+        let delegate = Delegate()
+        let observer = PeripheralStateObserver(peripheral: peripheral)
 
         self.delegate = delegate
-        self.peripheral.delegate = delegate
+        self.stateObserver = observer
 
-        self.observation = peripheral.observe(\.state) { [weak self] peripheral, change in
-            // TODO: does this work?
-            Task { [weak self] in
-                await self?.notify(state: peripheral.state)
-            }
-        }
+        // we have this separate initDevice methods as otherwise above access to `delegate` and `stateObserver` properties
+        // would become non-isolated accesses (due to usage of self beforehand).
+        delegate.initDevice(self)
+        observer.initDevice(self)
+
+        peripheral.delegate = delegate
     }
 
+    public func connect() {
+        central.connect(peripheral, options: nil) // TODO: review connect options?
+    }
 
-    private func notify(state: CBPeripheralState) {
-        stateContainer.state = state
+    public func disconnect() {
+        cleanup()
+
+        central.cancelPeripheralConnection(peripheral)
+
+        // TODO: block ongoing accesses?
+    }
+
+    func markActivity() {
+        self.lastActivity = .now
+    }
+
+    fileprivate func observePeripheralStateChange() {
+        stateContainer.state = peripheral.state
     }
 
     // TODO: dynamically enable notifications!
@@ -139,21 +187,20 @@ public actor BluetoothPeripheral {
      ///
      /// - Parameter messageHandler: The handler to add.
      func add(messageHandler: BluetoothNotificationHandler) {
-     messageHandlers.append(messageHandler)
+        messageHandlers.append(messageHandler)
      }
 
      /// Removes a specified message handler from the list.
      ///
      /// - Parameter messageHandler: The handler to remove.
      func remove(messageHandler: BluetoothNotificationHandler) {
-     messageHandlers.removeAll(where: { $0 === messageHandler })
+        messageHandlers.removeAll(where: { $0 === messageHandler })
      }
      */
 
-    func handleConnect() {
+    func handleConnect() { // TODO: can this be nonisolated?
         // TODO: build and parse Device instance
 
-        // TODO: should update name?
         peripheral.discoverServices(Array(requestedCharacteristics.keys)) // TODO: specfiy all request services
         // TODO: search device type for characteristics ids!
 
@@ -162,6 +209,8 @@ public actor BluetoothPeripheral {
 
     func handleDisconnect() {
         // TODO: update state!
+        //  -> close ongoing promises?
+        markActivity() // TODO: ensure device disappears when not scanning?
     }
 
     /// Call this when things either go wrong, or you're done with the connection.
@@ -336,6 +385,7 @@ extension BluetoothPeripheral {
     }
 
     fileprivate func receivedUpdatedValue(for id: Id, result: Result<Data, Error>) async {
+        // TODO: update `Characteristic` properties of device model!
         if case let .read(continuation) = ongoingAccesses[id] {
             ongoingAccesses[id] = nil
 
@@ -357,6 +407,7 @@ extension BluetoothPeripheral {
     }
 
     fileprivate func receivedWriteResponse(for id: Id, result: Result<Data, Error>) {
+        // TODO: update `Characteristic` properties of device model!
         guard case let .write(continuation) = ongoingAccesses[id] else {
             // TODO: log that we had a write without continuation???
             return
@@ -406,11 +457,15 @@ extension BluetoothPeripheral {
     private class Delegate: NSObject, CBPeripheralDelegate {
         private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothDeviceDelegate")
 
-        private unowned let device: BluetoothPeripheral
+        private unowned var device: BluetoothPeripheral!
 
-        init(device: BluetoothPeripheral) {
-            self.device = device
+        override init() {
             super.init()
+        }
+
+
+        func initDevice(_ device: BluetoothPeripheral) {
+            self.device = device
         }
 
         func peripheralDidUpdateName(_ peripheral: CBPeripheral) {

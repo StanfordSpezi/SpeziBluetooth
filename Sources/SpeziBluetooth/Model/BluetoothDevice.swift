@@ -8,10 +8,25 @@
 
 import Foundation
 
-// TODO: file name?
 
-public protocol BluetoothDevice: AnyObject {
-    // TODO: somehow allow access to general device state (connected?, name?, undlerying CBPeripheral?)
+@propertyWrapper
+public class DeviceState<Value> { // TODO: can appear anywhere right?
+    private let keyPath: KeyPath<BluetoothPeripheral, Value>
+
+    public var wrappedValue: Value {
+        guard let peripheral else {
+            // TODO: what do we do?
+            preconditionFailure("Injection should be present right??")
+        }
+        return peripheral[keyPath: keyPath]
+    }
+
+    var peripheral: BluetoothPeripheral?
+
+    
+    public init(_ keyPath: KeyPath<BluetoothPeripheral, Value>) {
+        self.keyPath = keyPath
+    }
 }
 
 
@@ -40,3 +55,8 @@ public struct DeviceConfiguration {
 }
 
 // TODO: let bl = Bluetooth(devices: .device(identifiedBy: .name("Hello World"))) // TODO: DSL based approach?
+
+public protocol BluetoothDevice: AnyObject {
+    // TODO: somehow allow access to general device state (connected?, name?, undlerying CBPeripheral?)
+    init()
+}

@@ -6,20 +6,22 @@
 // SPDX-License-Identifier: MIT
 //
 
-@_exported import class CoreBluetooth.CBUUID // TODO: this method here?
 import CoreBluetooth
 import Foundation
 
 
 class CharacteristicContext {
-    let peripheral: CBPeripheral // TODO: this must capture BluetoothPeripheral unowned!!!???
+    let peripheral: BluetoothPeripheral
+    let service: CBService
     let characteristic: CBCharacteristic
 
-    init(peripheral: CBPeripheral, characteristic: CBCharacteristic) {
+    init(peripheral: BluetoothPeripheral, service: CBService, characteristic: CBCharacteristic) {
         self.peripheral = peripheral
+        self.service = service
         self.characteristic = characteristic
     }
 }
+
 
 @Observable
 @propertyWrapper
@@ -31,6 +33,7 @@ public class Characteristic<Value> {
 
     public var projectedValue: CharacteristicAccessors<Value> {
         guard let context else {
+            // TODO: we might want to fail gracefully? with a non-connected error!
             preconditionFailure("Failed to ") // TODO: message!
         }
         return CharacteristicAccessors(id: id, context: context)
@@ -48,22 +51,35 @@ public class Characteristic<Value> {
     }
 }
 
+
 extension Characteristic where Value: ByteEncodable {
-    // TODO: string overload?
+    public convenience init(wrappedValue: Value? = nil, id: String) {
+        self.init(wrappedValue: wrappedValue, id: CBUUID(string: id))
+    }
+
     public convenience init(wrappedValue: Value? = nil, id: CBUUID) {
         self.init(wrappedValue: wrappedValue, characteristic: id)
     }
 }
+
 
 extension Characteristic where Value: ByteDecodable {
+    public convenience init(wrappedValue: Value? = nil, id: String) {
+        self.init(wrappedValue: wrappedValue, id: CBUUID(string: id))
+    }
+
     public convenience init(wrappedValue: Value? = nil, id: CBUUID) {
         self.init(wrappedValue: wrappedValue, characteristic: id)
     }
 }
 
-extension Characteristic where Value: ByteCodable {
+
+extension Characteristic where Value: ByteCodable { // reduce ambiguity
+    public convenience init(wrappedValue: Value? = nil, id: String) {
+        self.init(wrappedValue: wrappedValue, id: CBUUID(string: id))
+    }
+
     public convenience init(wrappedValue: Value? = nil, id: CBUUID) {
-        // here to reduce ambiguity
         self.init(wrappedValue: wrappedValue, characteristic: id)
     }
 }

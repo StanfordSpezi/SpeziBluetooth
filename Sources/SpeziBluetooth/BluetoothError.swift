@@ -33,8 +33,10 @@ public enum BluetoothError: String, Error, CustomStringConvertible, LocalizedErr
             String(localized: "BLUETOOTH_ERROR_NOT_CONNECTED", bundle: .module)
         case .deviceTimedOut:
             String(localized: "BLUETOOTH_ERROR_DEVICE_TIME_OUT", bundle: .module)
-        case .notAReadableCharacteristic:
-            String(localized: "BLUETOOTH_ERROR_NOT_READABLE", bundle: .module)
+        // TODO : case .notAReadableCharacteristic:
+            // String(localized: "BLUETOOTH_ERROR_NOT_READABLE", bundle: .module)
+        case .concurrentCharacteristicAccess:
+            "Concurrent Characteristic Access" // TODO: translate error!
         }
     }
 }

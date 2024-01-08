@@ -10,10 +10,10 @@ import CoreBluetooth
 
 
 public struct CharacteristicAccessors<Value> {
-    public let id: CBUUID
-    fileprivate let context: CharacteristicContext
+    public let id: CBUUID // TODO: do we need access to this?
+    fileprivate let context: CharacteristicContext // TODO: just capture UUIDs and not characteristic and service instances?
 
-    // TODO dynamic member lookup for the characteristic? => unsafe access or somehting?
+    // TODO dynamic member lookup for the characteristic? => unsafe access or something?
 
     init(id: CBUUID, context: CharacteristicContext) {
         self.id = id
@@ -27,25 +27,34 @@ extension CharacteristicAccessors where Value: ByteDecodable {
     // TODO: just bridged some peripheral accesses?
 
     public func read() async throws -> Value {
-        // TODO: actually retrieve the value from the bluetooth device?
-        context.peripheral.readValue(for: context.characteristic)
+        // TODO: Characteristic instance should be enough!
+        let data = try await context.peripheral.read(service: context.service.uuid, characteristic: context.characteristic.uuid)
+        guard let value = Value(data: data) else {
+            // TODO: how to handle this incompatibility?
+            throw BluetoothError.concurrentCharacteristicAccess
+        }
+        return value
     }
 }
 
 
 extension CharacteristicAccessors where Value: ByteEncodable {
     public func write<Response: ByteDecodable>(_ value: Value, expecting response: Response.Type = Response.self) async throws -> Response {
-        let data = value.encode()
-        context.peripheral.writeValue(data, for: context.characteristic, type: .withResponse)
-        // TODO: does response value make sense?
-        // TODO: actually return the response!
+        let requestData = value.encode()
+        let responseData = try await  context.peripheral.write(data: requestData, service: context.service.uuid, characteristic: context.characteristic.uuid)
+
+        guard let response = Response(data: responseData) else {
+            // TODO: how to handle this incompatibility?
+            throw BluetoothError.concurrentCharacteristicAccess
+        }
+
+        return response
     }
 
-    @_disfavoredOverload
-    public func write(_ value: Value) async throws {
+    public func writeWithoutResponse(_ value: Value) async throws {
         // TODO: how to do non response write?
         let data = value.encode()
-        context.peripheral.writeValue(data, for: context.characteristic, type: .withoutResponse)
+        try await context.peripheral.writeWithoutResponse(data: data, service: context.service.uuid, characteristic: context.characteristic.uuid)
     }
 }
 
