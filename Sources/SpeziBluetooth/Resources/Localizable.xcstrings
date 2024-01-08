@@ -22,6 +22,7 @@
       }
     },
     "BLUETOOTH_ERROR_NOT_READABLE" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

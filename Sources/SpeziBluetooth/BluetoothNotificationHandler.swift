@@ -11,12 +11,18 @@ import Foundation
 
 
 /// Protocol defining methods for handling Bluetooth messages.
-public protocol BluetoothMessageHandler: AnyObject {
+public protocol BluetoothNotificationHandler2: AnyObject {
+    // TODO: notification handler!
+
     /// Handles the receipt of Bluetooth data from a specified service and characteristic.
     ///
     /// - Parameters:
     ///   - data: The received Bluetooth data.
     ///   - service: The UUID of the Bluetooth service from which the data was received.
     ///   - characteristic: The UUID of the characteristic from which the data was received.
-    func recieve(_ data: Data, service: CBUUID, characteristic: CBUUID) async
+    func notify(_ data: Data, service: CBUUID, characteristic: CBUUID) async
 }
+
+
+// TODO: how to document?
+public typealias BluetoothNotificationHandler = (_ data: Data, _ service: CBUUID, _ characteristic: CBUUID) async -> Void

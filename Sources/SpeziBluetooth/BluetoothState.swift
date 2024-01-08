@@ -11,16 +11,24 @@
 public enum BluetoothState: String {
     /// The Bluetooth module is turned off.
     case poweredOff
-    
+
+    // TODO: docs
+    case unsupported
+
     /// The application does not have permission to use Bluetooth features.
     case unauthorized
+
+    // TODO: docs
+    case poweredOn
     
     /// The Bluetooth module is not connected to any device.
-    case disconnected
+    // TODO: case disconnected
     
     /// The Bluetooth module is actively scanning for nearby devices.
-    case scanning
+    // TODO: case scanning
     
     /// The Bluetooth module is successfully connected to a device.
-    case connected
+    // TODO: case connected
 }
+
+// TODO: localized string representable?
