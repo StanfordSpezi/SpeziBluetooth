@@ -1,8 +1,9 @@
 //
-//  SwiftUIView.swift
-//  
+// This source file is part of the Stanford Spezi open-source project
 //
-//  Created by Andreas Bauer on 12.01.24.
+// SPDX-FileCopyrightText: 2024 Stanford University and the project authors (see CONTRIBUTORS.md)
+//
+// SPDX-License-Identifier: MIT
 //
 
 import SwiftUI
