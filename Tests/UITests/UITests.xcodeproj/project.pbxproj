@@ -10,10 +10,10 @@
 		2F64EA852A86B347006789D0 /* TestAppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F64EA812A86B346006789D0 /* TestAppDelegate.swift */; };
 		2F64EA882A86B36C006789D0 /* TestApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F64EA872A86B36C006789D0 /* TestApp.swift */; };
 		2F64EA8B2A86B3DE006789D0 /* XCTestExtensions in Frameworks */ = {isa = PBXBuildFile; productRef = 2F64EA8A2A86B3DE006789D0 /* XCTestExtensions */; };
-		2F64EA8E2A86B46B006789D0 /* Spezi in Frameworks */ = {isa = PBXBuildFile; productRef = 2F64EA8D2A86B46B006789D0 /* Spezi */; };
-		2F68C3C8292EA52000B3E12C /* SpeziBluetooth in Frameworks */ = {isa = PBXBuildFile; productRef = 2F68C3C7292EA52000B3E12C /* SpeziBluetooth */; };
 		2F6D139A28F5F386007C25D6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2F6D139928F5F386007C25D6 /* Assets.xcassets */; };
 		2FA43E922AE057CA009B1B2C /* SpeziBluetoothTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FA43E912AE057CA009B1B2C /* SpeziBluetoothTests.swift */; };
+		A92802B72B5081F200874D0A /* SpeziBluetooth in Frameworks */ = {isa = PBXBuildFile; productRef = A92802B62B5081F200874D0A /* SpeziBluetooth */; };
+		A92802B92B50823600874D0A /* BluetoothManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A92802B82B50823600874D0A /* BluetoothManagerView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -48,6 +48,8 @@
 		2F6D13AC28F5F386007C25D6 /* TestAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TestAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2FA43E912AE057CA009B1B2C /* SpeziBluetoothTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SpeziBluetoothTests.swift; sourceTree = "<group>"; };
 		2FB0758A299DDB9000C0B37F /* TestApp.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TestApp.xctestplan; sourceTree = "<group>"; };
+		A92802B82B50823600874D0A /* BluetoothManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothManagerView.swift; sourceTree = "<group>"; };
+		A92802BA2B5085BE00874D0A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -55,8 +57,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2F64EA8E2A86B46B006789D0 /* Spezi in Frameworks */,
-				2F68C3C8292EA52000B3E12C /* SpeziBluetooth in Frameworks */,
+				A92802B72B5081F200874D0A /* SpeziBluetooth in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -95,9 +96,11 @@
 		2F6D139428F5F384007C25D6 /* TestApp */ = {
 			isa = PBXGroup;
 			children = (
+				A92802BA2B5085BE00874D0A /* Info.plist */,
 				2F64EA872A86B36C006789D0 /* TestApp.swift */,
 				2F64EA812A86B346006789D0 /* TestAppDelegate.swift */,
 				2F6D139928F5F386007C25D6 /* Assets.xcassets */,
+				A92802B82B50823600874D0A /* BluetoothManagerView.swift */,
 			);
 			path = TestApp;
 			sourceTree = "<group>";
@@ -135,8 +138,7 @@
 			);
 			name = TestApp;
 			packageProductDependencies = (
-				2F68C3C7292EA52000B3E12C /* SpeziBluetooth */,
-				2F64EA8D2A86B46B006789D0 /* Spezi */,
+				A92802B62B5081F200874D0A /* SpeziBluetooth */,
 			);
 			productName = Example;
 			productReference = 2F6D139228F5F384007C25D6 /* TestApp.app */;
@@ -193,7 +195,6 @@
 			mainGroup = 2F6D138928F5F384007C25D6;
 			packageReferences = (
 				2F64EA892A86B3DE006789D0 /* XCRemoteSwiftPackageReference "XCTestExtensions" */,
-				2F64EA8C2A86B46B006789D0 /* XCRemoteSwiftPackageReference "Spezi" */,
 			);
 			productRefGroup = 2F6D139328F5F384007C25D6 /* Products */;
 			projectDirPath = "";
@@ -229,6 +230,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2F64EA852A86B347006789D0 /* TestAppDelegate.swift in Sources */,
+				A92802B92B50823600874D0A /* BluetoothManagerView.swift in Sources */,
 				2F64EA882A86B36C006789D0 /* TestApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -377,10 +379,12 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
-				DEVELOPMENT_TEAM = 637867499T;
+				DEVELOPMENT_TEAM = 484YT3X9X7;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_TESTING_SEARCH_PATHS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = TestApp/Info.plist;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "This App uses Bluetooth to connect to nearby devices.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -414,10 +418,12 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
-				DEVELOPMENT_TEAM = 637867499T;
+				DEVELOPMENT_TEAM = 484YT3X9X7;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_TESTING_SEARCH_PATHS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = TestApp/Info.plist;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "This App uses Bluetooth to connect to nearby devices.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -560,10 +566,12 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
-				DEVELOPMENT_TEAM = 637867499T;
+				DEVELOPMENT_TEAM = 484YT3X9X7;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_TESTING_SEARCH_PATHS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = TestApp/Info.plist;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "This App uses Bluetooth to connect to nearby devices.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -656,14 +664,6 @@
 				minimumVersion = 0.4.6;
 			};
 		};
-		2F64EA8C2A86B46B006789D0 /* XCRemoteSwiftPackageReference "Spezi" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/StanfordSpezi/Spezi.git";
-			requirement = {
-				kind = upToNextMinorVersion;
-				minimumVersion = 0.8.0;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -672,12 +672,7 @@
 			package = 2F64EA892A86B3DE006789D0 /* XCRemoteSwiftPackageReference "XCTestExtensions" */;
 			productName = XCTestExtensions;
 		};
-		2F64EA8D2A86B46B006789D0 /* Spezi */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 2F64EA8C2A86B46B006789D0 /* XCRemoteSwiftPackageReference "Spezi" */;
-			productName = Spezi;
-		};
-		2F68C3C7292EA52000B3E12C /* SpeziBluetooth */ = {
+		A92802B62B5081F200874D0A /* SpeziBluetooth */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = SpeziBluetooth;
 		};

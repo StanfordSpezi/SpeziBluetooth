@@ -18,7 +18,9 @@ struct UITestsApp: App {
     var body: some Scene {
         WindowGroup {
             NavigationStack {
-                Text("Spezi Bluetooth")
+                NavigationLink("Bluetooth Manager") {
+                    BluetoothManagerView()
+                }
             }
                 .spezi(appDelegate)
         }

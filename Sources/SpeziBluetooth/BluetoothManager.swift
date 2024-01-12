@@ -15,35 +15,44 @@ import OSLog
 
 /// Manages the Bluetooth connections, state, and data transfer.
 @Observable
-public class BluetoothManager: NSObject, CBCentralManagerDelegate { // TODO: make delegate separate?
+public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver { // TODO: make delegate separate?
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothManager")
-    // TODO: whats the reason for this queue here?
-    private let messageHandlerQueue = DispatchQueue(label: "edu.stanford.spezi.bluetooth", qos: .userInitiated, attributes: .concurrent)
+    /// The dispatch queue for all Bluetooth related functionality. This is serial (not `.concurrent`) to ensure synchronization.
+    private let dispatchQueue = DispatchQueue(label: "edu.stanford.spezi.bluetooth", qos: .userInitiated)
     @ObservationIgnored private var centralManager: CBCentralManager! // swiftlint:disable:this implicitly_unwrapped_optional
 
+    @ObservationIgnored private var isScanningObserver: KVOStateObserver<BluetoothManager>?
     private let discoveryCriteria: Set<DiscoveryCriteria> // TODO: how to search for a name?
     private let minimumRSSI: Int // TODO: configurable
-    /// The time interval after which an advertisement is considered stale and the device is removed.
-    private let advertisementStaleTimeout: TimeInterval // TODO: enforce minimum time? e.g. 1s?
 
-    /// Represents the current state of Bluetooth connection.
-    private(set) var state: BluetoothState // TODO: decouple from central state!
+    /// Represents the current state of the Bluetooth Manager.
+    public private(set) var state: BluetoothState
+    /// Whether or not we are currently scanning for nearby devices.
+    public private(set) var isScanning: Bool
     /// The list of discovered and connected bluetooth devices indexed by their identifier UUID.
+    /// The state is isolated to our `dispatchQueue`.
     private var discoveredDevices: OrderedDictionary<UUID, BluetoothPeripheral> = [:] // TODO: those are never removed! what to do after disconnect?
 
-    @ObservationIgnored private var devicesStaleTimer: Task<Void, Never>? {
+    /// The time interval after which an advertisement is considered stale and the device is removed.
+    private let advertisementStaleInterval: TimeInterval // TODO: enforce minimum time? e.g. 1s?
+    @ObservationIgnored private var staleDispatchItem: DispatchWorkItem? { // TODO: docs?
         // TODO: capture the scheduling time and/or the device for which we scheduled? so we can calculate the diff?
         willSet {
-            devicesStaleTimer?.cancel()
+            staleDispatchItem?.cancel()
         }
     }
 
-    // TODO: docs
+    /// The list of nearby bluetooth devices.
+    ///
+    /// This array contains all discovered bluetooth peripherals and those with which we are currently connected.
     public var nearbyDevices: [BluetoothPeripheral] {
         Array(discoveredDevices.values)
     }
 
-    // TODO: docs
+    /// The list of nearby bluetooth devices as a view.
+    ///
+    /// This is similar to the ``nearbyDevices``. However, it doesn't copy all elements into its own array
+    /// but exposes the `Values` type of the underlying Dictionary implementation.
     public var nearbyDevicesView: OrderedDictionary<UUID, BluetoothPeripheral>.Values {
         discoveredDevices.values
     }
@@ -60,28 +69,39 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate { // TODO: mak
     
     /// Initializes the BluetoothManager with provided services and optional message handlers.
     ///
+    /// // TODO: code example?
+    ///
     /// - Parameters:
     ///   - services: List of Bluetooth services to manage.
     ///   - messageHandlers: List of handlers for processing incoming Bluetooth messages.
     ///   - minimumRSSI: Minimum RSSI value to consider when discovering peripherals.
-    init(discoverBy discoveryCriteria: Set<DiscoveryCriteria>, minimumRSSI: Int = -65, advertisementStaleTimeout: TimeInterval = 10) { // TODO: update docs!
+    public init(discoverBy discoveryCriteria: Set<DiscoveryCriteria>, minimumRSSI: Int = -65, advertisementStaleTimeout: TimeInterval = 10) {
+        // TODO: update docs!
         self.discoveryCriteria = discoveryCriteria
         self.minimumRSSI = minimumRSSI
-        self.advertisementStaleTimeout = advertisementStaleTimeout
-        self.state = .poweredOff // TODO: might be unauthorized as well?
+        self.advertisementStaleInterval = advertisementStaleTimeout
+
+        switch CBCentralManager.authorization {
+        case .denied, .restricted:
+            self.state = .unauthorized
+        default:
+            self.state = .poweredOff
+        }
+        self.isScanning = false
 
         super.init()
 
-        // TODO: use custom queue for central manager?
-        // TODO: instantiate central manager later for authorization pop up?
+        // TODO: spezi module should allow later instantiation of the BluetoothManager!
 
         // we show the power alert upon scanning
-        centralManager = CBCentralManager(delegate: self, queue: nil, options: [CBCentralManagerOptionShowPowerAlertKey: false])
+        centralManager = CBCentralManager(delegate: self, queue: dispatchQueue, options: [CBCentralManagerOptionShowPowerAlertKey: false])
+
+        isScanningObserver = KVOStateObserver<BluetoothManager>(receiver: self, entity: centralManager, property: \.isScanning)
     }
 
     public func scanNearbyDevices() {
         // TODO: make a simple modifier that registers all onAppear, onDisappear, onForeground, onBackground handlers!
-        // TODO: autoconnect modifier => find first and then connect if unique (for a certain back off period)?
+        // TODO: auto-connect modifier => find first and then connect if unique (for a certain back off period)?
 
         // TODO: just scan for nearby devices? or also call retrieveConnectedPeripherals?
         //   let connectedPeripherals = centralManager.retrieveConnectedPeripherals(withServices: services.map(\.serviceUUID))
@@ -97,11 +117,61 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate { // TODO: mak
         )
     }
 
-    public func stopScanning() {
-        centralManager.stopScan()
-        logger.log("Scanning stopped")
+    func observeChange<K, V>(of keyPath: KeyPath<K, V>, value: V) async {
+        switch keyPath {
+        case \CBCentralManager.isScanning:
+            self.isScanning = value as! Bool
+        default:
+            break
+        }
     }
-    
+
+    public func stopScanning() {
+        if centralManager.isScanning {
+            centralManager.stopScan()
+        }
+        logger.log("Scanning stopped")
+        // TODO: should we invalidate the current scan??
+    }
+
+    // MARK: - Stale Advertisement Timeout
+
+    private func scheduleStaleTask(withTimeout timeout: TimeInterval) {
+        let workItem = DispatchWorkItem { [weak self] in
+            var nextTimeout: TimeInterval?
+            self?.handleStaleTask(nextTimeout: &nextTimeout)
+
+            if let nextTimeout {
+                self?.scheduleStaleTask(withTimeout: nextTimeout) // TODO: does this work?
+            }
+        }
+
+        self.staleDispatchItem = workItem
+
+        // `DispatchTime` only allows for integer time
+        let milliSecondsTimeout = Int(timeout / 1000)
+        dispatchQueue.asyncAfter(deadline: .now() + .milliseconds(milliSecondsTimeout), execute: workItem)
+    }
+
+    private func handleStaleTask(nextTimeout: inout TimeInterval?) {
+        let sortedDevices = nearbyDevicesView
+            .filter { $0.state == .disconnected } // only interested in disconnected (advertising) devices
+            .sorted { lhs, rhs in
+                lhs.lastActivity < rhs.lastActivity
+            }
+
+        nextTimeout = nil
+
+        for device in sortedDevices {
+            if device.lastActivity.addingTimeInterval(advertisementStaleInterval) < .now {
+                discoveredDevices.removeValue(forKey: device.id)
+                // TODO: anything else we need to consider???
+            } else {
+                nextTimeout = Date.now.timeIntervalSince(device.lastActivity)
+                break // we are sorted, so this is the smallest timeout we need to schedule
+            }
+        }
+    }
     
     // MARK: - CBCentralManagerDelegate
     
@@ -158,10 +228,8 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate { // TODO: mak
 
         // check if we already seen this device!
         if let device = discoveredDevices[peripheral.identifier] {
-            Task {
-                await device.markActivity()
-                // TODO: reschedule timer based on the smallest timeout? (only relevant if we scheduled the current one for the current device?)
-            }
+            device.markActivity()
+            // TODO: reschedule timer based on the smallest timeout? (only relevant if we scheduled the current one for the current device?)
             return // TODO: is the identifier stable??
         }
 
@@ -172,22 +240,14 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate { // TODO: mak
         let device = BluetoothPeripheral(central: centralManager, peripheral: peripheral, rssi: rssi)
         discoveredDevices[peripheral.identifier] = device // save local-copy, such CB doesn't deallocate it
 
-        // if there isn't a stale task already, we now
+
+        if staleDispatchItem == nil {
+            // there is no stale timer running, so schedule one for the new device
+            scheduleStaleTask(withTimeout: advertisementStaleInterval)
+            // TODO: cancel stale timer, if we connect to a device?
+        }
+
         // TODO: support auto-connect (more options?)
-    }
-
-    private func scheduleStaleTask() {
-        guard devicesStaleTimer == nil else {
-            return // there is an earlier timeout!
-        }
-
-        self.devicesStaleTimer = Task { [weak self] in  // TODO: weak self!!!
-            try? await Task.sleep(for: .seconds(self?.advertisementStaleTimeout ?? 0))
-            // TODO: handle stale timer!
-
-            // TODO: check if we need to reschedule next smallest one?
-
-        }
     }
 
     public func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
@@ -239,7 +299,7 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate { // TODO: mak
     
     deinit {
         stopScanning()
-        devicesStaleTimer?.cancel()
+        staleDispatchItem?.cancel()
         self.state = .poweredOff
     }
 }

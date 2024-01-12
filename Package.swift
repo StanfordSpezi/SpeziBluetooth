@@ -21,7 +21,7 @@ let package = Package(
         .library(name: "SpeziBluetooth", targets: ["SpeziBluetooth"])
     ],
     dependencies: [
-        .package(url: "https://github.com/StanfordSpezi/Spezi", .upToNextMinor(from: "0.8.0")),
+        .package(url: "https://github.com/StanfordSpezi/Spezi", from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.59.0"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.0.4")
     ],
@@ -41,7 +41,8 @@ let package = Package(
         .testTarget(
             name: "SpeziBluetoothTests",
             dependencies: [
-                .target(name: "SpeziBluetooth")
+                .target(name: "SpeziBluetooth"),
+                .product(name: "NIO", package: "swift-nio")
             ]
         )
     ]

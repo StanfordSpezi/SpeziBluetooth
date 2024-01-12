@@ -66,42 +66,19 @@ private final class BluetoothPeripheralState {
     var name: String?
     var rssi: Int?
     var state: CBPeripheralState
+    var lastActivity: Date
 
-    init(name: String? = nil, rssi: Int? = nil, state: CBPeripheralState) {
+
+    init(name: String?, rssi: Int?, state: CBPeripheralState, lastActivity: Date = .now) {
         self.name = name
         self.rssi = rssi
         self.state = state
-    }
-}
-
-class PeripheralStateObserver: NSObject {
-    private unowned var device: BluetoothPeripheral!
-
-    private var observation: NSKeyValueObservation?
-
-
-    fileprivate init(peripheral: CBPeripheral) {
-        super.init()
-
-        observation = peripheral.observe(\.state) { [weak self] peripheral, _ in
-            self?.observeChange()
-        }
-    }
-    
-
-    func initDevice(_ device: BluetoothPeripheral) {
-        self.device = device
-    }
-
-    func observeChange() {
-        Task {
-            await device.observePeripheralStateChange()
-        }
+        self.lastActivity = lastActivity
     }
 }
 
 
-public actor BluetoothPeripheral { // TODO: make it Equatable for easy onChange?
+public actor BluetoothPeripheral: Identifiable, KVOReceiver { // TODO: make it Equatable for easy onChange?
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothDevice")
 
     private let central: CBCentralManager
@@ -110,11 +87,10 @@ public actor BluetoothPeripheral { // TODO: make it Equatable for easy onChange?
     private let requestedCharacteristics: [CBUUID: [CBUUID]] // TODO: check if that is queried often and a set makes sense?
 
     private let delegate: Delegate
-    private let stateObserver: PeripheralStateObserver
+    private let stateObserver: KVOStateObserver<BluetoothPeripheral>
 
     private var discoveredCharacteristics: [Id: CBCharacteristic] = [:] // TODO: are we using that?
     private var notificationHandler: [BluetoothNotificationHandler] = [] // TODO: integrate + inspect strong retain cycle??
-    private var lastActivity: Date
 
     /// Ongoing accessed indexed by characteristic uuid.
     private var ongoingAccesses: [Id: AccessorContinuation] = [:]
@@ -130,12 +106,25 @@ public actor BluetoothPeripheral { // TODO: make it Equatable for easy onChange?
         stateContainer.name
     }
 
+    public nonisolated var id: UUID {
+        peripheral.identifier
+    }
+
     public nonisolated var rssi: Int? {
         stateContainer.rssi
     }
 
     public nonisolated var state: CBPeripheralState {
         stateContainer.state
+    }
+
+    nonisolated var lastActivity: Date {
+        if case .disconnected = state {
+            stateContainer.lastActivity
+        } else {
+            // we are currently connected or connecting/disconnecting, therefore last activity is defined as "now"
+            .now
+        }
     }
 
 
@@ -145,10 +134,9 @@ public actor BluetoothPeripheral { // TODO: make it Equatable for easy onChange?
         self.requestedCharacteristics = [:] // TODO: actually init these!
 
         self.stateContainer = BluetoothPeripheralState(name: peripheral.name, rssi: rssi.intValue, state: peripheral.state)
-        self.lastActivity = .now
 
         let delegate = Delegate()
-        let observer = PeripheralStateObserver(peripheral: peripheral)
+        let observer = KVOStateObserver<BluetoothPeripheral>(entity: peripheral, property: \.state)
 
         self.delegate = delegate
         self.stateObserver = observer
@@ -156,7 +144,7 @@ public actor BluetoothPeripheral { // TODO: make it Equatable for easy onChange?
         // we have this separate initDevice methods as otherwise above access to `delegate` and `stateObserver` properties
         // would become non-isolated accesses (due to usage of self beforehand).
         delegate.initDevice(self)
-        observer.initDevice(self)
+        observer.initReceiver(self)
 
         peripheral.delegate = delegate
     }
@@ -173,12 +161,19 @@ public actor BluetoothPeripheral { // TODO: make it Equatable for easy onChange?
         // TODO: block ongoing accesses?
     }
 
-    func markActivity() {
-        self.lastActivity = .now
+    nonisolated func markActivity() {
+        // fine to be non-isolated. We always just write the current time.
+        self.stateContainer.lastActivity = .now
     }
 
-    fileprivate func observePeripheralStateChange() {
-        stateContainer.state = peripheral.state
+    func observeChange<K, V>(of keyPath: KeyPath<K, V>, value: V) async {
+        switch keyPath {
+        case \CBPeripheral.state:
+            self.stateContainer.state = value as! CBPeripheralState
+            break
+        default:
+            break
+        }
     }
 
     // TODO: dynamically enable notifications!
