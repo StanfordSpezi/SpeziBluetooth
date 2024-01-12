@@ -14,7 +14,7 @@ struct BluetoothManagerView: View {
 
     var body: some View {
         Text("Is Scanning: \(bluetooth.isScanning ? "YES": "NO")")
-        Text("Bluetooth State: \(bluetooth.state.rawValue)")
+        Text("Bluetooth State: \(bluetooth.state.rawValue)")
             .scanNearbyDevices(with: bluetooth)
 
         // TODO scan modifier!!!!

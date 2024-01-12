@@ -91,7 +91,7 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
 
         super.init()
 
-        // TODO: spezi module should allow later instantiation of the BluetoothManager!
+        // TODO: spezi module should allow later instantiation of the BluetoothManager(?)
 
         // we show the power alert upon scanning
         centralManager = CBCentralManager(delegate: self, queue: dispatchQueue, options: [CBCentralManagerOptionShowPowerAlertKey: false])

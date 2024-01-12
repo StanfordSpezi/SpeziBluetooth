@@ -7,6 +7,7 @@
 //
 
 import Spezi
+import SpeziBluetooth
 import SwiftUI
 
 
@@ -19,7 +20,9 @@ struct UITestsApp: App {
         WindowGroup {
             NavigationStack {
                 NavigationLink("Bluetooth Manager") {
-                    BluetoothManagerView()
+                    LazyView { // this indirection is required to force that BluetoothManager is only instantiated later on
+                        BluetoothManagerView()
+                    }
                 }
             }
                 .spezi(appDelegate)
