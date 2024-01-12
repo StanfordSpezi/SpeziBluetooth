@@ -129,8 +129,8 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
     public func stopScanning() {
         if centralManager.isScanning {
             centralManager.stopScan()
+            logger.log("Scanning stopped")
         }
-        logger.log("Scanning stopped")
         // TODO: should we invalidate the current scan??
     }
 
@@ -301,6 +301,7 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
         stopScanning()
         staleDispatchItem?.cancel()
         self.state = .poweredOff
+        logger.debug("BluetoothManager destroyed")
     }
 }
 

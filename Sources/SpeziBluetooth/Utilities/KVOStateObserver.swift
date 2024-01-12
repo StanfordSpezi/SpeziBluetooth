@@ -15,7 +15,7 @@ protocol KVOReceiver: AnyObject {
 
 
 class KVOStateObserver<Receiver: KVOReceiver>: NSObject {
-    private unowned var receiver: Receiver!
+    private weak var receiver: Receiver? // TODO: review all unowned references!!
 
     private var observation: NSKeyValueObservation?
 
@@ -35,7 +35,7 @@ class KVOStateObserver<Receiver: KVOReceiver>: NSObject {
 
     func observeChange<K, V>(of keyPath: KeyPath<K, V>, value: V) {
         Task {
-            await receiver.observeChange(of: keyPath, value: value)
+            await receiver?.observeChange(of: keyPath, value: value)
         }
     }
 }

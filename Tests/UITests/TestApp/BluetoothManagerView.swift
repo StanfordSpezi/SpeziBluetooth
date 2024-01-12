@@ -9,15 +9,59 @@
 import SpeziBluetooth
 import SwiftUI
 
-struct BluetoothManagerView: View {
+struct BluetoothManagerView: View { // TODO: make this a reusable view (with debug output configuration?)
     @State private var bluetooth = BluetoothManager(discoverBy: [])
 
     var body: some View {
-        Text("Is Scanning: \(bluetooth.isScanning ? "YES": "NO")")
-        Text("Bluetooth State: \(bluetooth.state.rawValue)")
-            .scanNearbyDevices(with: bluetooth)
+        List {
+            Section("State Tests") {
+                HStack {
+                    Text("Scanning")
+                    Spacer()
+                    Text(bluetooth.isScanning ? "Yes": "No")
+                        .foregroundColor(.secondary)
+                }
+                HStack {
+                    Text("State")
+                    Spacer()
+                    Text(bluetooth.state.rawValue)
+                        .foregroundColor(.secondary)
+                }
+            }
 
-        // TODO scan modifier!!!!
+            if bluetooth.nearbyDevicesView.isEmpty {
+                VStack {
+                    Text("Searching for nearby devices ...")
+                        .foregroundColor(.secondary)
+                    ProgressView()
+                }
+                    .frame(maxWidth: .infinity)
+                    .listRowBackground(Color.clear)
+            } else {
+                Section {
+                    ForEach(bluetooth.nearbyDevicesView) { device in
+                        HStack {
+                            Text(device.name ?? "N/A")
+                            Spacer()
+                            if let rssi = device.rssi {
+                                Text("\(rssi) dB")
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                } header: {
+                    HStack {
+                        Text("Devices")
+                            .padding(.trailing, 10)
+                        if bluetooth.isScanning {
+                            ProgressView()
+                        }
+                    }
+                }
+            }
+        }
+                .scanNearbyDevices(with: bluetooth)
+                .navigationTitle("Nearby Devices")
     }
 }
 

@@ -19,12 +19,14 @@ struct UITestsApp: App {
     var body: some Scene {
         WindowGroup {
             NavigationStack {
-                NavigationLink("Bluetooth Manager") {
-                    LazyView { // this indirection is required to force that BluetoothManager is only instantiated later on
-                        BluetoothManagerView()
+                List {
+                    NavigationLink("Nearby Devices") {
+                        LazyView { // this indirection is required to force that BluetoothManager is only instantiated later on
+                            BluetoothManagerView()
+                        }
                     }
-                }
                     .navigationTitle("Spezi Bluetooth")
+                }
             }
                 .spezi(appDelegate)
         }

@@ -53,6 +53,7 @@ public class Characteristic<Value> {
 
 
 extension Characteristic where Value: ByteEncodable {
+    // TODO: make initializers a protocol? => allow for (short:base:) initializer!
     public convenience init(wrappedValue: Value? = nil, id: String) {
         self.init(wrappedValue: wrappedValue, id: CBUUID(string: id))
     }

@@ -34,6 +34,7 @@ public enum DiscoveryCriteria: Hashable {
     // TODO: any?
     // TODO: others?
     case name(_ name: String) // TODO: does that make sense?
+    // TODO: make .startsWith, .exactly (init with string literal), .endsWith
     case primaryService(_ uuid: CBUUID)
 }
 
