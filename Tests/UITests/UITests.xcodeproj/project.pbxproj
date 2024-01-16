@@ -14,6 +14,7 @@
 		2FA43E922AE057CA009B1B2C /* SpeziBluetoothTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FA43E912AE057CA009B1B2C /* SpeziBluetoothTests.swift */; };
 		A92802B72B5081F200874D0A /* SpeziBluetooth in Frameworks */ = {isa = PBXBuildFile; productRef = A92802B62B5081F200874D0A /* SpeziBluetooth */; };
 		A92802B92B50823600874D0A /* BluetoothManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A92802B82B50823600874D0A /* BluetoothManagerView.swift */; };
+		A92802BD2B51CBBE00874D0A /* DeviceRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A92802BC2B51CBBE00874D0A /* DeviceRowView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -50,6 +51,7 @@
 		2FB0758A299DDB9000C0B37F /* TestApp.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TestApp.xctestplan; sourceTree = "<group>"; };
 		A92802B82B50823600874D0A /* BluetoothManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothManagerView.swift; sourceTree = "<group>"; };
 		A92802BA2B5085BE00874D0A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		A92802BC2B51CBBE00874D0A /* DeviceRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceRowView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -101,6 +103,7 @@
 				2F64EA812A86B346006789D0 /* TestAppDelegate.swift */,
 				2F6D139928F5F386007C25D6 /* Assets.xcassets */,
 				A92802B82B50823600874D0A /* BluetoothManagerView.swift */,
+				A92802BC2B51CBBE00874D0A /* DeviceRowView.swift */,
 			);
 			path = TestApp;
 			sourceTree = "<group>";
@@ -230,6 +233,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2F64EA852A86B347006789D0 /* TestAppDelegate.swift in Sources */,
+				A92802BD2B51CBBE00874D0A /* DeviceRowView.swift in Sources */,
 				A92802B92B50823600874D0A /* BluetoothManagerView.swift in Sources */,
 				2F64EA882A86B36C006789D0 /* TestApp.swift in Sources */,
 			);

@@ -38,14 +38,16 @@ private struct BluetoothScanModifier: ViewModifier {
             .onReceive(NotificationCenter.default.publisher(for: UIScene.willEnterForegroundNotification)) { _ in
                 onForeground() // onAppear is coupled with view rendering only and won't get fired when putting app into the foreground
             }
-            .onReceive(NotificationCenter.default.publisher(for: UIScene.willDeactivateNotification)) { _ in
+            .onReceive(NotificationCenter.default.publisher(for: UIScene.didEnterBackgroundNotification)) { _ in
                 onBackground() // onDisappear is coupled with view rendering only and won't get fired when putting app into the background
             }
             .onChange(of: manager.state) {
                 if case .poweredOn = manager.state {
-                    manager.scanNearbyDevices()
+                    // TODO: this doesn't seem to work??
+                    manager.scanNearbyDevices() // TODO: pass on auto-connect flag!
                 } else {
-                    // TODO: check API MISUES???
+                    // TODO: check API MISUSE???
+                    print("Stopping Scan!")
                     manager.stopScanning()
                 }
             }
@@ -67,6 +69,7 @@ private struct BluetoothScanModifier: ViewModifier {
 
 extension View {
     // TODO: can this be a protocol?
+    // TODO: auto-connect flag => find first and then connect if unique (for a certain back off period)?
     public func scanNearbyDevices(with manager: BluetoothManager) -> some View {
         modifier(BluetoothScanModifier(manager: manager))
     }

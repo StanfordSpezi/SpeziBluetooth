@@ -8,7 +8,7 @@
 
 
 /// Represents the various states of a Bluetooth module.
-public enum BluetoothState: String {
+public enum BluetoothState: String { // TODO: make all the state enums not string raw value but just description (localized description?)
     /// The Bluetooth module is turned off.
     case poweredOff
 

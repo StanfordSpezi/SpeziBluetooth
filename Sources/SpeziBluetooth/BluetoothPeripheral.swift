@@ -65,14 +65,14 @@ struct Id: Hashable, CustomStringConvertible { // TODO: rename
 private final class BluetoothPeripheralState {
     var name: String?
     var rssi: Int?
-    var state: CBPeripheralState
+    var state: PeripheralState
     var lastActivity: Date
 
 
     init(name: String?, rssi: Int?, state: CBPeripheralState, lastActivity: Date = .now) {
         self.name = name
         self.rssi = rssi
-        self.state = state
+        self.state = .init(from: state)
         self.lastActivity = lastActivity
     }
 }
@@ -81,7 +81,7 @@ private final class BluetoothPeripheralState {
 public actor BluetoothPeripheral: Identifiable, KVOReceiver { // TODO: make it Equatable for easy onChange?
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothDevice")
 
-    private let central: CBCentralManager
+    private weak var manager: BluetoothManager?
     private let peripheral: CBPeripheral
     /// The list of requested characteristic uuids indexed by service uuids.
     private let requestedCharacteristics: [CBUUID: [CBUUID]] // TODO: check if that is queried often and a set makes sense?
@@ -102,19 +102,23 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver { // TODO: make it E
     /// Observable state container for local state.
     private let stateContainer: BluetoothPeripheralState
 
-    public nonisolated var name: String? {
-        stateContainer.name
+    nonisolated var cbPeripheral: CBPeripheral {
+        peripheral
     }
 
     public nonisolated var id: UUID {
         peripheral.identifier
     }
 
+    public nonisolated var name: String? {
+        stateContainer.name
+    }
+
     public nonisolated var rssi: Int? {
         stateContainer.rssi
     }
 
-    public nonisolated var state: CBPeripheralState {
+    public nonisolated var state: PeripheralState {
         stateContainer.state
     }
 
@@ -128,8 +132,8 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver { // TODO: make it E
     }
 
 
-    init(central: CBCentralManager, peripheral: CBPeripheral, rssi: NSNumber) {
-        self.central = central
+    init(manager: BluetoothManager, peripheral: CBPeripheral, rssi: NSNumber) {
+        self.manager = manager
         self.peripheral = peripheral
         self.requestedCharacteristics = [:] // TODO: actually init these!
 
@@ -149,16 +153,42 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver { // TODO: make it E
         peripheral.delegate = delegate
     }
 
-    public func connect() {
-        central.connect(peripheral, options: nil) // TODO: review connect options?
+    public func connect() async {
+        guard let manager else {
+            logger.warning("Tried to connect an orphaned bluetooth peripheral!")
+            return
+        }
+
+        await manager.connect(peripheral: self)
     }
 
     public func disconnect() {
-        cleanup()
+        guard let manager else {
+            logger.warning("Tried to disconnect an orphaned bluetooth peripheral!")
+            return
+        }
 
-        central.cancelPeripheralConnection(peripheral)
+        removeAllNotifications()
+
+        manager.disconnect(peripheral: self)
 
         // TODO: block ongoing accesses?
+        // TODO: will ongoing writes, reads, ... be cancelled??
+    }
+
+    nonisolated func handleConnect() { // TODO: can this stay nonisolated?
+        // TODO: build and parse Device instance
+
+        peripheral.discoverServices(Array(requestedCharacteristics.keys)) // TODO: specfiy all request services
+        // TODO: search device type for characteristics ids!
+
+        // TODO: what do we do, if we don't find a request service Id (and characteristic id?)?
+    }
+
+    nonisolated func handleDisconnect(disconnectActivityInterval: TimeInterval) {
+        // TODO: throw ongoing promises with .notConnected?
+
+        self.stateContainer.lastActivity = Date.now - disconnectActivityInterval
     }
 
     nonisolated func markActivity() {
@@ -166,11 +196,20 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver { // TODO: make it E
         self.stateContainer.lastActivity = .now
     }
 
+    /// Determines if the device is considered stale.
+    ///
+    /// This is the case if the device is not connected and the last activity is longer in the past than
+    /// the provided interval.
+    /// - Parameter interval: The time interval after which the device is considered stale.
+    /// - Returns: True if the device is considered stale given the above criteria.
+    nonisolated func isConsideredStale(interval: TimeInterval) -> Bool {
+        state == .disconnected && lastActivity.addingTimeInterval(interval) < .now
+    }
+
     func observeChange<K, V>(of keyPath: KeyPath<K, V>, value: V) async {
         switch keyPath {
         case \CBPeripheral.state:
-            self.stateContainer.state = value as! CBPeripheralState
-            break
+            self.stateContainer.state = .init(from: value as! CBPeripheralState)
         default:
             break
         }
@@ -193,25 +232,10 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver { // TODO: make it E
      }
      */
 
-    func handleConnect() { // TODO: can this be nonisolated?
-        // TODO: build and parse Device instance
-
-        peripheral.discoverServices(Array(requestedCharacteristics.keys)) // TODO: specfiy all request services
-        // TODO: search device type for characteristics ids!
-
-        // TODO: what do we do, if we don't find a request service Id (and characteristic id?)?
-    }
-
-    func handleDisconnect() {
-        // TODO: update state!
-        //  -> close ongoing promises?
-        markActivity() // TODO: ensure device disappears when not scanning?
-    }
-
     /// Call this when things either go wrong, or you're done with the connection.
     /// This cancels any subscriptions if there are any, or straight disconnects if not.
     /// (didUpdateNotificationStateForCharacteristic will cancel the connection if a subscription is involved)
-    func cleanup() { // TODO: this is basically a handle connect error?
+    private func removeAllNotifications() {
         guard case .connected = peripheral.state else {
             return // TODO: does this check make sense?
         }

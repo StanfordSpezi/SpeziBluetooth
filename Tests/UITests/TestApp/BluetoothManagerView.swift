@@ -9,6 +9,7 @@
 import SpeziBluetooth
 import SwiftUI
 
+
 struct BluetoothManagerView: View { // TODO: make this a reusable view (with debug output configuration?)
     @State private var bluetooth = BluetoothManager(discoverBy: [])
 
@@ -29,7 +30,7 @@ struct BluetoothManagerView: View { // TODO: make this a reusable view (with deb
                 }
             }
 
-            if bluetooth.nearbyDevicesView.isEmpty {
+            if bluetooth.nearbyPeripheralsView.isEmpty {
                 VStack {
                     Text("Searching for nearby devices ...")
                         .foregroundColor(.secondary)
@@ -39,15 +40,8 @@ struct BluetoothManagerView: View { // TODO: make this a reusable view (with deb
                     .listRowBackground(Color.clear)
             } else {
                 Section {
-                    ForEach(bluetooth.nearbyDevicesView) { device in
-                        HStack {
-                            Text(device.name ?? "N/A")
-                            Spacer()
-                            if let rssi = device.rssi {
-                                Text("\(rssi) dB")
-                                    .foregroundColor(.secondary)
-                            }
-                        }
+                    ForEach(bluetooth.nearbyPeripheralsView) { device in
+                        DeviceRowView(peripheral: device)
                     }
                 } header: {
                     HStack {
