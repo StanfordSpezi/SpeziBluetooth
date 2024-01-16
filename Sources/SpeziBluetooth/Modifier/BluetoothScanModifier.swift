@@ -46,8 +46,6 @@ private struct BluetoothScanModifier: ViewModifier {
                     // TODO: this doesn't seem to work??
                     manager.scanNearbyDevices() // TODO: pass on auto-connect flag!
                 } else {
-                    // TODO: check API MISUSE???
-                    print("Stopping Scan!")
                     manager.stopScanning()
                 }
             }
@@ -56,7 +54,6 @@ private struct BluetoothScanModifier: ViewModifier {
 
     private func onForeground() {
         if bluetoothPoweredOn {
-            print("SCANNING?")
             manager.scanNearbyDevices()
         }
     }

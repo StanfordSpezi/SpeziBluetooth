@@ -25,4 +25,4 @@ public protocol BluetoothNotificationHandler2: AnyObject {
 
 
 // TODO: how to document?
-public typealias BluetoothNotificationHandler = (_ data: Data, _ service: CBUUID, _ characteristic: CBUUID) async -> Void
+public typealias BluetoothNotificationHandler = (_ data: Data) async -> Void

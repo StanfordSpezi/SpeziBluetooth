@@ -98,19 +98,13 @@ public class Bluetooth: Module {
     ///
     /// - Parameters:
     ///   - services: List of Bluetooth services to manage.
-    public init(discoverBy discoveryCriteria: Set<DiscoveryCriteria>, minimumRSSI: Int = -65) { // TODO: dup of default value
-        bluetoothManager = BluetoothManager(discoverBy: discoveryCriteria, minimumRSSI: minimumRSSI)
+    public init(discovery: Set<DiscoveryConfiguration>, minimumRSSI: Int = -65) { // TODO: dup of default value
+        bluetoothManager = BluetoothManager(discovery: discovery, minimumRSSI: minimumRSSI)
     }
 
     public init(devices: DeviceConfiguration...) {
         // TODO: parameter packs, if the thing is generic?
         fatalError("Not implemented yet?")
-    }
-    
-    /// Default initializer with no services specified.
-    public required convenience init(minimumRSSI: Int = -65) {
-        // TODO: support all discovery!!!?? does that make sense?
-        self.init(discoverBy: [.name("ALL")], minimumRSSI: minimumRSSI)
     }
     
     /// Adds a new message handler to process incoming Bluetooth messages.

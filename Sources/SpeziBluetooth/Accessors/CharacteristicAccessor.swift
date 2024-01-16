@@ -27,8 +27,7 @@ extension CharacteristicAccessors where Value: ByteDecodable {
     // TODO: just bridged some peripheral accesses?
 
     public func read() async throws -> Value {
-        // TODO: Characteristic instance should be enough!
-        let data = try await context.peripheral.read(service: context.service.uuid, characteristic: context.characteristic.uuid)
+        let data = try await context.peripheral.read(characteristic: context.characteristic)
         guard let value = Value(data: data) else {
             // TODO: how to handle this incompatibility?
             throw BluetoothError.concurrentCharacteristicAccess
@@ -41,7 +40,7 @@ extension CharacteristicAccessors where Value: ByteDecodable {
 extension CharacteristicAccessors where Value: ByteEncodable {
     public func write<Response: ByteDecodable>(_ value: Value, expecting response: Response.Type = Response.self) async throws -> Response {
         let requestData = value.encode()
-        let responseData = try await  context.peripheral.write(data: requestData, service: context.service.uuid, characteristic: context.characteristic.uuid)
+        let responseData = try await context.peripheral.write(data: requestData, for: context.characteristic)
 
         guard let response = Response(data: responseData) else {
             // TODO: how to handle this incompatibility?
@@ -54,7 +53,7 @@ extension CharacteristicAccessors where Value: ByteEncodable {
     public func writeWithoutResponse(_ value: Value) async throws {
         // TODO: how to do non response write?
         let data = value.encode()
-        try await context.peripheral.writeWithoutResponse(data: data, service: context.service.uuid, characteristic: context.characteristic.uuid)
+        try await context.peripheral.writeWithoutResponse(data: data, for: context.characteristic)
     }
 }
 

@@ -11,7 +11,7 @@ import SwiftUI
 
 
 struct BluetoothManagerView: View { // TODO: make this a reusable view (with debug output configuration?)
-    @State private var bluetooth = BluetoothManager(discoverBy: [])
+    @State private var bluetooth = BluetoothManager(discovery: []) // discovery any devices!
 
     var body: some View {
         List {

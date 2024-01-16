@@ -12,35 +12,6 @@ import NIOCore
 import Observation
 import OSLog
 
-@Observable
-@propertyWrapper
-public class Observed<Value> { // TODO naming: and do we need this?
-    @Published @ObservationIgnored private var storage: Value
-
-
-    public var wrappedValue: Value {
-        get {
-            access(keyPath: \.wrappedValue)
-            return storage
-        }
-        set {
-            withMutation(keyPath: \.wrappedValue) {
-                storage = newValue
-            }
-        }
-    }
-
-
-    public var projectedValue: Published<Value>.Publisher {
-        $storage
-    }
-
-
-    public init(wrappedValue: Value) {
-        self.storage = wrappedValue
-    }
-}
-
 
 enum AccessorContinuation {
     case read(_ continuation: CheckedContinuation<Data, Error>)
@@ -67,6 +38,7 @@ private final class BluetoothPeripheralState {
     var rssi: Int?
     var state: PeripheralState
     var lastActivity: Date
+    var services: [CBService]? // swiftlint:disable:this discouraged_optional_collection
 
 
     init(name: String?, rssi: Int?, state: CBPeripheralState, lastActivity: Date = .now) {
@@ -89,15 +61,15 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver { // TODO: make it E
     private let delegate: Delegate
     private let stateObserver: KVOStateObserver<BluetoothPeripheral>
 
-    private var discoveredCharacteristics: [Id: CBCharacteristic] = [:] // TODO: are we using that?
-    private var notificationHandler: [BluetoothNotificationHandler] = [] // TODO: integrate + inspect strong retain cycle??
-
     /// Ongoing accessed indexed by characteristic uuid.
-    private var ongoingAccesses: [Id: AccessorContinuation] = [:]
+    private var ongoingAccesses: [CBCharacteristic: AccessorContinuation] = [:]
     /// Continuation for the current write without response access.
     private var writeWithoutResponseAccess: CheckedContinuation<Void, Never>?
     /// Continuation for a currently ongoing rssi read access.
     private var rssiReadAccess: CheckedContinuation<Int, Error>?
+
+    // TODO: add handlers possibility when no instance is present?
+    private var notificationHandlers: [CBCharacteristic: [BluetoothNotificationHandler]] = [:]
 
     /// Observable state container for local state.
     private let stateContainer: BluetoothPeripheralState
@@ -122,6 +94,13 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver { // TODO: make it E
         stateContainer.state
     }
 
+    /// The list of discovery services.
+    ///
+    /// Services are discovered automatically upon connection
+    public nonisolated var services: [CBService]? { // swiftlint:disable:this discouraged_optional_collection
+        stateContainer.services
+    }
+
     nonisolated var lastActivity: Date {
         if case .disconnected = state {
             stateContainer.lastActivity
@@ -132,10 +111,10 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver { // TODO: make it E
     }
 
 
-    init(manager: BluetoothManager, peripheral: CBPeripheral, rssi: NSNumber) {
+    init(manager: BluetoothManager, peripheral: CBPeripheral, requestedCharacteristics: [CBUUID: [CBUUID]], rssi: NSNumber) {
         self.manager = manager
         self.peripheral = peripheral
-        self.requestedCharacteristics = [:] // TODO: actually init these!
+        self.requestedCharacteristics = requestedCharacteristics
 
         self.stateContainer = BluetoothPeripheralState(name: peripheral.name, rssi: rssi.intValue, state: peripheral.state)
 
@@ -215,22 +194,14 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver { // TODO: make it E
         }
     }
 
-    // TODO: dynamically enable notifications!
-    /*
-     /// Adds a new message handler to the list.
-     ///
-     /// - Parameter messageHandler: The handler to add.
-     func add(messageHandler: BluetoothNotificationHandler) {
-        messageHandlers.append(messageHandler)
-     }
+    // TODO: document potential retain cycles
+    public func registerNotifications(for characteristic: CBCharacteristic, _ handler: @escaping BluetoothNotificationHandler) {
+        notificationHandlers[characteristic, default: []].append(handler)
+        // TODO: return a registration to remove it again?
 
-     /// Removes a specified message handler from the list.
-     ///
-     /// - Parameter messageHandler: The handler to remove.
-     func remove(messageHandler: BluetoothNotificationHandler) {
-        messageHandlers.removeAll(where: { $0 === messageHandler })
-     }
-     */
+        // as we get a characteristic instance
+        peripheral.setNotifyValue(true, for: characteristic)
+    }
 
     /// Call this when things either go wrong, or you're done with the connection.
     /// This cancels any subscriptions if there are any, or straight disconnects if not.
@@ -249,46 +220,27 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver { // TODO: make it E
         }
     }
 
-
-    /// Sends data to the connected peripheral.
-    ///
-    /// - Parameters:
-    ///   - data: Data to send.
-    ///   - service: UUID of the service.
-    ///   - characteristic: UUID of the characteristic.
-    public func write(data: Data, service: CBUUID, characteristic: CBUUID) async throws -> Data { // TODO: update docs!
-        let id = Id(serviceId: service, characteristicId: characteristic)
-
+    public func write(data: Data, for characteristic: CBCharacteristic) async throws -> Data { // TODO: update docs!
         guard case .connected = peripheral.state else {
-            throw BluetoothError.notConnected
-        }
-
-        guard let characteristic = discoveredCharacteristics[id] else {
             throw BluetoothError.notConnected
         }
 
         // TODO: logger!
 
-        guard ongoingAccesses[id] == nil else {
+        guard ongoingAccesses[characteristic] == nil else {
             throw BluetoothError.concurrentCharacteristicAccess
         }
 
         // TODO: timeout?
         return try await withCheckedThrowingContinuation { continuation in
             // using updateValue as of https://github.com/apple/swift/issues/63156. Revert to subscript access with Swift 5.10
-            ongoingAccesses.updateValue(.write(continuation), forKey: id)
+            ongoingAccesses.updateValue(.write(continuation), forKey: characteristic)
             peripheral.writeValue(data, for: characteristic, type: .withResponse)
         }
     }
 
-    public func writeWithoutResponse(data: Data, service: CBUUID, characteristic: CBUUID) async throws {
-        let id = Id(serviceId: service, characteristicId: characteristic)
-
+    public func writeWithoutResponse(data: Data, for characteristic: CBCharacteristic) async throws {
         guard case .connected = peripheral.state else {
-            throw BluetoothError.notConnected
-        }
-
-        guard let characteristic = discoveredCharacteristics[id] else {
             throw BluetoothError.notConnected
         }
 
@@ -312,19 +264,12 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver { // TODO: make it E
         }
     }
 
-    /// Requests a read of a combination of service and characteristic
-    public func read(service: CBUUID, characteristic: CBUUID) async throws -> Data {
-        let id = Id(serviceId: service, characteristicId: characteristic)
-
+    public func read(characteristic: CBCharacteristic) async throws -> Data {
         guard case .connected = peripheral.state else {
             throw BluetoothError.notConnected
         }
 
-        guard let characteristic = discoveredCharacteristics[id] else {
-            throw BluetoothError.notConnected
-        }
-
-        guard ongoingAccesses[id] == nil else {
+        guard ongoingAccesses[characteristic] == nil else {
             // TODO: could just piggy pack on an existing read?
             throw BluetoothError.concurrentCharacteristicAccess
         }
@@ -332,7 +277,7 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver { // TODO: make it E
         // TODO: timeout?
         return try await withCheckedThrowingContinuation { continuation in
             // using updateValue as of https://github.com/apple/swift/issues/63156. Revert to subscript access with Swift 5.10
-            ongoingAccesses.updateValue(.read(continuation), forKey: id)
+            ongoingAccesses.updateValue(.read(continuation), forKey: characteristic)
             peripheral.readValue(for: characteristic)
         }
     }
@@ -378,20 +323,14 @@ extension BluetoothPeripheral {
     }
 
     fileprivate func discovered(characteristics: [CBCharacteristic], for service: CBService) {
-        // TODO: retrieve for which characteristics we need to auto-subscribe? (peripheral.setNotifyValue(true, for: characteristic))
-        for characteristic in characteristics {
-            let id = Id(serviceId: service.uuid, characteristicId: characteristic.uuid)
-            self.discoveredCharacteristics[id] = characteristic // TODO: duplicate check?
+        // automatically subscribe to discovered characteristics for which we have a handler subscribed!
+        for characteristic in characteristics where notificationHandlers[characteristic] != nil {
+            peripheral.setNotifyValue(true, for: characteristic)
         }
     }
 
-    fileprivate func invalidated(services: [CBUUID]) {
-        let invalidatedIds = discoveredCharacteristics.keys
-            .filter { services.contains($0.serviceId) }
-
-        for id in invalidatedIds {
-            discoveredCharacteristics.removeValue(forKey: id)
-        }
+    fileprivate func invalidated(services: [CBService]) {
+        // TODO: do we need to remove any characteristic state???
     }
 
     fileprivate func receivedReadyNotification() {
@@ -403,57 +342,44 @@ extension BluetoothPeripheral {
         writeWithoutResponseAccess.resume()
     }
 
-    fileprivate func receivedUpdatedValue(for id: Id, result: Result<Data, Error>) async {
+    fileprivate func receivedUpdatedValue(for characteristic: CBCharacteristic, result: Result<Data, Error>) async {
         // TODO: update `Characteristic` properties of device model!
-        if case let .read(continuation) = ongoingAccesses[id] {
-            ongoingAccesses[id] = nil
+        if case let .read(continuation) = ongoingAccesses[characteristic] {
+            ongoingAccesses[characteristic] = nil
 
             if case let .failure(error) = result {
-                logger.debug("Characteristic read for \(id) returned with error: \(error)")
+                // TODO: update log name for characteristic (service+characteristic comby)
+                logger.debug("Characteristic read for \(characteristic.uuid) returned with error: \(error)")
             }
 
             continuation.resume(with: result)
         } else {
             switch result {
             case let .success(data):
-                for handler in notificationHandler {
-                    await handler(data, id.serviceId, id.characteristicId)
+                for handler in notificationHandlers[characteristic, default: []] {
+                    await handler(data)
                 }
             case let .failure(error):
-                logger.debug("Received unsolicited value update error for \(id): \(error)")
+                logger.debug("Received unsolicited value update error for \(characteristic.uuid): \(error)") // TODO logName!
             }
         }
     }
 
-    fileprivate func receivedWriteResponse(for id: Id, result: Result<Data, Error>) {
+    fileprivate func receivedWriteResponse(for characteristic: CBCharacteristic, result: Result<Data, Error>) {
         // TODO: update `Characteristic` properties of device model!
-        guard case let .write(continuation) = ongoingAccesses[id] else {
+        guard case let .write(continuation) = ongoingAccesses[characteristic] else {
             // TODO: log that we had a write without continuation???
             return
         }
 
-        ongoingAccesses[id] = nil
+        ongoingAccesses[characteristic] = nil
 
         if case let .failure(error) = result {
-            logger.debug("Characteristic write for \(id) returned with error: \(error)")
+            // TODO: char logName
+            logger.debug("Characteristic write for \(characteristic.uuid) returned with error: \(error)")
         }
 
         continuation.resume(with: result)
-        /*
-
-         guard case let .write(continuation) = device.ongoingAccesses[id] else {
-         // TODO: log that we had a write without continuation???
-         return
-         }
-
-         device.ongoingAccesses[id] = nil
-
-         if let error {
-         continuation.resume(throwing: error)
-         } else if let data = characteristic.value { // TODO: is that how we get the write response???
-         continuation.resume(returning: data)
-         } // TODO: do we resume the continuation?
-         */
     }
 }
 
@@ -510,17 +436,20 @@ extension BluetoothPeripheral {
             let serviceIds = invalidatedServices.map { $0.uuid }
             logger.debug("Services modified, invalidating \(serviceIds)")
 
-            Task {
-                await device.invalidated(services: serviceIds)
+            // update our local model
+            device.stateContainer.services?.removeAll(where: { invalidatedServices.contains($0) })
+            // TODO: does this change our ongoing CBCharacteristic instances?? (Cancel Continuations, what is with notification handlers?)
 
-                peripheral.discoverServices(invalidatedServices.map { $0.uuid })
+            Task {
+                await device.invalidated(services: invalidatedServices)
+
+                peripheral.discoverServices(serviceIds)
             }
         }
 
         func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
             if let error {
                 logger.error("Error discovering services: \(error.localizedDescription)")
-                // TODO: cleanup() // TODO: we need to call the bluetooth manager here to cancel everything!
                 return
             }
 
@@ -528,8 +457,11 @@ extension BluetoothPeripheral {
                 return
             }
 
+            // update our local model for observability
+            device.stateContainer.services = peripheral.services
+
             for service in services {
-                // TODO: support querying everything?
+                // TODO: support querying all characteristics!
                 guard let requestedCharacteristics = device.requestedCharacteristics[service.uuid] else {
                     continue
                 }
@@ -542,7 +474,6 @@ extension BluetoothPeripheral {
         func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
             if let error = error {
                 logger.error("Error discovering characteristics: \(error.localizedDescription)")
-                // TODO: ??? cleanup()
                 return
             }
 
@@ -556,39 +487,23 @@ extension BluetoothPeripheral {
         }
 
         func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
-            guard let serviceId = characteristic.service?.uuid else {
-                // TODO: fallback to ?? serviceId(forCharacteristic: characteristic.uuid)
-                logger.error("Error identifying service id for characteristic \(characteristic.uuid)")
-                return
-            }
-
-            let id = Id(serviceId: characteristic.uuid, characteristicId: serviceId)
-            let value = characteristic.value // this way, no need to capture the characteristic
-
             Task {
                 if let error {
-                    await device.receivedUpdatedValue(for: id, result: .failure(error))
-                } else if let value {
-                    await device.receivedUpdatedValue(for: id, result: .success(value))
+                    await device.receivedUpdatedValue(for: characteristic, result: .failure(error))
+                } else if let value = characteristic.value {
+                    await device.receivedUpdatedValue(for: characteristic, result: .success(value))
                 }
             }
         }
 
         func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
-            guard let serviceId = characteristic.service?.uuid else {
-                // TODO: fallback to ?? serviceId(forCharacteristic: characteristic.uuid)
-                logger.error("Error identifying service id for characteristic \(characteristic.uuid)")
-                return
-            }
-
-            let id = Id(serviceId: characteristic.uuid, characteristicId: serviceId)
-            let value = characteristic.value // TODO: here and above, we have to check for race condition or thread access?
+            // TODO: here and above, we have to check for race condition or thread access?
 
             Task {
                 if let error {
-                    await device.receivedWriteResponse(for: id, result: .failure(error))
-                } else if let value {
-                    await device.receivedWriteResponse(for: id, result: .success(value))
+                    await device.receivedWriteResponse(for: characteristic, result: .failure(error))
+                } else if let value = characteristic.value {
+                    await device.receivedWriteResponse(for: characteristic, result: .success(value))
                 }
             }
         }
@@ -619,4 +534,3 @@ extension BluetoothPeripheral {
         }
     }
 }
-

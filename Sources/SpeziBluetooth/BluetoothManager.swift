@@ -19,11 +19,12 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothManager")
     /// The dispatch queue for all Bluetooth related functionality. This is serial (not `.concurrent`) to ensure synchronization.
     private let dispatchQueue = DispatchQueue(label: "edu.stanford.spezi.bluetooth", qos: .userInitiated)
-    @ObservationIgnored private var centralManager: CBCentralManager! // swiftlint:disable:this implicitly_unwrapped_optional
 
+    private let discovery: Set<DiscoveryConfiguration>
+    private let minimumRSSI: Int
+
+    @ObservationIgnored private var centralManager: CBCentralManager! // swiftlint:disable:this implicitly_unwrapped_optional
     @ObservationIgnored private var isScanningObserver: KVOStateObserver<BluetoothManager>?
-    private let discoveryCriteria: Set<DiscoveryCriteria> // TODO: how to search for a name?
-    private let minimumRSSI: Int // TODO: configurable
 
     /// Represents the current state of the Bluetooth Manager.
     public private(set) var state: BluetoothState
@@ -32,10 +33,9 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
     /// The list of discovered and connected bluetooth devices indexed by their identifier UUID.
     /// The state is isolated to our `dispatchQueue`.
     private var discoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> = [:]
-    // TODO: those are never removed! what to do after disconnect?
 
     /// The time interval after which an advertisement is considered stale and the device is removed.
-    private let advertisementStaleInterval: TimeInterval // TODO: enforce minimum time? e.g. 1s?
+    private let advertisementStaleInterval: TimeInterval // TODO: enforce minimum time? e.g. 1s? and maximum, 30s?
     @ObservationIgnored private var staleTimer: DiscoveryStaleTimer?
 
     /// The list of nearby bluetooth devices.
@@ -53,23 +53,17 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
         discoveredPeripherals.values
     }
 
-    /// The device with the oldest device activity.
-    private var oldestActivityDevice: BluetoothPeripheral? { // TODO: rename
-        // when we are just interested in the min device, this operation is a bit cheaper then sorting the whole list
-        nearbyPeripheralsView
-            .filter { $0.state == .disconnected }
-            .min { lhs, rhs in
-                lhs.lastActivity < rhs.lastActivity
-            }
-    }
-
-    private var serviceDiscoveryIds: [CBUUID] {
-        discoveryCriteria.compactMap { criteria in
-            if case let .primaryService(uuid) = criteria {
+    /// The set of serviceIds we request to discover upon scanning.
+    /// Returning nil means scanning for all peripherals.
+    private var serviceDiscoveryIds: [CBUUID]? { // swiftlint:disable:this discouraged_optional_collection
+        let discoveryIds = discovery.compactMap { configuration in
+            if case let .primaryService(uuid) = configuration.criteria {
                 return uuid
             }
             return nil
         }
+
+        return discoveryIds.isEmpty ? nil : discoveryIds
     }
 
     
@@ -81,9 +75,9 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
     ///   - services: List of Bluetooth services to manage.
     ///   - messageHandlers: List of handlers for processing incoming Bluetooth messages.
     ///   - minimumRSSI: Minimum RSSI value to consider when discovering peripherals.
-    public init(discoverBy discoveryCriteria: Set<DiscoveryCriteria>, minimumRSSI: Int = -65, advertisementStaleTimeout: TimeInterval = 10) {
+    public init(discovery: Set<DiscoveryConfiguration>, minimumRSSI: Int = -65, advertisementStaleTimeout: TimeInterval = 10) {
         // TODO: update docs!
-        self.discoveryCriteria = discoveryCriteria
+        self.discovery = discovery
         self.minimumRSSI = minimumRSSI
         self.advertisementStaleInterval = advertisementStaleTimeout
 
@@ -113,10 +107,7 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
 
         centralManager.scanForPeripherals(
             withServices: serviceDiscoveryIds,
-            options: [
-                CBCentralManagerScanOptionAllowDuplicatesKey: true,
-                CBCentralManagerOptionShowPowerAlertKey: true // TODO: this is not a peripheral scanning option (DOES NOT WORK!)
-            ]
+            options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
         )
     }
 
@@ -138,15 +129,20 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
     }
 
     func connect(peripheral: BluetoothPeripheral) async {
+        logger.debug("Trying to connect to \(peripheral.cbPeripheral.logName) ...")
+        
         await withCheckedContinuation { continuation in
-            dispatchQueue.async {
+            dispatchQueue.async { [weak self] in
+                guard let self = self else {
+                    return
+                }
+
                 let cancelled = self.cancelStaleTask(for: peripheral)
 
-                self.centralManager.connect(peripheral.cbPeripheral, options: nil) // TODO: review connect options
+                self.centralManager.connect(peripheral.cbPeripheral, options: nil)
 
                 if cancelled {
-                    self.scheduleStaleTaskForOldestActivityDevice()
-                    assert(self.staleTimer?.targetDevice != peripheral.id, "Scheduled stale timer for currently connecting device!")
+                    self.scheduleStaleTaskForOldestActivityDevice(ignore: peripheral)
                 }
 
                 continuation.resume()
@@ -162,7 +158,7 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
     func observeChange<K, V>(of keyPath: KeyPath<K, V>, value: V) async {
         switch keyPath {
         case \CBCentralManager.isScanning:
-            self.isScanning = value as! Bool
+            self.isScanning = value as! Bool // swiftlint:disable:this force_cast
             if !isScanning {
                 handleStoppedScanning()
             }
@@ -186,8 +182,8 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
         timer.schedule(for: timeout, in: dispatchQueue)
     }
 
-    private func scheduleStaleTaskForOldestActivityDevice() {
-        if let oldestActivityDevice {
+    private func scheduleStaleTaskForOldestActivityDevice(ignore device: BluetoothPeripheral? = nil) {
+        if let oldestActivityDevice = oldestActivityDevice(ignore: device) {
             let nextTimeout = Date.now.timeIntervalSince(oldestActivityDevice.lastActivity)
             scheduleStaleTask(for: oldestActivityDevice, withTimeout: nextTimeout)
         }
@@ -201,6 +197,17 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
         staleTimer.cancel()
         self.staleTimer = nil
         return true
+    }
+
+    /// The device with the oldest device activity.
+    /// - Parameter device: The device to ignore.
+    private func oldestActivityDevice(ignore device: BluetoothPeripheral? = nil) -> BluetoothPeripheral? {
+        // when we are just interested in the min device, this operation is a bit cheaper then sorting the whole list
+        nearbyPeripheralsView
+            .filter { $0.state == .disconnected && $0.id != device?.id }
+            .min { lhs, rhs in
+                lhs.lastActivity < rhs.lastActivity
+            }
     }
 
     private func handleStaleTask() {
@@ -230,8 +237,6 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
             // Start working with the peripheral
             logger.info("CBManager is powered on")
             self.state = .poweredOn
-
-            // TODO: configure auto discovery?
         case .poweredOff:
             logger.info("CBManager is not powered on")
             self.state = .poweredOff
@@ -260,7 +265,6 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
         }
     }
 
-    // TODO: 10s a good advertising max?
     public func centralManager(
         _ central: CBCentralManager,
         didDiscover peripheral: CBPeripheral,
@@ -269,8 +273,9 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
         // swiftlint:disable:next legacy_objc_type
         rssi: NSNumber
     ) {
-        // TODO: special 128 rssi, what was that again?
-        guard rssi.intValue >= minimumRSSI else { // ensure the signal strength is not too low
+        // rssi of 127 is a magic value signifying unavailability of the value.
+        // TODO: not true: Connecting to such a device will most likely crash.
+        guard rssi.intValue >= minimumRSSI, rssi.intValue != 127 else { // ensure the signal strength is not too low
             return // logging this would just be to verbose, so we don't.
         }
 
@@ -286,11 +291,17 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
             return
         }
 
-        logger.debug("Discovered peripheral \(peripheral.logName) at \(rssi.intValue) dB")
+        // TODO: see how advertisement data looks like for peripherals that advertise a primary service
+        //  + are .services prepopulated there?
+        // TODO: Refer to `isPrimary` property for fallback!
 
-        // TODO: are peripheral.services populated?
+        // TODO: inspect CBAdvertisementDataIsConnectable?
+        // TODO: make advertisement data accessible: https://github.com/Polidea/RxBluetoothKit/blob/master/Source/AdvertisementData.swift
 
-        let device = BluetoothPeripheral(manager: self, peripheral: peripheral, rssi: rssi)
+        logger.debug("Discovered peripheral \(peripheral.logName) at \(rssi.intValue) dB (data: \(advertisementData))")
+
+        // TODO: how to pass requestedCharacteristics!???
+        let device = BluetoothPeripheral(manager: self, peripheral: peripheral, requestedCharacteristics: [:], rssi: rssi)
         discoveredPeripherals[peripheral.identifier] = device // save local-copy, such CB doesn't deallocate it
 
 

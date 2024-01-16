@@ -12,12 +12,10 @@ import Foundation
 
 class CharacteristicContext {
     let peripheral: BluetoothPeripheral
-    let service: CBService
     let characteristic: CBCharacteristic
 
-    init(peripheral: BluetoothPeripheral, service: CBService, characteristic: CBCharacteristic) {
+    init(peripheral: BluetoothPeripheral, characteristic: CBCharacteristic) {
         self.peripheral = peripheral
-        self.service = service
         self.characteristic = characteristic
     }
 }
