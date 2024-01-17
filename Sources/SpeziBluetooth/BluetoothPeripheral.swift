@@ -193,7 +193,8 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
                 result[configuration.serviceId, default: []].append(contentsOf: configuration.characteristics)
             }
         } else {
-            stateContainer.requestedCharacteristics = nil // all services will be discovered
+            // all services will be discovered
+            stateContainer.requestedCharacteristics = nil
         }
 
         logger.debug("Discovering services for \(self.peripheral.debugIdentifier) ...")
@@ -223,6 +224,13 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
     /// - Returns: True if the device is considered stale given the above criteria.
     nonisolated func isConsideredStale(interval: TimeInterval) -> Bool {
         state == .disconnected && lastActivity.addingTimeInterval(interval) < .now
+    }
+
+    nonisolated func matches(criteria: DiscoveryCriteria) -> Bool {
+        switch criteria {
+        case let .primaryService(uuid):
+            return advertisementData.serviceUUIDs?.contains(uuid) ?? false
+        }
     }
 
     func observeChange<K, V>(of keyPath: KeyPath<K, V>, value: V) async {

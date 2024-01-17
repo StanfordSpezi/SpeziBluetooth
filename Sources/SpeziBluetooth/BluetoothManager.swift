@@ -49,6 +49,7 @@ public class BluetoothManager: KVOReceiver {
     public private(set) var state: BluetoothState
     /// Whether or not we are currently scanning for nearby devices.
     public private(set) var isScanning: Bool
+    private var autoConnect = false
     /// The list of discovered and connected bluetooth devices indexed by their identifier UUID.
     /// The state is isolated to our `dispatchQueue`.
     private var discoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> = [:]
@@ -116,11 +117,21 @@ public class BluetoothManager: KVOReceiver {
         isScanningObserver = KVOStateObserver<BluetoothManager>(receiver: self, entity: centralManager, property: \.isScanning)
     }
 
-    public func scanNearbyDevices() {
+    /// Scan for nearby bluetooth devices.
+    ///
+    /// Scans on nearby devices based on the ``DiscoveryConfiguration`` provided in the initializer.
+    /// All discovered devices can be accessed through the ``nearbyPeripherals`` property.
+    ///
+    /// - Parameter autoConnect: If enabled, the bluetooth manager will automatically connect to the nearby device if only one is found.
+    public func scanNearbyDevices(autoConnect: Bool = false) {
         // TODO: just scan for nearby devices? or also call retrieveConnectedPeripherals?
         //   let connectedPeripherals = centralManager.retrieveConnectedPeripherals(withServices: services.map(\.serviceUUID))
         //   logger.debug("Found connected Peripherals with transfer service: \(connectedPeripherals.debugDescription)")
         //   => might need to call connect on this?
+
+
+        // TODO: auto-connect flag => find first and then connect if unique (for a certain back off period)?
+        self.autoConnect = autoConnect
 
         centralManager.scanForPeripherals(
             withServices: serviceDiscoveryIds,
@@ -128,6 +139,7 @@ public class BluetoothManager: KVOReceiver {
         )
     }
 
+    /// Stop scanning for nearby bluetooth devices.
     public func stopScanning() {
         if centralManager.isScanning { // transitively checks for state == .poweredOn
             centralManager.stopScan()
@@ -136,6 +148,8 @@ public class BluetoothManager: KVOReceiver {
     }
 
     func handleStoppedScanning() {
+        self.autoConnect = false
+
         let devices = nearbyPeripheralsView.filter { device in
             device.state == .disconnected
         }

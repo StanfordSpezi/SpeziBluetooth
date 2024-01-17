@@ -19,11 +19,16 @@ public class DeviceState<Value> { // TODO: can appear anywhere right?
         return peripheral[keyPath: keyPath]
     }
 
-    var peripheral: BluetoothPeripheral?
+    private var peripheral: BluetoothPeripheral?
 
 
     public init(_ keyPath: KeyPath<BluetoothPeripheral, Value>) {
         self.keyPath = keyPath
+    }
+
+
+    func inject(peripheral: BluetoothPeripheral) {
+        self.peripheral = peripheral
     }
 }
 

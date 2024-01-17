@@ -8,6 +8,7 @@
 
 import Foundation
 import NIO
+import NIOFoundationCompat
 
 
 extension String: ByteCodable {

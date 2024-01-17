@@ -15,6 +15,8 @@ public enum BluetoothError: String, Error, CustomStringConvertible, LocalizedErr
     case concurrentWriteCharacteristicAccess
     /// Could not decode the ByteBuffer into the provided ByteDecodable.
     case incompatibleDataFormat
+    /// Thrown when accessing a ``Characteristic`` when the device is not connected yet.
+    case notConnected // TODO: can we throw CBErrors?
 
     
     /// Provides a human-readable description of the error.
@@ -29,6 +31,8 @@ public enum BluetoothError: String, Error, CustomStringConvertible, LocalizedErr
             "Concurrent Characteristic Access" // TODO: translate error!
         case .incompatibleDataFormat:
             "Incompatible Data Format"
+        case .notConnected:
+            "Not Connected"
         }
     }
 }

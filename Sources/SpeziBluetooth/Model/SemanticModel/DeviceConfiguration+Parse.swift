@@ -6,8 +6,9 @@
 // SPDX-License-Identifier: MIT
 //
 
+// TODO: review all naming?
 
-struct CharacteristicsBuilder: ServiceVisitor {
+private struct CharacteristicsBuilder: ServiceVisitor {
     var characteristics: [CBUUID] = [] // TODO: make this a set?
 
     mutating func visit<Value>(_ characteristic: Characteristic<Value>) {
@@ -16,7 +17,7 @@ struct CharacteristicsBuilder: ServiceVisitor {
 }
 
 
-struct ServiceConfigurationBuilder: DeviceVisitor {
+private struct ServiceConfigurationBuilder: DeviceVisitor {
     var configurations: Set<ServiceConfiguration> = []
 
     mutating func visit<S: BluetoothService>(_ service: Service<S>) {

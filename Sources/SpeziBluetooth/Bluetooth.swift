@@ -6,14 +6,8 @@
 // SPDX-License-Identifier: MIT
 //
 
-import Combine
-import CoreBluetooth
-import Foundation
-import NIO
-import NIOFoundationCompat
 import Observation
 import Spezi
-import UIKit
 
 
 // TODO: "Enable applications to connect to Bluetooth devices using modern programming paradigms."???
@@ -84,12 +78,11 @@ import UIKit
 ///
 /// > Tip: You can find a more extensive example in the main <doc:SpeziBluetooth> documentation.
 @Observable
-// TODO: @dynamicMemberLookup
 public class Bluetooth: Module {
     private let bluetoothManager: BluetoothManager
-    private let deviceConfiguration: Set<DeviceConfiguration>
+    private let deviceConfigurations: Set<DeviceConfiguration> // TODO: index by type?
 
-    
+
     /// Represents the current state of Bluetooth.
     public var state: BluetoothState {
         bluetoothManager.state
@@ -107,15 +100,44 @@ public class Bluetooth: Module {
         let configuration = devices()
 
         self.bluetoothManager = BluetoothManager(discovery: Set(configuration.map { $0.parseDiscoveryConfiguration() }))
-        self.deviceConfiguration = configuration // TODO: when to init the devices?
+        self.deviceConfigurations = configuration // TODO: when to init the devices?
+
+        // TODO for each "Discover" entry, inject a nearby devices list for this type and a connected devices optional?
     }
 
-    // TODO: start and stop scanning?
-
-
-    /*
-    public subscript<Value>(dynamicMember keyPath: KeyPath<BluetoothManager, Value>) -> Value {
-        bluetoothManager[keyPath: keyPath]
+    private func observeNearbyDevices() {
+        withObservationTracking {
+            _ = bluetoothManager.nearbyPeripheralsView
+        } onChange: {
+            // TODO: check what nearby devices are new/gone/existent => create Device for it!
+            self.observeNearbyDevices()
+        }
     }
-     */
+
+    public func nearbyDevices<Device: BluetoothDevice>(for device: Device.Type = Device.self) -> [Device] {
+        guard let configuration = deviceConfigurations.first(where: { $0.anyDeviceType == device }) else {
+            return []
+        }
+
+        return bluetoothManager.nearbyPeripheralsView.compactMap { peripheral in
+            guard peripheral.matches(criteria: configuration.discoveryCriteria) else {
+                return nil
+            }
+
+            let device = Device() // TODO: don't create it always?
+            device.inject(peripheral: peripheral)
+
+            return device
+        }
+    }
+
+    // TODO: make BluetoothDeviceScanner protocol for both methods below (+ modifier implementation)
+
+    public func scanNearbyDevices(autoConnect: Bool = false) { // TODO copy docs
+        bluetoothManager.scanNearbyDevices(autoConnect: autoConnect)
+    }
+
+    public func stopScanning() {
+        bluetoothManager.stopScanning()
+    }
 }

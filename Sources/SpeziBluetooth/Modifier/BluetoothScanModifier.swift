@@ -12,11 +12,8 @@ import SwiftUI
 
 private struct BluetoothScanModifier: ViewModifier {
     private let manager: BluetoothManager
+    private let autoConnect: Bool
 
-
-    init(manager: BluetoothManager) {
-        self.manager = manager
-    }
 
     private var bluetoothPoweredOn: Bool {
         if case .poweredOn = manager.state {
@@ -28,6 +25,11 @@ private struct BluetoothScanModifier: ViewModifier {
 #else
         return ProcessInfo.processInfo.isPreviewSimulator
 #endif
+    }
+
+    init(manager: BluetoothManager, autoConnect: Bool) {
+        self.manager = manager
+        self.autoConnect = autoConnect
     }
 
 
@@ -44,7 +46,7 @@ private struct BluetoothScanModifier: ViewModifier {
             .onChange(of: manager.state) {
                 if case .poweredOn = manager.state {
                     // TODO: this doesn't seem to work sometimes?
-                    manager.scanNearbyDevices() // TODO: pass on auto-connect flag!
+                    manager.scanNearbyDevices(autoConnect: autoConnect)
                 } else {
                     manager.stopScanning()
                 }
@@ -54,7 +56,7 @@ private struct BluetoothScanModifier: ViewModifier {
 
     private func onForeground() {
         if bluetoothPoweredOn {
-            manager.scanNearbyDevices()
+            manager.scanNearbyDevices(autoConnect: autoConnect)
         }
     }
 
@@ -66,8 +68,21 @@ private struct BluetoothScanModifier: ViewModifier {
 
 extension View {
     // TODO: can this be a protocol?
-    // TODO: auto-connect flag => find first and then connect if unique (for a certain back off period)?
-    public func scanNearbyDevices(with manager: BluetoothManager) -> some View {
-        modifier(BluetoothScanModifier(manager: manager))
+
+    /// Scan for nearby bluetooth devices.
+    ///
+    /// Scans on nearby devices based on the ``DiscoveryConfiguration`` provided in the ``BluetoothManager/init(discovery:minimumRSSI:advertisementStaleTimeout:)``.
+    /// All discovered devices can be accessed through the ``BluetoothManager/nearbyPeripherals`` property.
+    ///
+    /// Nearby device search is automatically paused when the view disappears or if the app enters background and
+    /// is automatically started again when the view appears or the app enters the foreground again.
+    /// Further, scanning is automatically started if Bluetooth is turned on by the user while the view was already presented.
+    ///
+    /// - Parameters:
+    ///   - manager: The Bluetooth Manager to use for scanning.
+    ///   - autoConnect: If enabled, the bluetooth manager will automatically connect to the nearby device if only one is found.
+    /// - Returns: The modified view.
+    public func scanNearbyDevices(with manager: BluetoothManager, autoConnect: Bool = false) -> some View {
+        modifier(BluetoothScanModifier(manager: manager, autoConnect: autoConnect))
     }
 }

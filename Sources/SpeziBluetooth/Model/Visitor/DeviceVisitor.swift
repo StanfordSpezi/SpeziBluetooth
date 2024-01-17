@@ -23,8 +23,9 @@ extension BluetoothDevice {
         for (_, child) in mirror.children {
             if let visitable = child as? DeviceVisitable {
                 visitable.accept(&visitor)
+            } else if child is ServiceVisitable {
+                // TODO: maybe some logger to catch illegal @Characteristic stuff?
             }
-            // TODO: maybe some logger to catch illegal @Characteristic stuff?
         }
     }
 }

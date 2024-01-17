@@ -12,10 +12,12 @@ import Foundation
 
 class CharacteristicContext {
     let peripheral: BluetoothPeripheral
-    let characteristic: CBCharacteristic
+    let serviceId: CBUUID
+    let characteristic: CBCharacteristic? // nil if device is not connected yet
 
-    init(peripheral: BluetoothPeripheral, characteristic: CBCharacteristic) {
+    init(peripheral: BluetoothPeripheral, serviceId: CBUUID, characteristic: CBCharacteristic?) {
         self.peripheral = peripheral
+        self.serviceId = serviceId
         self.characteristic = characteristic
     }
 }
@@ -24,15 +26,13 @@ class CharacteristicContext {
 @Observable
 @propertyWrapper
 public class Characteristic<Value> {
-    let id: CBUUID // TODO: we need to inject the serviceId this characteristic lives in!
+    let id: CBUUID
 
-    // TODO: how to we get the characteristic id?
     public private(set) var wrappedValue: Value? // TODO: make sure observable works!
     // TODO: update the wrapped value!
 
     public var projectedValue: CharacteristicAccessors<Value> {
         guard let context else {
-            // TODO: we might want to fail gracefully? with a non-connected error!
             preconditionFailure("Failed to ") // TODO: message!
         }
         return CharacteristicAccessors(id: id, context: context)
@@ -40,13 +40,21 @@ public class Characteristic<Value> {
 
     // TODO: this must not capture the bluetooth device!!!
     // TODO: how to we deal with non connected devices or referencing disappearing?
-    var context: CharacteristicContext? // TODO: injected at some point!
+    private var context: CharacteristicContext? // TODO: injected at some point!
 
     // TODO auto subscribe to notify
     fileprivate init(wrappedValue: Value? = nil, characteristic: CBUUID) {
         self.wrappedValue = wrappedValue
         self.id = characteristic
         // TODO: allow to specify auto subscription!
+    }
+
+
+    func inject(peripheral: BluetoothPeripheral, serviceId: CBUUID, service: CBService?) {
+        let characteristic = service?.characteristics?.first(where: { $0.uuid == self.id })
+
+        // TODO: subscribe to updates on the services property, to set the characteristics property eventually?
+        self.context = CharacteristicContext(peripheral: peripheral, serviceId: serviceId, characteristic: characteristic)
     }
 }
 

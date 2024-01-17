@@ -40,10 +40,15 @@ public class DeviceAction<Action: _BluetoothPeripheralAction> {
         return Action(from: peripheral)
     }
 
-    var peripheral: BluetoothPeripheral?
+    private var peripheral: BluetoothPeripheral?
 
 
     public init(_ keyPath: KeyPath<DeviceActions, Action.Type>) {}
+
+
+    func inject(peripheral: BluetoothPeripheral) {
+        self.peripheral = peripheral
+    }
 }
 
 
