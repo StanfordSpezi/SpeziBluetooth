@@ -10,9 +10,8 @@ import CoreBluetooth
 import Observation
 
 
-// TODO rename:
-public protocol BluetoothService: AnyObject { // TODO GATTService name?
-    // TODO enum type for Characteristic Ids? (and for service?)
+public protocol BluetoothService: AnyObject { // TODO: GATTService name?
+    // TODO: enum type for Characteristic Ids? (and for service?)
 }
 
 

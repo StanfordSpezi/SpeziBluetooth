@@ -7,7 +7,7 @@
 //
 
 
-/// Represents the various states of a Bluetooth module.
+/// Represents the various states of the ``BluetoothManager``.
 public enum BluetoothState: String { // TODO: make all the state enums not string raw value but just description (localized description?)
     /// The Bluetooth module is turned off.
     case poweredOff
@@ -20,15 +20,6 @@ public enum BluetoothState: String { // TODO: make all the state enums not strin
 
     // TODO: docs
     case poweredOn
-    
-    /// The Bluetooth module is not connected to any device.
-    // TODO: case disconnected
-    
-    /// The Bluetooth module is actively scanning for nearby devices.
-    // TODO: case scanning
-    
-    /// The Bluetooth module is successfully connected to a device.
-    // TODO: case connected
 }
 
 // TODO: localized string representable?

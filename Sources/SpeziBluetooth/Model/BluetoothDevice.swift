@@ -7,7 +7,7 @@
 //
 
 
+// TODO docs
 public protocol BluetoothDevice: AnyObject {
-    // TODO: somehow allow access to general device state (connected?, name?, undlerying CBPeripheral?)
     init()
 }

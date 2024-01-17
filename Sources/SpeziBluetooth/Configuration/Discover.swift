@@ -12,7 +12,7 @@ public struct Discover<Device: BluetoothDevice> {
     let discoveryCriteria: DiscoveryCriteria
 
 
-    public init(_ device: Device.Type = Device.self, by discoveryCriteria: DiscoveryCriteria) {
+    public init(_ device: Device.Type, by discoveryCriteria: DiscoveryCriteria) {
         self.deviceType = device
         self.discoveryCriteria = discoveryCriteria
     }

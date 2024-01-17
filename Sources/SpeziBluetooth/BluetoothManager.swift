@@ -14,8 +14,25 @@ import OSLog
 
 
 /// Manages the Bluetooth connections, state, and data transfer.
+///
+/// ## Topics
+///
+/// ### Create a Bluetooth Manager
+///
+/// - ``init(discovery:minimumRSSI:advertisementStaleTimeout:)``
+///
+/// ### Tracking State
+///
+/// - ``state``
+/// - ``isScanning``
+///
+/// ### Discovering nearby Peripherals
+/// - ``scanNearbyDevices()``
+/// - ``stopScanning()``
+/// - ``nearbyPeripherals``
+/// - ``nearbyPeripheralsView``
 @Observable
-public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver { // TODO: make delegate separate?
+public class BluetoothManager: KVOReceiver {
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothManager")
     /// The dispatch queue for all Bluetooth related functionality. This is serial (not `.concurrent`) to ensure synchronization.
     private let dispatchQueue = DispatchQueue(label: "edu.stanford.spezi.bluetooth", qos: .userInitiated)
@@ -25,6 +42,7 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
     private let minimumRSSI: Int
 
     @ObservationIgnored private var centralManager: CBCentralManager! // swiftlint:disable:this implicitly_unwrapped_optional
+    @ObservationIgnored private var delegate: Delegate? // swiftlint:disable:this weak_delegate
     @ObservationIgnored private var isScanningObserver: KVOStateObserver<BluetoothManager>?
 
     /// Represents the current state of the Bluetooth Manager.
@@ -90,13 +108,10 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
         }
         self.isScanning = false
 
-        super.init()
+        self.delegate = Delegate(self)
 
-        // TODO: spezi module should allow later instantiation of the BluetoothManager(?), show power alert!
-
-        // we show the power alert upon scanning
-        // TODO: just lazy init this thing?
-        centralManager = CBCentralManager(delegate: self, queue: dispatchQueue, options: [CBCentralManagerOptionShowPowerAlertKey: true])
+        // TODO: just lazy init this thing? how to delay (or repeatedly) show power alert?
+        centralManager = CBCentralManager(delegate: self.delegate, queue: dispatchQueue, options: [CBCentralManagerOptionShowPowerAlertKey: true])
 
         isScanningObserver = KVOStateObserver<BluetoothManager>(receiver: self, entity: centralManager, property: \.isScanning)
     }
@@ -250,135 +265,6 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
         // schedule the next timeout for devices in the list
         scheduleStaleTaskForOldestActivityDevice()
     }
-    
-    // MARK: - CBCentralManagerDelegate
-    
-    public func centralManagerDidUpdateState(_ central: CBCentralManager) {
-        // TODO: move into extension!
-        switch central.state {
-        case .poweredOn:
-            // Start working with the peripheral
-            logger.info("CBManager is powered on")
-            self.state = .poweredOn
-        case .poweredOff:
-            logger.info("CBManager is not powered on")
-            self.state = .poweredOff
-        case .resetting:
-            logger.info("CBManager is resetting")
-            self.state = .poweredOff
-        case .unauthorized:
-            switch CBManager.authorization {
-            case .denied:
-                logger.log("You are not authorized to use Bluetooth")
-            case .restricted:
-                logger.log("Bluetooth is restricted")
-            default:
-                logger.log("Unexpected authorization")
-            }
-            self.state = .unauthorized
-        case .unknown:
-            logger.log("CBManager state is unknown")
-            self.state = .unsupported
-        case .unsupported:
-            logger.log("Bluetooth is not supported on this device")
-            self.state = .unsupported
-        @unknown default:
-            logger.log("A previously unknown central manager state occurred")
-            self.state = .unsupported
-        }
-    }
-
-    public func centralManager(
-        _ central: CBCentralManager,
-        didDiscover peripheral: CBPeripheral,
-        advertisementData: [String: Any],
-        // We have to use NSNumber to conform to the `CBCentralManagerDelegate` delegate methods.
-        // swiftlint:disable:next legacy_objc_type
-        rssi: NSNumber
-    ) {
-        // rssi of 127 is a magic value signifying unavailability of the value.
-        // TODO: not true: Connecting to such a device will most likely crash.
-        guard rssi.intValue >= minimumRSSI, rssi.intValue != 127 else { // ensure the signal strength is not too low
-            return // logging this would just be to verbose, so we don't.
-        }
-
-        let data = AdvertisementData(advertisementData: advertisementData)
-
-
-        // check if we already seen this device!
-        if let device = discoveredPeripherals[peripheral.identifier] {
-            device.update(advertisement: data, rssi: rssi.intValue)
-
-            if self.cancelStaleTask(for: device) {
-                // current device was earliest to go stale, schedule timeout for next oldest device
-                scheduleStaleTaskForOldestActivityDevice()
-            }
-            return
-        }
-
-        // TODO: see how advertisement data looks like for peripherals that advertise a primary service
-        //  + are .services pre-populated there?
-        // TODO: Refer to `isPrimary` property for fallback!
-
-        logger.debug("Discovered peripheral \(peripheral.debugIdentifier) at \(rssi.intValue) dB (data: \(advertisementData))")
-
-        let device = BluetoothPeripheral(manager: self, peripheral: peripheral, advertisementData: data, rssi: rssi.intValue)
-        discoveredPeripherals[peripheral.identifier] = device // save local-copy, such CB doesn't deallocate it
-
-
-        if staleTimer == nil {
-            // There is no stale timer running. So new device will be the one with the oldest activity. Schedule ...
-            scheduleStaleTask(for: device, withTimeout: advertisementStaleInterval)
-        }
-
-        // TODO: support auto-connect (more options?)
-    }
-
-    public func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
-        // Documentation reads: "Because connection attempts don’t time out, a failed connection usually indicates a transient issue,
-        // in which case you may attempt connecting to the peripheral again."
-
-        guard let device = discoveredPeripherals[peripheral.identifier] else {
-            logger.warning("Unknown peripheral \(peripheral.debugIdentifier) failed with error: \(String(describing: error))")
-            centralManager.cancelPeripheralConnection(peripheral)
-            return
-        }
-
-        logger.error("Failed to connect to \(peripheral): \(String(describing: error))")
-        Task {
-            await device.disconnect() // TODO: attempt reconnect, instead? OR make it configurable?
-        }
-    }
-
-    public func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
-        guard let device = discoveredPeripherals[peripheral.identifier] else {
-            logger.error("Received didConnect for unknown peripheral \(peripheral.debugIdentifier). Cancelling connection ...")
-            centralManager.cancelPeripheralConnection(peripheral)
-            return
-        }
-
-        logger.debug("Peripheral \(peripheral.debugIdentifier) connected ...")
-        Task {
-            await device.handleConnect()
-        }
-    }
-
-
-    public func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
-        guard let device = discoveredPeripherals[peripheral.identifier] else {
-            logger.error("Received didDisconnect for unknown peripheral \(peripheral.debugIdentifier).")
-            return
-        }
-
-        logger.debug("Peripheral \(peripheral.debugIdentifier) disconnected ...")
-
-        // we will keep disconnected devices for 25% of the stale interval time.
-        let interval = advertisementStaleInterval * 0.25 // TODO: only if isScanning is true?
-        device.handleDisconnect(disconnectActivityInterval: interval)
-
-        // We just schedule the new timer if there is a device to schedule one for.
-        scheduleStaleTaskForOldestActivityDevice()
-    }
 
     
     deinit {
@@ -388,5 +274,148 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
         discoveredPeripherals = [:] // TODO: disconnect devices?
 
         logger.debug("BluetoothManager destroyed")
+    }
+}
+
+
+// MARK: Delegate
+extension BluetoothManager {
+    private class Delegate: NSObject, CBCentralManagerDelegate {
+        private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothManagerDelegate")
+
+        private unowned var manager: BluetoothManager
+
+
+        init(_ manager: BluetoothManager) {
+            self.manager = manager
+            super.init()
+        }
+
+
+        func centralManagerDidUpdateState(_ central: CBCentralManager) {
+            switch central.state {
+            case .poweredOn:
+                // Start working with the peripheral
+                logger.info("CBManager is powered on")
+                manager.state = .poweredOn
+            case .poweredOff:
+                logger.info("CBManager is not powered on")
+                manager.state = .poweredOff
+            case .resetting:
+                logger.info("CBManager is resetting")
+                manager.state = .poweredOff
+            case .unauthorized:
+                switch CBManager.authorization {
+                case .denied:
+                    logger.log("You are not authorized to use Bluetooth")
+                case .restricted:
+                    logger.log("Bluetooth is restricted")
+                default:
+                    logger.log("Unexpected authorization")
+                }
+                manager.state = .unauthorized
+            case .unknown:
+                logger.log("CBManager state is unknown")
+                manager.state = .unsupported
+            case .unsupported:
+                logger.log("Bluetooth is not supported on this device")
+                manager.state = .unsupported
+            @unknown default:
+                logger.log("A previously unknown central manager state occurred")
+                manager.state = .unsupported
+            }
+        }
+
+        func centralManager(
+            _ central: CBCentralManager,
+            didDiscover peripheral: CBPeripheral,
+            advertisementData: [String: Any],
+            // We have to use NSNumber to conform to the `CBCentralManagerDelegate` delegate methods.
+            // swiftlint:disable:next legacy_objc_type
+            rssi: NSNumber
+        ) {
+            // rssi of 127 is a magic value signifying unavailability of the value.
+            // TODO: not true?: Connecting to such a device will most likely crash.
+            guard rssi.intValue >= manager.minimumRSSI, rssi.intValue != 127 else { // ensure the signal strength is not too low
+                return // logging this would just be to verbose, so we don't.
+            }
+
+            let data = AdvertisementData(advertisementData: advertisementData)
+
+
+            // check if we already seen this device!
+            if let device = manager.discoveredPeripherals[peripheral.identifier] {
+                device.update(advertisement: data, rssi: rssi.intValue)
+
+                if manager.cancelStaleTask(for: device) {
+                    // current device was earliest to go stale, schedule timeout for next oldest device
+                    manager.scheduleStaleTaskForOldestActivityDevice()
+                }
+                return
+            }
+
+            // TODO: see how advertisement data looks like for peripherals that advertise a primary service
+            //  + are .services pre-populated there?
+            //   : Refer to `isPrimary` property for fallback!
+
+            logger.debug("Discovered peripheral \(peripheral.debugIdentifier) at \(rssi.intValue) dB (data: \(advertisementData))")
+
+            let device = BluetoothPeripheral(manager: manager, peripheral: peripheral, advertisementData: data, rssi: rssi.intValue)
+            manager.discoveredPeripherals[peripheral.identifier] = device // save local-copy, such CB doesn't deallocate it
+
+
+            if manager.staleTimer == nil {
+                // There is no stale timer running. So new device will be the one with the oldest activity. Schedule ...
+                manager.scheduleStaleTask(for: device, withTimeout: manager.advertisementStaleInterval)
+            }
+
+            // TODO: support auto-connect (more options?)
+        }
+
+        func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
+            // Documentation reads: "Because connection attempts don’t time out, a failed connection usually indicates a transient issue,
+            // in which case you may attempt connecting to the peripheral again."
+
+            guard let device = manager.discoveredPeripherals[peripheral.identifier] else {
+                logger.warning("Unknown peripheral \(peripheral.debugIdentifier) failed with error: \(String(describing: error))")
+                manager.centralManager.cancelPeripheralConnection(peripheral)
+                return
+            }
+
+            logger.error("Failed to connect to \(peripheral): \(String(describing: error))")
+            Task {
+                await device.disconnect() // TODO: attempt reconnect, instead? OR make it configurable?
+            }
+        }
+
+        func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
+            guard let device = manager.discoveredPeripherals[peripheral.identifier] else {
+                logger.error("Received didConnect for unknown peripheral \(peripheral.debugIdentifier). Cancelling connection ...")
+                manager.centralManager.cancelPeripheralConnection(peripheral)
+                return
+            }
+
+            logger.debug("Peripheral \(peripheral.debugIdentifier) connected ...")
+            Task {
+                await device.handleConnect()
+            }
+        }
+
+
+        func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
+            guard let device = manager.discoveredPeripherals[peripheral.identifier] else {
+                logger.error("Received didDisconnect for unknown peripheral \(peripheral.debugIdentifier).")
+                return
+            }
+
+            logger.debug("Peripheral \(peripheral.debugIdentifier) disconnected ...")
+
+            // we will keep disconnected devices for 25% of the stale interval time.
+            let interval = manager.advertisementStaleInterval * 0.25 // TODO: only if isScanning is true?
+            device.handleDisconnect(disconnectActivityInterval: interval)
+
+            // We just schedule the new timer if there is a device to schedule one for.
+            manager.scheduleStaleTaskForOldestActivityDevice()
+        }
     }
 }

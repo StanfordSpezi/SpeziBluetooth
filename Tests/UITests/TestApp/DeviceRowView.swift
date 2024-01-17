@@ -24,10 +24,8 @@ struct DeviceRowView: View {
                             .italic()
                     }
                     Spacer()
-                    if let rssi = peripheral.rssi {
-                        Text("\(rssi) dB")
-                            .foregroundColor(.secondary)
-                    }
+                    Text("\(peripheral.rssi) dB")
+                        .foregroundColor(.secondary)
                 }
                     .foregroundColor(.primary)
                 HStack {

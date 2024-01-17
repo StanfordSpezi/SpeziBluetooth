@@ -26,7 +26,7 @@ enum AccessorContinuation {
 @Observable
 private final class BluetoothPeripheralState {
     var name: String?
-    var rssi: Int?
+    var rssi: Int
     var advertisementData: AdvertisementData
     var state: PeripheralState
     var lastActivity: Date
@@ -35,7 +35,7 @@ private final class BluetoothPeripheralState {
     /// The list of requested characteristic uuids indexed by service uuids.
     var requestedCharacteristics: [CBUUID: [CBUUID]]? // swiftlint:disable:this discouraged_optional_collection
 
-    init(name: String?, rssi: Int?, advertisementData: AdvertisementData, state: CBPeripheralState, lastActivity: Date = .now) {
+    init(name: String?, rssi: Int, advertisementData: AdvertisementData, state: CBPeripheralState, lastActivity: Date = .now) {
         self.name = name
         self.advertisementData = advertisementData
         self.rssi = rssi
@@ -45,7 +45,29 @@ private final class BluetoothPeripheralState {
 }
 
 
-public actor BluetoothPeripheral: Identifiable, KVOReceiver { // TODO: make it Equatable for easy onChange?
+/// A nearby Bluetooth peripheral.
+///
+/// ## Topics
+///
+/// ### Device State
+/// - ``id``
+/// - ``name``
+/// - ``state``
+/// - ``rssi``
+/// - ``advertisementData``
+/// - ``services``
+///
+/// ### Managing Connection
+/// - ``connect()``
+/// - ``disconnect()``
+///
+/// ### Device Interactions
+/// - ``read(characteristic:)``
+/// - ``write(data:for:)``
+/// - ``writeWithoutResponse(data:for:)``
+/// - ``registerNotifications(for:_:)``
+/// - ``readRSSI()``
+public actor BluetoothPeripheral: Identifiable, KVOReceiver {
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothDevice")
 
     private weak var manager: BluetoothManager?
@@ -61,39 +83,41 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver { // TODO: make it E
     /// Continuation for a currently ongoing rssi read access.
     private var rssiReadAccess: [CheckedContinuation<Int, Error>] = []
 
-    // TODO: add handlers possibility when no instance is present?
     private var notificationHandlers: [CBCharacteristic: [BluetoothNotificationHandler]] = [:]
 
     /// Observable state container for local state.
     private let stateContainer: BluetoothPeripheralState
 
-    // TODO docs: all the state properties
-
     nonisolated var cbPeripheral: CBPeripheral {
         peripheral
     }
 
+    /// The internally managed identifier for the peripheral.
     public nonisolated var id: UUID {
         peripheral.identifier
     }
 
+    /// The name of the peripheral.
     public nonisolated var name: String? {
         stateContainer.name
     }
 
-    public nonisolated var rssi: Int? {
+    /// The current signal strength.
+    public nonisolated var rssi: Int {
         stateContainer.rssi
     }
 
+    /// The advertisement data of the last bluetooth advertisement.
     public nonisolated var advertisementData: AdvertisementData {
         stateContainer.advertisementData
     }
 
+    /// The current peripheral device state.
     public nonisolated var state: PeripheralState {
         stateContainer.state
     }
 
-    /// The list of discovery services.
+    /// The list of discovered services.
     ///
     /// Services are discovered automatically upon connection
     public nonisolated var services: [CBService]? { // swiftlint:disable:this discouraged_optional_collection
@@ -135,6 +159,11 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver { // TODO: make it E
         peripheral.delegate = delegate
     }
 
+    /// Establish a connection to the peripheral.
+    ///
+    /// Make a connection to the peripheral.
+    ///
+    /// - Note: You might want to verify via the ``AdvertisementData/isConnectable`` property that the device is connectable.
     public func connect() async {
         guard let manager else {
             logger.warning("Tried to connect an orphaned bluetooth peripheral!")
@@ -144,6 +173,9 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver { // TODO: make it E
         await manager.connect(peripheral: self)
     }
 
+    /// Disconnect the ongoing connection to the peripheral.
+    ///
+    /// Cancels an active or pending connection to a peripheral.
     public func disconnect() {
         guard let manager else {
             logger.warning("Tried to disconnect an orphaned bluetooth peripheral!")
@@ -153,8 +185,6 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver { // TODO: make it E
         removeAllNotifications()
 
         manager.disconnect(peripheral: self)
-
-        // TODO: will ongoing writes, reads, ... be cancelled??
     }
 
     func handleConnect() {
@@ -168,12 +198,11 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver { // TODO: make it E
 
         logger.debug("Discovering services for \(self.peripheral.debugIdentifier) ...")
         peripheral.discoverServices(stateContainer.requestedCharacteristics.map { Array($0.keys) })
-
-        // TODO: keep in mind with the DSL API, what if we don't find something that is declared (service, characteristic)?
     }
 
     nonisolated func handleDisconnect(disconnectActivityInterval: TimeInterval) {
-        // TODO: throw ongoing promises with .notConnected?
+        // TODO: will ongoing writes, reads, ... be cancelled??
+        //   throw ongoing promises with .notConnected?
 
         self.stateContainer.lastActivity = Date.now - disconnectActivityInterval
     }
@@ -205,8 +234,17 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver { // TODO: make it E
         }
     }
 
-    // TODO: document potential retain cycles
+    /// Register a notification handler for a characteristic.
+    ///
+    /// This method registers a notification handler for the provided characteristic.
+    ///
+    /// - Note: Make sure that you don't create a retain cycle if the provided closure captures `self`.
+    ///
+    /// - Parameters:
+    ///   - characteristic: The characteristic to register notifications for.
+    ///   - handler: The notification handler.
     public func registerNotifications(for characteristic: CBCharacteristic, _ handler: @escaping BluetoothNotificationHandler) {
+        // TODO: add handlers possibility when no instance is present?
         notificationHandlers[characteristic, default: []].append(handler)
         // TODO: return a registration to remove it again?
 
@@ -230,11 +268,21 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver { // TODO: make it E
         }
     }
 
-    public func write(data: Data, for characteristic: CBCharacteristic) async throws -> Data { // TODO: update docs!
+    /// Write the value of a characteristic expecting a response.
+    ///
+    /// Writes the value of a characteristic expecting a confirmation from the peripheral.
+    ///
+    /// - Parameters:
+    ///   - data: The value to write.
+    ///   - characteristic: The characteristic to which the value is written.
+    /// - Returns: The response from the device.
+    /// - Throws: Throws an `CBError`, `CBATTError` or ``BluetoothError`` if the write fails.
+    public func write(data: Data, for characteristic: CBCharacteristic) async throws -> Data {
         guard ongoingAccesses[characteristic] == nil else {
             throw BluetoothError.concurrentWriteCharacteristicAccess
         }
 
+        // TODO: are we actually getting data back?
         return try await withCheckedThrowingContinuation { continuation in
             // using updateValue as of https://github.com/apple/swift/issues/63156. Revert to subscript access with Swift 5.10
             ongoingAccesses.updateValue(.write(continuation), forKey: characteristic)
@@ -242,6 +290,13 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver { // TODO: make it E
         }
     }
 
+    /// Write the value of a characteristic without expecting a response.
+    ///
+    /// Writes the value of a characteristic without expecting a confirmation from the peripheral.
+    ///
+    /// - Parameters:
+    ///   - data: The value to write.
+    ///   - characteristic: The characteristic to which the value is written.
     public func writeWithoutResponse(data: Data, for characteristic: CBCharacteristic) async {
         guard writeWithoutResponseAccess.isEmpty else {
             await withCheckedContinuation { continuation in
@@ -256,6 +311,13 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver { // TODO: make it E
         }
     }
 
+    /// Read the value of a characteristic.
+    ///
+    /// Read the value for the specified characteristic.
+    ///
+    /// - Parameter characteristic: The characteristic for which you want to read the value.
+    /// - Returns: The value that the peripheral was returned.
+    /// - Throws: Throws an `CBError`, `CBATTError` or ``BluetoothError`` if the read fails.
     public func read(characteristic: CBCharacteristic) async throws -> Data {
         guard ongoingAccesses[characteristic] == nil else {
             if case var .read(continuations) = ongoingAccesses[characteristic] {
@@ -276,6 +338,11 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver { // TODO: make it E
         }
     }
 
+    /// Retrieve the current RSSI value.
+    ///
+    /// Retrieves the current RSSI value for the peripheral while its connected.
+    /// - Returns: The read rssi value.
+    /// - Throws: Throws an `CBError` or `CBATTError` if the read fails.
     public func readRSSI() async throws -> Int {
         guard rssiReadAccess.isEmpty else {
             return try await withCheckedThrowingContinuation { continuation in
@@ -319,10 +386,6 @@ extension BluetoothPeripheral {
         for characteristic in characteristics where notificationHandlers[characteristic] != nil {
             peripheral.setNotifyValue(true, for: characteristic)
         }
-    }
-
-    fileprivate func invalidated(services: [CBService]) {
-        // TODO: do we need to remove any characteristic state???
     }
 
     fileprivate func receivedReadyNotification() {
@@ -428,11 +491,7 @@ extension BluetoothPeripheral {
             device.stateContainer.services?.removeAll(where: { invalidatedServices.contains($0) })
             // TODO: does this change our ongoing CBCharacteristic instances?? (Cancel Continuations, what is with notification handlers?)
 
-            Task {
-                await device.invalidated(services: invalidatedServices)
-
-                peripheral.discoverServices(serviceIds)
-            }
+            peripheral.discoverServices(serviceIds)
         }
 
         func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
@@ -519,4 +578,4 @@ extension BluetoothPeripheral {
             }
         }
     }
-}
+} // swiftlint:disable:this file_length

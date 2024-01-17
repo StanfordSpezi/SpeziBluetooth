@@ -8,17 +8,24 @@
 
 import CoreBluetooth
 import Foundation
+import Spezi
 // TODO: delete this file!
 
-class Device: BluetoothDevice {
-    // TODO: bluetooth device accessors?
+func test() -> Configuration {
+    Configuration {
+        Bluetooth {
+            Discover(Device.self, by: .primaryService("asdf"))
+        }
+    }
+}
 
-    // TODO: how to "connect" and "disconnect"?
+class Device: BluetoothDevice {
+    // TODO: keep in mind with the DSL API, what if we don't find something that is declared (service, characteristic)?
 
     @Service(id: "76763833-123123-123123")
     var primary = MyService()
 
-    @DeviceState(\.name) // TODO: there are also actor accesses?
+    @DeviceState(\.name)
     var name
 
     @DeviceAction(\.connect)

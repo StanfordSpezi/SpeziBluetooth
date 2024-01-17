@@ -17,6 +17,14 @@ public enum DiscoveryCriteria {
 
     /// Identify a device by the advertised primary service.
     case primaryService(_ uuid: CBUUID)
+
+
+    /// Identify a device by the advertised primary service.
+    /// - Parameter uuid: The Bluetooth ServiceId in string format.
+    /// - Returns: A ``DiscoveryCriteria/primaryService(_:)`` criteria.
+    static func primaryService(_ uuid: String) -> DiscoveryCriteria {
+        .primaryService(CBUUID(string: uuid))
+    }
 }
 
 extension DiscoveryCriteria: Hashable, CustomStringConvertible {

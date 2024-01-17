@@ -84,15 +84,22 @@ import UIKit
 ///
 /// > Tip: You can find a more extensive example in the main <doc:SpeziBluetooth> documentation.
 @Observable
+// TODO: @dynamicMemberLookup
 public class Bluetooth: Module {
     private let bluetoothManager: BluetoothManager
     private let deviceConfiguration: Set<DeviceConfiguration>
 
     
-    /// Represents the current state of the Bluetooth connection.
+    /// Represents the current state of Bluetooth.
     public var state: BluetoothState {
-        bluetoothManager.state // TODO: provide access to all properties of BLuetoothManager?
+        bluetoothManager.state
     }
+
+    public var isScanning: Bool {
+        bluetoothManager.isScanning
+    }
+
+    // TODO: how to provide access to the nearby devices list?
 
 
     // TODO: duplication of default values; + support other configurations as well!
@@ -102,4 +109,13 @@ public class Bluetooth: Module {
         self.bluetoothManager = BluetoothManager(discovery: Set(configuration.map { $0.parseDiscoveryConfiguration() }))
         self.deviceConfiguration = configuration // TODO: when to init the devices?
     }
+
+    // TODO: start and stop scanning?
+
+
+    /*
+    public subscript<Value>(dynamicMember keyPath: KeyPath<BluetoothManager, Value>) -> Value {
+        bluetoothManager[keyPath: keyPath]
+    }
+     */
 }
