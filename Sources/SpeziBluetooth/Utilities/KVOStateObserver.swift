@@ -15,10 +15,11 @@ protocol KVOReceiver: AnyObject {
 
 
 class KVOStateObserver<Receiver: KVOReceiver>: NSObject {
-    private weak var receiver: Receiver? // TODO: review all unowned references!!
+    private weak var receiver: Receiver?
 
     private var observation: NSKeyValueObservation?
 
+    // swiftlint:disable:next function_default_parameter_at_end
     init<Entity: NSObject, V>(receiver: Receiver? = nil, entity: Entity, property: KeyPath<Entity, V>) {
         self.receiver = receiver
         super.init()

@@ -86,38 +86,20 @@ import UIKit
 @Observable
 public class Bluetooth: Module {
     private let bluetoothManager: BluetoothManager
-    
+    private let deviceConfiguration: Set<DeviceConfiguration>
+
     
     /// Represents the current state of the Bluetooth connection.
     public var state: BluetoothState {
-        bluetoothManager.state
-    }
-    
-    
-    /// Initializes the Bluetooth module with provided services.
-    ///
-    /// - Parameters:
-    ///   - services: List of Bluetooth services to manage.
-    public init(discovery: Set<DiscoveryConfiguration>, minimumRSSI: Int = -65) { // TODO: dup of default value
-        bluetoothManager = BluetoothManager(discovery: discovery, minimumRSSI: minimumRSSI)
+        bluetoothManager.state // TODO: provide access to all properties of BLuetoothManager?
     }
 
-    public init(devices: DeviceConfiguration...) {
-        // TODO: parameter packs, if the thing is generic?
-        fatalError("Not implemented yet?")
-    }
-    
-    /// Adds a new message handler to process incoming Bluetooth messages.
-    ///
-    /// - Parameter messageHandler: The message handler to add.
-    public func add(messageHandler: BluetoothNotificationHandler) {
-        // TODO: bluetoothManager.add(messageHandler: messageHandler)
-    }
-    
-    /// Removes a specified message handler.
-    ///
-    /// - Parameter messageHandler: The message handler to remove.
-    public func remove(messageHandler: BluetoothNotificationHandler) {
-        // TODO: bluetoothManager.remove(messageHandler: messageHandler)
+
+    // TODO: duplication of default values; + support other configurations as well!
+    public init(minimumRSSI: Int = -65, @DeviceConfigurationBuilder _ devices: () -> Set<DeviceConfiguration>) {
+        let configuration = devices()
+
+        self.bluetoothManager = BluetoothManager(discovery: Set(configuration.map { $0.parseDiscoveryConfiguration() }))
+        self.deviceConfiguration = configuration // TODO: when to init the devices?
     }
 }

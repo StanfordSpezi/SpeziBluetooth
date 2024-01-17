@@ -20,7 +20,8 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
     /// The dispatch queue for all Bluetooth related functionality. This is serial (not `.concurrent`) to ensure synchronization.
     private let dispatchQueue = DispatchQueue(label: "edu.stanford.spezi.bluetooth", qos: .userInitiated)
 
-    private let discovery: Set<DiscoveryConfiguration>
+    /// The discovery configuration describing how nearby devices are discovered.
+    let discovery: Set<DiscoveryConfiguration>
     private let minimumRSSI: Int
 
     @ObservationIgnored private var centralManager: CBCentralManager! // swiftlint:disable:this implicitly_unwrapped_optional
@@ -94,6 +95,7 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
         // TODO: spezi module should allow later instantiation of the BluetoothManager(?), show power alert!
 
         // we show the power alert upon scanning
+        // TODO: just lazy init this thing?
         centralManager = CBCentralManager(delegate: self, queue: dispatchQueue, options: [CBCentralManagerOptionShowPowerAlertKey: true])
 
         isScanningObserver = KVOStateObserver<BluetoothManager>(receiver: self, entity: centralManager, property: \.isScanning)
@@ -129,7 +131,7 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
     }
 
     func connect(peripheral: BluetoothPeripheral) async {
-        logger.debug("Trying to connect to \(peripheral.cbPeripheral.logName) ...")
+        logger.debug("Trying to connect to \(peripheral.cbPeripheral.debugIdentifier) ...")
         
         await withCheckedContinuation { continuation in
             dispatchQueue.async { [weak self] in
@@ -151,6 +153,7 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
     }
 
     func disconnect(peripheral: BluetoothPeripheral) {
+        logger.debug("Disconnecting peripheral \(peripheral.cbPeripheral.debugIdentifier) ...")
         // stale timer is handled in the delegate method
         centralManager.cancelPeripheralConnection(peripheral.cbPeripheral)
     }
@@ -165,6 +168,26 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
         default:
             break
         }
+    }
+
+    func discoveryConfiguration(for advertisementData: AdvertisementData) -> DiscoveryConfiguration? {
+        let configurations = discovery.filter { configuration in
+            if case let .primaryService(uuid) = configuration.criteria,
+               let advertisedServices = advertisementData.serviceUUIDs {
+                return advertisedServices.contains(uuid)
+            }
+            // TODO: we could easily support name as well (if we support the performance degradation impact!)
+            return false
+        }
+
+        if configurations.count > 1 {
+            let criteria = configurations
+                .map { $0.criteria.description }
+                .joined(separator: ", ")
+            logger.warning("Found ambiguous discovery configuration for peripheral. Peripheral matched all these criteria: \(criteria)")
+        }
+
+        return configurations.first
     }
 
     // MARK: - Stale Advertisement Timeout
@@ -279,10 +302,12 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
             return // logging this would just be to verbose, so we don't.
         }
 
+        let data = AdvertisementData(advertisementData: advertisementData)
+
 
         // check if we already seen this device!
         if let device = discoveredPeripherals[peripheral.identifier] {
-            device.markActivity()
+            device.update(advertisement: data, rssi: rssi.intValue)
 
             if self.cancelStaleTask(for: device) {
                 // current device was earliest to go stale, schedule timeout for next oldest device
@@ -292,16 +317,12 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
         }
 
         // TODO: see how advertisement data looks like for peripherals that advertise a primary service
-        //  + are .services prepopulated there?
+        //  + are .services pre-populated there?
         // TODO: Refer to `isPrimary` property for fallback!
 
-        // TODO: inspect CBAdvertisementDataIsConnectable?
-        // TODO: make advertisement data accessible: https://github.com/Polidea/RxBluetoothKit/blob/master/Source/AdvertisementData.swift
+        logger.debug("Discovered peripheral \(peripheral.debugIdentifier) at \(rssi.intValue) dB (data: \(advertisementData))")
 
-        logger.debug("Discovered peripheral \(peripheral.logName) at \(rssi.intValue) dB (data: \(advertisementData))")
-
-        // TODO: how to pass requestedCharacteristics!???
-        let device = BluetoothPeripheral(manager: self, peripheral: peripheral, requestedCharacteristics: [:], rssi: rssi)
+        let device = BluetoothPeripheral(manager: self, peripheral: peripheral, advertisementData: data, rssi: rssi.intValue)
         discoveredPeripherals[peripheral.identifier] = device // save local-copy, such CB doesn't deallocate it
 
 
@@ -318,7 +339,7 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
         // in which case you may attempt connecting to the peripheral again."
 
         guard let device = discoveredPeripherals[peripheral.identifier] else {
-            logger.warning("Unknown peripheral \(peripheral.logName) failed with error: \(String(describing: error))")
+            logger.warning("Unknown peripheral \(peripheral.debugIdentifier) failed with error: \(String(describing: error))")
             centralManager.cancelPeripheralConnection(peripheral)
             return
         }
@@ -331,23 +352,25 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
 
     public func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
         guard let device = discoveredPeripherals[peripheral.identifier] else {
-            logger.error("Received didConnect for unknown peripheral \(peripheral.logName). Cancelling connection ...")
+            logger.error("Received didConnect for unknown peripheral \(peripheral.debugIdentifier). Cancelling connection ...")
             centralManager.cancelPeripheralConnection(peripheral)
             return
         }
 
-        logger.debug("Peripheral \(peripheral.logName) connected ...")
-        device.handleConnect()
+        logger.debug("Peripheral \(peripheral.debugIdentifier) connected ...")
+        Task {
+            await device.handleConnect()
+        }
     }
 
 
     public func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
         guard let device = discoveredPeripherals[peripheral.identifier] else {
-            logger.error("Received didDisconnect for unknown peripheral \(peripheral.logName).")
+            logger.error("Received didDisconnect for unknown peripheral \(peripheral.debugIdentifier).")
             return
         }
 
-        logger.debug("Peripheral \(peripheral.logName) disconnected ...")
+        logger.debug("Peripheral \(peripheral.debugIdentifier) disconnected ...")
 
         // we will keep disconnected devices for 25% of the stale interval time.
         let interval = advertisementStaleInterval * 0.25 // TODO: only if isScanning is true?
@@ -365,16 +388,5 @@ public class BluetoothManager: NSObject, CBCentralManagerDelegate, KVOReceiver {
         discoveredPeripherals = [:] // TODO: disconnect devices?
 
         logger.debug("BluetoothManager destroyed")
-    }
-}
-
-
-extension CBPeripheral {
-    var logName: String { // TODO: rename and move!
-        if let name {
-            "'\(name)' @ \(identifier)"
-        } else {
-            "\(identifier)"
-        }
     }
 }

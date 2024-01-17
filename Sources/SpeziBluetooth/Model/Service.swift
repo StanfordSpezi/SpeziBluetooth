@@ -11,14 +11,14 @@ import Observation
 
 
 // TODO rename:
-public protocol BluetoothServiceNew: AnyObject { // TODO GATTService name?
+public protocol BluetoothService: AnyObject { // TODO GATTService name?
     // TODO enum type for Characteristic Ids? (and for service?)
 }
 
 
 @propertyWrapper
-public class Service<S: BluetoothServiceNew> {
-    private let id: CBUUID
+public class Service<S: BluetoothService> {
+    let id: CBUUID
 
     public let wrappedValue: S
 
@@ -31,5 +31,12 @@ public class Service<S: BluetoothServiceNew> {
     public init(wrappedValue: S, id: CBUUID) {
         self.wrappedValue = wrappedValue
         self.id = id
+    }
+}
+
+
+extension Service: DeviceVisitable {
+    func accept<Visitor: DeviceVisitor>(_ visitor: inout Visitor) {
+        visitor.visit(self)
     }
 }

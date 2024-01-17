@@ -8,17 +8,13 @@
 
 import Foundation
 
-// TODO just use CBError and GATError and make them Localized!
-
 
 /// Represents errors that can occur during Bluetooth operations.
 public enum BluetoothError: String, Error, CustomStringConvertible, LocalizedError {
-    /// Error indicating that the device is not connected.
-    case notConnected
-    /// Error indicating that the device connection has timed out.
-    case deviceTimedOut
-    /// There is an ongoing access for that characteristic.
-    case concurrentCharacteristicAccess
+    /// There is an ongoing write access for that characteristic.
+    case concurrentWriteCharacteristicAccess
+    /// Could not decode the ByteBuffer into the provided ByteDecodable.
+    case incompatibleDataFormat
 
     
     /// Provides a human-readable description of the error.
@@ -29,14 +25,10 @@ public enum BluetoothError: String, Error, CustomStringConvertible, LocalizedErr
     /// Provides a detailed description of the error.
     public var errorDescription: String? {
         switch self {
-        case .notConnected:
-            String(localized: "BLUETOOTH_ERROR_NOT_CONNECTED", bundle: .module)
-        case .deviceTimedOut:
-            String(localized: "BLUETOOTH_ERROR_DEVICE_TIME_OUT", bundle: .module)
-        // TODO : case .notAReadableCharacteristic:
-            // String(localized: "BLUETOOTH_ERROR_NOT_READABLE", bundle: .module)
-        case .concurrentCharacteristicAccess:
+        case .concurrentWriteCharacteristicAccess:
             "Concurrent Characteristic Access" // TODO: translate error!
+        case .incompatibleDataFormat:
+            "Incompatible Data Format"
         }
     }
 }

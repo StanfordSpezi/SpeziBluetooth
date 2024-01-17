@@ -43,7 +43,7 @@ private struct BluetoothScanModifier: ViewModifier {
             }
             .onChange(of: manager.state) {
                 if case .poweredOn = manager.state {
-                    // TODO: this doesn't seem to work??
+                    // TODO: this doesn't seem to work sometimes?
                     manager.scanNearbyDevices() // TODO: pass on auto-connect flag!
                 } else {
                     manager.stopScanning()
@@ -59,7 +59,7 @@ private struct BluetoothScanModifier: ViewModifier {
     }
 
     private func onBackground() {
-        manager.stopScanning() // TODO: should there be a check for API misuse if we are powered off?
+        manager.stopScanning()
     }
 }
 

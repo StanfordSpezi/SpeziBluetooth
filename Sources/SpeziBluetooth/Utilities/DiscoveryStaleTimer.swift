@@ -11,11 +11,8 @@ import Foundation
 
 class DiscoveryStaleTimer {
     let targetDevice: UUID
-    // TODO: private let handler: () -> Void // TODO: parameter?
-
-    /// The dispatch work item that schedules the next TODO asdf
-    private let workItem: DispatchWorkItem // TODO: willset?
-    // TODO: helpful to re-evaluate next device!
+    /// The dispatch work item that schedules the next stale timer.
+    private let workItem: DispatchWorkItem
 
     init(device: UUID, handler: @escaping () -> Void) { // TODO: document reference cycle?
         self.targetDevice = device
@@ -34,10 +31,6 @@ class DiscoveryStaleTimer {
         let milliSeconds = Int(timeout / 1000)
         queue.asyncAfter(deadline: .now() + .milliseconds(milliSeconds), execute: workItem)
     }
-
-    // TODO schedule
-
-    // TODO: reschedule
 
     deinit {
         cancel()

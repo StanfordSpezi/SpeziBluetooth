@@ -11,9 +11,9 @@ import CoreBluetooth
 
 public struct CharacteristicAccessors<Value> {
     public let id: CBUUID // TODO: do we need access to this?
-    fileprivate let context: CharacteristicContext // TODO: just capture UUIDs and not characteristic and service instances?
+    fileprivate let context: CharacteristicContext
 
-    // TODO dynamic member lookup for the characteristic? => unsafe access or something?
+    // TODO: dynamic member lookup for the characteristic? => unsafe access or something?
 
     init(id: CBUUID, context: CharacteristicContext) {
         self.id = id
@@ -29,8 +29,7 @@ extension CharacteristicAccessors where Value: ByteDecodable {
     public func read() async throws -> Value {
         let data = try await context.peripheral.read(characteristic: context.characteristic)
         guard let value = Value(data: data) else {
-            // TODO: how to handle this incompatibility?
-            throw BluetoothError.concurrentCharacteristicAccess
+            throw BluetoothError.incompatibleDataFormat
         }
         return value
     }
@@ -43,17 +42,16 @@ extension CharacteristicAccessors where Value: ByteEncodable {
         let responseData = try await context.peripheral.write(data: requestData, for: context.characteristic)
 
         guard let response = Response(data: responseData) else {
-            // TODO: how to handle this incompatibility?
-            throw BluetoothError.concurrentCharacteristicAccess
+            throw BluetoothError.incompatibleDataFormat
         }
 
         return response
     }
 
-    public func writeWithoutResponse(_ value: Value) async throws {
+    public func writeWithoutResponse(_ value: Value) async {
         // TODO: how to do non response write?
         let data = value.encode()
-        try await context.peripheral.writeWithoutResponse(data: data, for: context.characteristic)
+        await context.peripheral.writeWithoutResponse(data: data, for: context.characteristic)
     }
 }
 

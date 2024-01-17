@@ -24,10 +24,11 @@ class CharacteristicContext {
 @Observable
 @propertyWrapper
 public class Characteristic<Value> {
-    private let id: CBUUID // TODO: we need to inject the serviceId this characteristic lives in!
+    let id: CBUUID // TODO: we need to inject the serviceId this characteristic lives in!
 
     // TODO: how to we get the characteristic id?
     public private(set) var wrappedValue: Value? // TODO: make sure observable works!
+    // TODO: update the wrapped value!
 
     public var projectedValue: CharacteristicAccessors<Value> {
         guard let context else {
@@ -80,5 +81,12 @@ extension Characteristic where Value: ByteCodable { // reduce ambiguity
 
     public convenience init(wrappedValue: Value? = nil, id: CBUUID) {
         self.init(wrappedValue: wrappedValue, characteristic: id)
+    }
+}
+
+
+extension Characteristic: ServiceVisitable {
+    func accept<Visitor: ServiceVisitor>(_ visitor: inout Visitor) {
+        visitor.visit(self)
     }
 }

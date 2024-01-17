@@ -21,12 +21,15 @@ class Device: BluetoothDevice {
     @DeviceState(\.name) // TODO: there are also actor accesses?
     var name
 
+    @DeviceAction(\.connect)
+    var connect
+
     // TODO No dot allow @Characteristic definitions here!
     required init() {}
 }
 
 
-class MyService: BluetoothServiceNew { // TODO conformance!
+class MyService: BluetoothService { // TODO conformance!
     // TODO: do not allow nested Services
 
     @Characteristic(id: "0000-789876-1238123")

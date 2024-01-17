@@ -2,6 +2,7 @@
   "sourceLanguage" : "en",
   "strings" : {
     "BLUETOOTH_ERROR_DEVICE_TIME_OUT" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -12,6 +13,7 @@
       }
     },
     "BLUETOOTH_ERROR_NOT_CONNECTED" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
