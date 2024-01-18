@@ -32,6 +32,7 @@ extension CharacteristicAccessors where Value: ByteDecodable {
         }
     }
 
+    @discardableResult // TODO: this must update the property!
     public func read() async throws -> Value {
         guard let characteristic = context.characteristic else {
             throw BluetoothError.notConnected

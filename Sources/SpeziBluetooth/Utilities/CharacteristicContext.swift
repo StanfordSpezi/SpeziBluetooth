@@ -24,7 +24,7 @@ private protocol DecodableCharacteristic {
 }
 
 
-/// Captures and synchronized access to the state of a ``Characteristic`` property wrapper.
+/// Captures and synchronizes access to the state of a ``Characteristic`` property wrapper.
 actor CharacteristicContext<Value> {
     let peripheral: BluetoothPeripheral
     let characteristicId: CBUUID

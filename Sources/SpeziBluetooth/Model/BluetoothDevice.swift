@@ -6,8 +6,10 @@
 // SPDX-License-Identifier: MIT
 //
 
+import Observation
+
 
 // TODO docs
-public protocol BluetoothDevice: AnyObject {
+public protocol BluetoothDevice: AnyObject, Observable { // TODO: Observable workaround!
     init()
 }

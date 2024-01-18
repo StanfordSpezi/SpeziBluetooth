@@ -99,6 +99,10 @@ public class Bluetooth: Module {
 
     @MainActor private var nearbyDevices: [UUID: BluetoothDevice] = [:]
 
+    /// Stores the connected device instance for every configured ``BluetoothDevice`` type.
+    @Model @ObservationIgnored  private var connectedDevicesModel = ConnectedDevices()
+    /// Injects the ``BluetoothDevice`` instances from the `ConnectedDevices` model into the SwiftUI environment.
+    @Modifier @ObservationIgnored private var devicesInjector: ConnectedDevicesInjector
     // TODO: how to provide access to the nearby devices list?
 
 
@@ -108,6 +112,9 @@ public class Bluetooth: Module {
 
         self.bluetoothManager = BluetoothManager(discovery: Set(configuration.map { $0.parseDiscoveryConfiguration() }))
         self.deviceConfigurations = configuration // TODO: when to init the devices?
+
+        // TODO: pass device types!
+        self._devicesInjector = Modifier(wrappedValue: ConnectedDevicesInjector(configuredDeviceTypes: []))
 
         // TODO: for each "Discover" entry, inject a nearby devices list for this type and a connected devices optional?
     }
@@ -143,6 +150,20 @@ public class Bluetooth: Module {
             device.inject(peripheral: peripheral)
             nearbyDevices[key] = device
         }
+
+        // check for active connected device
+        let connectedDevices = discoveredDevices
+            .filter { _, value in
+                value.state == .connected
+            }
+            .compactMap { key, _ in
+                (key, nearbyDevices[key]) // map them to their devices class
+            }
+            .reduce(into: [:]) { result, tuple in
+                result[tuple.0] = tuple.1
+            }
+
+        self.connectedDevicesModel.update(with: connectedDevices)
     }
 
     @MainActor
@@ -160,5 +181,84 @@ public class Bluetooth: Module {
 
     public func stopScanning() {
         bluetoothManager.stopScanning()
+    }
+}
+
+@Observable
+private class ConnectedDevices {
+    @MainActor private var connectedDevices: [ObjectIdentifier: BluetoothDevice] = [:]
+    @MainActor private var connectedDeviceIds: [ObjectIdentifier: UUID] = [:]
+
+    
+    @MainActor
+    func update(with devices: [UUID: BluetoothDevice]) {
+        // remove devices that disconnected
+        for (identifier, uuid) in connectedDeviceIds where devices[uuid] == nil {
+            connectedDeviceIds.removeValue(forKey: identifier)
+            connectedDevices.removeValue(forKey: identifier)
+        }
+
+        // add newly connected devices that are not injected yet
+        for (uuid, device) in devices {
+            guard connectedDevices[device.typeIdentifier] == nil else {
+                continue // already present, we just inject the first device of a particular type into the environment
+            }
+
+            // Newly connected device for a type that isn't present yet. Save both device and id.
+            connectedDevices[device.typeIdentifier] = device
+            connectedDeviceIds[device.typeIdentifier] = uuid
+        }
+    }
+
+    @MainActor
+    subscript(_ identifier: ObjectIdentifier) -> BluetoothDevice? {
+        connectedDevices[identifier]
+    }
+}
+
+
+import SwiftUI // TODO: adjust
+private struct ConnectedDevicesInjector: ViewModifier {
+    private let configuredDeviceTypes: [BluetoothDevice.Type]
+
+    @Environment(ConnectedDevices.self)
+    var connectedDevices
+
+
+    init(configuredDeviceTypes: [BluetoothDevice.Type]) {
+        self.configuredDeviceTypes = configuredDeviceTypes
+    }
+
+
+    func body(content: Content) -> some View {
+        injectConnectedDevices(into: AnyView(content))
+    }
+
+    @MainActor
+    private func injectConnectedDevices(into view: AnyView) -> AnyView {
+        var view = view
+
+        for configuredDeviceType in configuredDeviceTypes {
+            view = configuredDeviceType.inject(into: view, connected: connectedDevices)
+        }
+
+        return view
+    }
+}
+
+
+extension BluetoothDevice {
+    var typeIdentifier: ObjectIdentifier {
+        ObjectIdentifier(Self.self)
+    }
+
+    @MainActor
+    fileprivate static func inject(into content: AnyView, connected: ConnectedDevices) -> AnyView {
+        if let connectedDeviceAny = connected[ObjectIdentifier(Self.self)],
+           let connectedDevice = connectedDeviceAny as? Self {
+            AnyView(content.environment(connectedDevice))
+        } else {
+            content
+        }
     }
 }

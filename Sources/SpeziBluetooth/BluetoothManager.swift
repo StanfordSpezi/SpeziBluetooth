@@ -433,8 +433,10 @@ extension BluetoothManager {
 
             logger.debug("Peripheral \(peripheral.debugIdentifier) disconnected.")
 
+            // TODO: just remove it if we are not scanning?
+
             // we will keep disconnected devices for 25% of the stale interval time.
-            let interval = manager.advertisementStaleInterval * 0.25 // TODO: only if isScanning is true?
+            let interval = manager.advertisementStaleInterval * 0.25
             device.handleDisconnect(disconnectActivityInterval: interval)
 
             // We just schedule the new timer if there is a device to schedule one for.
