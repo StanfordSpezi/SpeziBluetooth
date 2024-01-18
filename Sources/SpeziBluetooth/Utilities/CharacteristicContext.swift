@@ -87,7 +87,7 @@ actor CharacteristicContext<Value> {
         let registration = await peripheral
             .registerNotifications(service: serviceId, characteristic: characteristicId) { [weak self] data in
                 Task { [weak self] in
-                    self?.handleNotification(data)
+                    await self?.handleNotification(data)
                 }
             }
 
