@@ -11,11 +11,11 @@ import CoreBluetooth
 
 public struct CharacteristicAccessors<Value> {
     let id: CBUUID
-    fileprivate let context: CharacteristicContext
+    fileprivate let context: CharacteristicContext<Value>
 
     // TODO: dynamic member lookup for the characteristic? => unsafe access or something?
 
-    init(id: CBUUID, context: CharacteristicContext) {
+    init(id: CBUUID, context: CharacteristicContext<Value>) {
         self.id = id
         self.context = context
     }
@@ -23,8 +23,14 @@ public struct CharacteristicAccessors<Value> {
 
 
 extension CharacteristicAccessors where Value: ByteDecodable {
-    // TODO: control notification + access current state
-    // TODO: just bridged some peripheral accesses?
+    // TODO: access current state (properties?, isNotifying? => what state to use context or peripheral/CBcharacteristic?)
+    public func enableNotifications(_ enable: Bool = true) async {
+        if enable {
+            await context.enableNotifications()
+        } else {
+            await context.disableNotifications()
+        }
+    }
 
     public func read() async throws -> Value {
         guard let characteristic = context.characteristic else {

@@ -13,7 +13,7 @@ import Observation
 import OSLog
 
 
-enum AccessorContinuation {
+private enum AccessorContinuation {
     case read(_ continuation: [CheckedContinuation<Data, Error>])
     case write(_ continuation: CheckedContinuation<Data, Error>)
 }
@@ -24,14 +24,13 @@ enum AccessorContinuation {
 /// Main motivation is to have `BluetoothPeripheral` be implemented as an actor and moving state
 /// into a separate state container that is `@Observable`.
 @Observable
-private final class BluetoothPeripheralState {
+private final class BluetoothPeripheralState { // TODO: move out (all of them)?
     var name: String?
     var rssi: Int
     var advertisementData: AdvertisementData
     var state: PeripheralState
     var lastActivity: Date
 
-    // TODO: reset services on disconnect!
     var services: [CBService]? // swiftlint:disable:this discouraged_optional_collection
 
     /// The list of requested characteristic uuids indexed by service uuids.
@@ -43,6 +42,45 @@ private final class BluetoothPeripheralState {
         self.rssi = rssi
         self.state = .init(from: state)
         self.lastActivity = lastActivity
+    }
+}
+
+
+private struct CharacteristicLocator: Hashable {
+    let serviceId: CBUUID
+    let characteristicId: CBUUID
+}
+
+
+/// An active registration of a notification handler.
+///
+/// This object represents an active registration of an notification handler. Primarily, this can be used to keep
+/// track of a notification handler and cancel the registration at a later point.
+///
+/// - Tip: The notification handler will be automatically unregistered when this object is deallocated.
+public class CharacteristicNotification {
+    private weak var peripheral: BluetoothPeripheral?
+    fileprivate let locator: CharacteristicLocator
+    let handlerId: UUID
+
+
+    fileprivate init(peripheral: BluetoothPeripheral?, locator: CharacteristicLocator, handlerId: UUID) {
+        self.peripheral = peripheral
+        self.locator = locator
+        self.handlerId = handlerId
+    }
+
+
+    /// Cancel the notification handler registration.
+    public func cancel() async {
+        await peripheral?.deregisterNotification(self)
+    }
+
+
+    deinit {
+        Task {
+            await cancel()
+        }
     }
 }
 
@@ -85,7 +123,7 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
     /// Continuation for a currently ongoing rssi read access.
     private var rssiReadAccess: [CheckedContinuation<Int, Error>] = []
 
-    private var notificationHandlers: [CBCharacteristic: [BluetoothNotificationHandler]] = [:]
+    private var notificationHandlers: [CharacteristicLocator: [UUID: BluetoothNotificationHandler]] = [:]
 
     /// Observable state container for local state.
     private let stateContainer: BluetoothPeripheralState
@@ -254,13 +292,62 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
     /// - Parameters:
     ///   - characteristic: The characteristic to register notifications for.
     ///   - handler: The notification handler.
-    public func registerNotifications(for characteristic: CBCharacteristic, _ handler: @escaping BluetoothNotificationHandler) {
-        // TODO: add handlers possibility when no instance is present?
-        notificationHandlers[characteristic, default: []].append(handler)
-        // TODO: return a registration to remove it again?
+    /// - @Returns: Returns the ``CharacteristicNotification`` that can be used to cancel and deregister the notification handler.
+    public func registerNotifications(
+        for characteristic: CBCharacteristic,
+        _ handler: @escaping BluetoothNotificationHandler
+    ) throws -> CharacteristicNotification {
+        guard let service = characteristic.service else {
+            throw BluetoothError.notConnected
+        }
 
-        // as we get a characteristic instance
-        peripheral.setNotifyValue(true, for: characteristic)
+        return registerNotifications(service: service.uuid, characteristic: characteristic.uuid, handler)
+    }
+
+    /// Register a notification handler for a characteristic.
+    ///
+    /// This method registers a notification handler for the provide service and characteristic id.
+    ///
+    /// - Tip: It is not required that the device is connected. Notifications will be automatically enabled for the
+    /// respective characteristic upon device discovery.
+    ///
+    /// - Note: Make sure that you don't create a retain cycle if the provided closure captures `self`.
+    ///
+    /// - Parameters:
+    ///   - service: The service uuid.
+    ///   - characteristic: The characteristic uuid.
+    ///   - handler: The notification handler.
+    /// - @Returns: Returns the ``CharacteristicNotification`` that can be used to cancel and deregister the notification handler.
+    public func registerNotifications(
+        service: CBUUID,
+        characteristic: CBUUID,
+        _ handler: @escaping BluetoothNotificationHandler
+    ) -> CharacteristicNotification {
+        let locator = CharacteristicLocator(serviceId: service, characteristicId: characteristic)
+        let id = UUID() // notification handler id, used internally
+
+        notificationHandlers[locator, default: [:]]
+            .updateValue(handler, forKey: id)
+
+
+        // if setting notify doesn't work here, we do it upon discovery of the characteristics
+        trySettingNotifyValue(true, serviceId: service, characteristicId: characteristic)
+
+        return CharacteristicNotification(peripheral: self, locator: locator, handlerId: id)
+    }
+
+    func deregisterNotification(_ notification: CharacteristicNotification) {
+        notificationHandlers[notification.locator]?.removeValue(forKey: notification.handlerId)
+
+        trySettingNotifyValue(false, serviceId: notification.locator.serviceId, characteristicId: notification.locator.characteristicId)
+    }
+
+    private func trySettingNotifyValue(_ notify: Bool, serviceId: CBUUID, characteristicId: CBUUID) {
+        if let service = services?.first(where: { $0.uuid == serviceId }),
+           let characteristic = service.characteristics?.first(where: { $0.uuid == characteristicId }),
+           characteristic.properties.contains(.notify) {
+            peripheral.setNotifyValue(notify, for: characteristic)
+        }
     }
 
     /// Call this when things either go wrong, or you're done with the connection.
@@ -394,8 +481,16 @@ extension BluetoothPeripheral {
 
     fileprivate func discovered(characteristics: [CBCharacteristic], for service: CBService) {
         // automatically subscribe to discovered characteristics for which we have a handler subscribed!
-        for characteristic in characteristics where notificationHandlers[characteristic] != nil {
-            peripheral.setNotifyValue(true, for: characteristic)
+        for characteristic in characteristics {
+            guard characteristic.properties.contains(.notify) else {
+                continue
+            }
+
+            let locator = CharacteristicLocator(serviceId: service.uuid, characteristicId: characteristic.uuid)
+
+            if notificationHandlers[locator] != nil {
+                peripheral.setNotifyValue(true, for: characteristic)
+            }
         }
     }
 
@@ -417,10 +512,17 @@ extension BluetoothPeripheral {
             for continuation in continuations {
                 continuation.resume(with: result)
             }
+            // TODO: @Characteristic assumes that we are getting notified of everything!!
         } else {
             switch result {
             case let .success(data):
-                for handler in notificationHandlers[characteristic, default: []] {
+                guard let service = characteristic.service else {
+                    break
+                }
+
+                let locator = CharacteristicLocator(serviceId: service.uuid, characteristicId: characteristic.uuid)
+
+                for handler in notificationHandlers[locator, default: [:]].values {
                     await handler(data)
                 }
             case let .failure(error):
@@ -500,7 +602,6 @@ extension BluetoothPeripheral {
 
             // update our local model
             device.stateContainer.services?.removeAll(where: { invalidatedServices.contains($0) })
-            // TODO: does this change our ongoing CBCharacteristic instances?? (Cancel Continuations, what is with notification handlers?)
 
             peripheral.discoverServices(serviceIds)
         }

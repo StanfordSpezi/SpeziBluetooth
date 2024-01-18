@@ -10,39 +10,20 @@ import CoreBluetooth
 import Foundation
 
 
-class CharacteristicContext {
-    let peripheral: BluetoothPeripheral
-    let serviceId: CBUUID
-    var characteristic: CBCharacteristic? // nil if device is not connected yet
-    var notify: Bool
-
-    init(peripheral: BluetoothPeripheral, serviceId: CBUUID, characteristic: CBCharacteristic?, notify: Bool) {
-        self.peripheral = peripheral
-        self.serviceId = serviceId
-        self.characteristic = characteristic
-        self.notify = notify
-    }
-}
-
-private protocol DecodableCharacteristic {
-    associatedtype Value: ByteDecodable
-
-    @MainActor
-    func setup()
-
-    @MainActor
-    func handleUpdateValue(_ data: Data?)
-}
-
-
 @Observable
 @propertyWrapper
 public class Characteristic<Value> {
     let id: CBUUID
+
+    private let defaultValue: Value?
     private let defaultNotify: Bool // TODO: this should be updated once we enable notifications via the accessors type?
 
-    public private(set) var wrappedValue: Value?
-    // TODO: update the wrapped value!
+    public var wrappedValue: Value? {
+        guard let context else {
+            return defaultValue
+        }
+        return context.value
+    }
 
     public var projectedValue: CharacteristicAccessors<Value> {
         guard let context else {
@@ -56,11 +37,11 @@ public class Characteristic<Value> {
         return CharacteristicAccessors(id: id, context: context)
     }
 
-    private var context: CharacteristicContext?
+    private var context: CharacteristicContext<Value>?
 
     // TODO auto subscribe to notify
     fileprivate init(wrappedValue: Value? = nil, characteristic: CBUUID, notify: Bool) {
-        self.wrappedValue = wrappedValue
+        self.defaultValue = wrappedValue
         self.id = characteristic
         self.defaultNotify = notify
     }
@@ -70,116 +51,18 @@ public class Characteristic<Value> {
     func inject(peripheral: BluetoothPeripheral, serviceId: CBUUID, service: CBService?) {
         let characteristic = service?.characteristics?.first(where: { $0.uuid == self.id })
 
-        // TODO: subscribe to updates on the services property, to set the characteristics property eventually?
-        self.context = CharacteristicContext(peripheral: peripheral, serviceId: serviceId, characteristic: characteristic, notify: defaultNotify)
+        let context = CharacteristicContext<Value>(
+            peripheral: peripheral,
+            serviceId: serviceId,
+            characteristicId: self.id,
+            characteristic: characteristic
+        )
 
-        trackServicesUpdates()
+        self.context = context
 
-        if let instance = self as? any DecodableCharacteristic {
-            instance.setup()
+        Task { // TODO: can we optimized this?
+            await context.setup(defaultNotify: defaultNotify)
         }
-    }
-
-
-    private func trackServicesUpdates() {
-        guard let context else {
-            return
-        }
-
-        withObservationTracking {
-            _ = context.peripheral.services
-        } onChange: { [weak self] in
-            Task { @MainActor [weak self] in // TODO: main actor?
-                self?.handleServicesChange()
-            }
-            self?.trackServicesUpdates()
-        }
-    }
-
-    @MainActor
-    private func handleServicesChange() {
-        guard let context else {
-            return // TODO: debug this?
-        }
-
-        let service = context.peripheral.services?.first(where: { $0.uuid == context.serviceId })
-        let characteristic = service?.characteristics?.first(where: { $0.uuid == self.id })
-
-        context.characteristic = characteristic
-
-        if context.characteristic != nil {
-            updateNotificationSubscription()
-            // TODO: check if we already have a notification handler registered??
-        } else {
-            wrappedValue = nil
-        }
-
-        if context.characteristic == nil {
-            wrappedValue = nil
-        }
-    }
-
-    private func updateNotificationSubscription() {
-        guard let context else {
-            return
-        }
-
-        if context.notify {
-            if let characteristic = context.characteristic { // TODO: make sure stuff!
-                Task { // TODO: synchronization??
-                    // TODO: track registration!
-                    await context.peripheral.registerNotifications(for: characteristic) { [weak self] data in
-                        self?.handleCharacteristicValueChange(data)
-                    }
-                }
-            }
-        } else {
-            // TODO: Remove notification subscription!
-        }
-    }
-
-    private func handleCharacteristicValueChange(_ data: Data?) {
-        guard let decodable = self as? any DecodableCharacteristic else {
-            return
-        }
-
-        Task { @MainActor in
-            // TODO: unwrap context and characteristic beforehand?
-            decodable.handleUpdateValue(data)
-        }
-    }
-}
-
-
-extension Characteristic: DecodableCharacteristic where Value: ByteDecodable {
-    @MainActor
-    func setup() {
-        guard let context else {
-            return // this is given!
-        }
-
-        if let characteristic = context.characteristic {
-            // handle assigning the initial value!
-            if let value = characteristic.value {
-                handleUpdateValue(value)
-            }
-
-            updateNotificationSubscription()
-        }
-    }
-
-    @MainActor
-    func handleUpdateValue(_ data: Data?) {
-        guard let data else {
-            wrappedValue = nil
-            return
-        }
-
-        guard let value = Value(data: data) else {
-            // TODO: make it a warning!!!
-            return
-        }
-        self.wrappedValue = value
     }
 }
 
