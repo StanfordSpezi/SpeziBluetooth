@@ -22,6 +22,7 @@ private struct SetupServiceVisitor: ServiceVisitor {
     }
 
 
+    @MainActor
     func visit<Value>(_ characteristic: Characteristic<Value>) {
         characteristic.inject(peripheral: peripheral, serviceId: serviceId, service: service)
     }

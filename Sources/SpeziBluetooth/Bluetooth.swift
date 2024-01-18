@@ -6,8 +6,11 @@
 // SPDX-License-Identifier: MIT
 //
 
-import Observation
+import Foundation
+import OSLog
 import Spezi
+
+// TODO: extension to CBUUID for common ids?
 
 
 // TODO: "Enable applications to connect to Bluetooth devices using modern programming paradigms."???
@@ -79,6 +82,7 @@ import Spezi
 /// > Tip: You can find a more extensive example in the main <doc:SpeziBluetooth> documentation.
 @Observable
 public class Bluetooth: Module {
+    private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "Bluetooth")
     private let bluetoothManager: BluetoothManager
     private let deviceConfigurations: Set<DeviceConfiguration> // TODO: index by type?
 
@@ -92,6 +96,9 @@ public class Bluetooth: Module {
         bluetoothManager.isScanning
     }
 
+
+    @MainActor private var nearbyDevices: [UUID: BluetoothDevice] = [:]
+
     // TODO: how to provide access to the nearby devices list?
 
 
@@ -102,32 +109,46 @@ public class Bluetooth: Module {
         self.bluetoothManager = BluetoothManager(discovery: Set(configuration.map { $0.parseDiscoveryConfiguration() }))
         self.deviceConfigurations = configuration // TODO: when to init the devices?
 
-        // TODO for each "Discover" entry, inject a nearby devices list for this type and a connected devices optional?
+        // TODO: for each "Discover" entry, inject a nearby devices list for this type and a connected devices optional?
     }
 
     private func observeNearbyDevices() {
         withObservationTracking {
             _ = bluetoothManager.nearbyPeripheralsView
-        } onChange: {
-            // TODO: check what nearby devices are new/gone/existent => create Device for it!
-            self.observeNearbyDevices()
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.handleNearbyDevicesChange()
+            }
+            self?.observeNearbyDevices()
         }
     }
 
-    public func nearbyDevices<Device: BluetoothDevice>(for device: Device.Type = Device.self) -> [Device] {
-        guard let configuration = deviceConfigurations.first(where: { $0.anyDeviceType == device }) else {
-            return []
+    @MainActor
+    private func handleNearbyDevicesChange() {
+        let discoveredDevices = bluetoothManager.discoveredPeripherals
+
+        // remove all delete keys
+        for key in nearbyDevices.keys where discoveredDevices[key] == nil {
+            nearbyDevices.removeValue(forKey: key)
         }
 
-        return bluetoothManager.nearbyPeripheralsView.compactMap { peripheral in
-            guard peripheral.matches(criteria: configuration.discoveryCriteria) else {
-                return nil
+        // add devices for new keys
+        for (key, peripheral) in discoveredDevices where nearbyDevices[key] == nil {
+            guard let configuration = deviceConfigurations.find(for: peripheral.advertisementData, logger: logger) else {
+                // TODO: just ignore but do the logger?
+                continue
             }
 
-            let device = Device() // TODO: don't create it always?
+            let device = configuration.anyDeviceType.init()
             device.inject(peripheral: peripheral)
+            nearbyDevices[key] = device
+        }
+    }
 
-            return device
+    @MainActor
+    public func nearbyDevices<Device: BluetoothDevice>(for device: Device.Type = Device.self) -> [Device] {
+        nearbyDevices.values.compactMap { device in
+            device as? Device
         }
     }
 

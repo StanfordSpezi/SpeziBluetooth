@@ -6,6 +6,8 @@
 // SPDX-License-Identifier: MIT
 //
 
+import OSLog
+
 
 /// The discovery configuration for a certain type of device.
 public struct DiscoveryConfiguration {
@@ -28,6 +30,13 @@ public struct DiscoveryConfiguration {
 }
 
 
+extension DiscoveryConfiguration: Identifiable {
+    public var id: DiscoveryCriteria {
+        criteria
+    }
+}
+
+
 extension DiscoveryConfiguration: Hashable {
     public static func == (lhs: DiscoveryConfiguration, rhs: DiscoveryConfiguration) -> Bool {
         lhs.criteria == rhs.criteria
@@ -35,5 +44,23 @@ extension DiscoveryConfiguration: Hashable {
 
     public func hash(into hasher: inout Hasher) {
         hasher.combine(criteria)
+    }
+}
+
+
+extension Collection where Element: Identifiable, Element.ID == DiscoveryCriteria {
+    func find(for advertisementData: AdvertisementData, logger: Logger) -> Element? {
+        let configurations = filter { configuration in
+            configuration.id.matches(advertisementData)
+        }
+
+        if configurations.count > 1 {
+            let criteria = configurations
+                .map { $0.id.description }
+                .joined(separator: ", ")
+            logger.warning("Found ambiguous discovery configuration for peripheral. Peripheral matched all these criteria: \(criteria)")
+        }
+
+        return configurations.first
     }
 }

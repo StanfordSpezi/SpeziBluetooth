@@ -30,6 +30,8 @@ private final class BluetoothPeripheralState {
     var advertisementData: AdvertisementData
     var state: PeripheralState
     var lastActivity: Date
+
+    // TODO: reset services on disconnect!
     var services: [CBService]? // swiftlint:disable:this discouraged_optional_collection
 
     /// The list of requested characteristic uuids indexed by service uuids.
@@ -121,7 +123,7 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
     ///
     /// Services are discovered automatically upon connection
     public nonisolated var services: [CBService]? { // swiftlint:disable:this discouraged_optional_collection
-        stateContainer.services
+        stateContainer.services // TODO: Observable wrappers???
     }
 
     nonisolated var lastActivity: Date {
@@ -165,6 +167,7 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
     ///
     /// - Note: You might want to verify via the ``AdvertisementData/isConnectable`` property that the device is connectable.
     public func connect() async {
+        // TODO: make it async till it connects??
         guard let manager else {
             logger.warning("Tried to connect an orphaned bluetooth peripheral!")
             return

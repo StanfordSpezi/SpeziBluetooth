@@ -6,36 +6,53 @@
 // SPDX-License-Identifier: MIT
 //
 
-public protocol _BluetoothPeripheralAction { // swiftlint:disable:this type_name
-    init(from peripheral: BluetoothPeripheral)
-}
 
-public struct BluetoothConnectAction: _BluetoothPeripheralAction {
-    private let peripheral: BluetoothPeripheral // TODO: weakness?
-
-    public init(from peripheral: BluetoothPeripheral) {
-        self.peripheral = peripheral
-    }
-
-
-    public func callAsFunction() async {
-        await peripheral.connect()
-    }
-}
-
-public struct DeviceActions {
-    public var connect: BluetoothConnectAction.Type {
-        BluetoothConnectAction.self
-    }
-}
-
-
+/// Control an action of a Bluetooth peripheral.
+///
+/// This property wrapper can be used within your ``BluetoothDevice`` or ``BluetoothService`` models to
+/// control an action of a Bluetooth peripheral.
+///
+/// Below is a short code example that demonstrates the usage of the `DeviceAction` property wrapper to
+/// execute the connect and disconnect actions of a device.
+///
+/// - Note: The `@DeviceAction` property wrapper can only be accessed after the initializer returned. Accessing within the initializer will result in a runtime crash.
+///
+/// ```swift
+/// class ExampleDevice: BluetoothDevice {
+///     @DeviceAction(\.connect)
+///     var connect
+///
+///     @DeviceAction(\.disconnect)
+///     var disconnect
+///
+///     init() {
+///         // ...
+///     }
+///
+///     /// Called when all measurements were successfully transmitted.
+///     func transmissionFinished() async {
+///         // ...
+///         await disconnect()
+///     }
+/// }
+/// ```
+///
+/// ## Topics
+///
+/// ### Managing Connection
+/// - ``DeviceActions/connect``
+/// - ``DeviceActions/disconnect``
 @propertyWrapper
 public class DeviceAction<Action: _BluetoothPeripheralAction> {
+    /// Access the device action.
     public var wrappedValue: Action {
         guard let peripheral else {
-            // TODO: this is always present right
-            preconditionFailure("Injection should be present right")
+            preconditionFailure(
+                """
+                Failed to access bluetooth device action. Make sure your @DeviceAction is only declared within your bluetooth device class \
+                that is managed by SpeziBluetooth.
+                """
+            )
         }
         return Action(from: peripheral)
     }
@@ -43,6 +60,8 @@ public class DeviceAction<Action: _BluetoothPeripheralAction> {
     private var peripheral: BluetoothPeripheral?
 
 
+    /// Provide a `KeyPath` to the device action you want to access.
+    /// - Parameter keyPath: The `KeyPath` to a property of ``DeviceActions``.
     public init(_ keyPath: KeyPath<DeviceActions, Action.Type>) {}
 
 

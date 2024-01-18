@@ -7,21 +7,59 @@
 //
 
 
+/// Retrieve state of a Bluetooth peripheral.
+///
+/// This property wrapper can be used within your ``BluetoothDevice`` or ``BluetoothService`` models to
+/// get access to the state of your Bluetooth peripheral.
+///
+/// Below is a short code example that demonstrate the usage of the `DeviceState` property wrapper to retrieve the name and current ``BluetoothState``
+/// of a device.
+///
+/// - Note: The `@DeviceState` property wrapper can only be accessed after the initializer returned. Accessing within the initializer will result in a runtime crash.
+///
+/// ```swift
+/// class ExampleDevice: BluetoothDevice {
+///     @DeviceState(\.name)
+///     var name: String?
+///
+///     @DeviceState(\.state)
+///     var state: BluetoothState
+///
+///     init() {
+///         // ...
+///     }
+/// }
+/// ```
+///
+/// ## Topics
+///
+/// ### Available Device States
+/// - ``BluetoothPeripheral/id``
+/// - ``BluetoothPeripheral/name``
+/// - ``BluetoothPeripheral/state``
+/// - ``BluetoothPeripheral/rssi``
+/// - ``BluetoothPeripheral/advertisementData``
 @propertyWrapper
-public class DeviceState<Value> { // TODO: can appear anywhere right?
+public class DeviceState<Value> {
     private let keyPath: KeyPath<BluetoothPeripheral, Value>
+    private var peripheral: BluetoothPeripheral?
 
+    /// Access the device state.
     public var wrappedValue: Value {
         guard let peripheral else {
-            // TODO: this is always present right
-            preconditionFailure("Injection should be present right??")
+            preconditionFailure(
+                """
+                Failed to access bluetooth device state. Make sure your @DeviceState is only declared within your bluetooth device class \
+                that is managed by SpeziBluetooth.
+                """
+            )
         }
         return peripheral[keyPath: keyPath]
     }
 
-    private var peripheral: BluetoothPeripheral?
 
-
+    /// Provide a `KeyPath` to the device state you want to access.
+    /// - Parameter keyPath: The `KeyPath` to a property of the underlying ``BluetoothPeripheral`` instance.
     public init(_ keyPath: KeyPath<BluetoothPeripheral, Value>) {
         self.keyPath = keyPath
     }

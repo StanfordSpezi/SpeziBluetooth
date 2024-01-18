@@ -32,7 +32,7 @@ import OSLog
 /// - ``nearbyPeripherals``
 /// - ``nearbyPeripheralsView``
 @Observable
-public class BluetoothManager: KVOReceiver {
+public class BluetoothManager: KVOReceiver { // TODO: review if we should make properties MainActor (Observable?).
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothManager")
     /// The dispatch queue for all Bluetooth related functionality. This is serial (not `.concurrent`) to ensure synchronization.
     private let dispatchQueue = DispatchQueue(label: "edu.stanford.spezi.bluetooth", qos: .userInitiated)
@@ -52,7 +52,7 @@ public class BluetoothManager: KVOReceiver {
     private var autoConnect = false
     /// The list of discovered and connected bluetooth devices indexed by their identifier UUID.
     /// The state is isolated to our `dispatchQueue`.
-    private var discoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> = [:]
+    private(set) var discoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> = [:]
 
     /// The time interval after which an advertisement is considered stale and the device is removed.
     private let advertisementStaleInterval: TimeInterval // TODO: enforce minimum time? e.g. 1s? and maximum, 30s?
@@ -131,7 +131,7 @@ public class BluetoothManager: KVOReceiver {
 
 
         // TODO: auto-connect flag => find first and then connect if unique (for a certain back off period)?
-        self.autoConnect = autoConnect
+        self.autoConnect = autoConnect // TODO: Race condition!
 
         centralManager.scanForPeripherals(
             withServices: serviceDiscoveryIds,
@@ -190,9 +190,11 @@ public class BluetoothManager: KVOReceiver {
     func observeChange<K, V>(of keyPath: KeyPath<K, V>, value: V) async {
         switch keyPath {
         case \CBCentralManager.isScanning:
-            self.isScanning = value as! Bool // swiftlint:disable:this force_cast
-            if !isScanning {
-                handleStoppedScanning()
+            dispatchQueue.async {
+                self.isScanning = value as! Bool // swiftlint:disable:this force_cast
+                if !self.isScanning {
+                    self.handleStoppedScanning()
+                }
             }
         default:
             break
@@ -200,23 +202,7 @@ public class BluetoothManager: KVOReceiver {
     }
 
     func discoveryConfiguration(for advertisementData: AdvertisementData) -> DiscoveryConfiguration? {
-        let configurations = discovery.filter { configuration in
-            if case let .primaryService(uuid) = configuration.criteria,
-               let advertisedServices = advertisementData.serviceUUIDs {
-                return advertisedServices.contains(uuid)
-            }
-            // TODO: we could easily support name as well (if we support the performance degradation impact!)
-            return false
-        }
-
-        if configurations.count > 1 {
-            let criteria = configurations
-                .map { $0.criteria.description }
-                .joined(separator: ", ")
-            logger.warning("Found ambiguous discovery configuration for peripheral. Peripheral matched all these criteria: \(criteria)")
-        }
-
-        return configurations.first
+        discovery.find(for: advertisementData, logger: logger)
     }
 
     // MARK: - Stale Advertisement Timeout
@@ -285,7 +271,10 @@ public class BluetoothManager: KVOReceiver {
         stopScanning()
         staleTimer?.cancel()
         self.state = .poweredOff
+
+
         discoveredPeripherals = [:] // TODO: disconnect devices?
+        self.centralManager.delegate = nil
 
         logger.debug("BluetoothManager destroyed")
     }
@@ -297,7 +286,7 @@ extension BluetoothManager {
     private class Delegate: NSObject, CBCentralManagerDelegate {
         private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothManagerDelegate")
 
-        private unowned var manager: BluetoothManager
+        private weak var manager: BluetoothManager?
 
 
         init(_ manager: BluetoothManager) {
@@ -307,6 +296,10 @@ extension BluetoothManager {
 
 
         func centralManagerDidUpdateState(_ central: CBCentralManager) {
+            guard let manager else {
+                return
+            }
+
             switch central.state {
             case .poweredOn:
                 // Start working with the peripheral
@@ -348,6 +341,10 @@ extension BluetoothManager {
             // swiftlint:disable:next legacy_objc_type
             rssi: NSNumber
         ) {
+            guard let manager else {
+                return
+            }
+
             // rssi of 127 is a magic value signifying unavailability of the value.
             // TODO: not true?: Connecting to such a device will most likely crash.
             guard rssi.intValue >= manager.minimumRSSI, rssi.intValue != 127 else { // ensure the signal strength is not too low
@@ -387,6 +384,10 @@ extension BluetoothManager {
         }
 
         func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
+            guard let manager else {
+                return
+            }
+
             // Documentation reads: "Because connection attempts don’t time out, a failed connection usually indicates a transient issue,
             // in which case you may attempt connecting to the peripheral again."
 
@@ -403,13 +404,17 @@ extension BluetoothManager {
         }
 
         func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
+            guard let manager else {
+                return
+            }
+
             guard let device = manager.discoveredPeripherals[peripheral.identifier] else {
                 logger.error("Received didConnect for unknown peripheral \(peripheral.debugIdentifier). Cancelling connection ...")
                 manager.centralManager.cancelPeripheralConnection(peripheral)
                 return
             }
 
-            logger.debug("Peripheral \(peripheral.debugIdentifier) connected ...")
+            logger.debug("Peripheral \(peripheral.debugIdentifier) connected.")
             Task {
                 await device.handleConnect()
             }
@@ -417,12 +422,16 @@ extension BluetoothManager {
 
 
         func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
+            guard let manager else {
+                return
+            }
+
             guard let device = manager.discoveredPeripherals[peripheral.identifier] else {
                 logger.error("Received didDisconnect for unknown peripheral \(peripheral.debugIdentifier).")
                 return
             }
 
-            logger.debug("Peripheral \(peripheral.debugIdentifier) disconnected ...")
+            logger.debug("Peripheral \(peripheral.debugIdentifier) disconnected.")
 
             // we will keep disconnected devices for 25% of the stale interval time.
             let interval = manager.advertisementStaleInterval * 0.25 // TODO: only if isScanning is true?

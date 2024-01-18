@@ -13,7 +13,7 @@ protocol ServiceVisitable {
 
 
 protocol ServiceVisitor: BaseVisitor {
-    mutating func visit<Value>(_ characteristic: Characteristic<Value>) // TODO: distinguish between Encodable/Decoable?
+    mutating func visit<Value>(_ characteristic: Characteristic<Value>)
 }
 
 

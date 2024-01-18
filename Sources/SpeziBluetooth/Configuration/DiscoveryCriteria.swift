@@ -16,14 +16,23 @@ public enum DiscoveryCriteria {
     // TODO: make .startsWith, .exactly (init with string literal), .endsWith
 
     /// Identify a device by the advertised primary service.
-    case primaryService(_ uuid: CBUUID)
+    case primaryService(_ uuid: CBUUID) // TODO: primary service and advertised services are two different things!!!!
 
 
     /// Identify a device by the advertised primary service.
     /// - Parameter uuid: The Bluetooth ServiceId in string format.
     /// - Returns: A ``DiscoveryCriteria/primaryService(_:)`` criteria.
-    static func primaryService(_ uuid: String) -> DiscoveryCriteria {
+    public static func primaryService(_ uuid: String) -> DiscoveryCriteria {
         .primaryService(CBUUID(string: uuid))
+    }
+
+
+    func matches(_ advertisementData: AdvertisementData) -> Bool {
+        switch self {
+        case let .primaryService(uuid):
+            return advertisementData.serviceUUIDs?.contains(uuid) ?? false
+            // TODO: we could easily support name as well (if we support the performance degradation impact!)
+        }
     }
 }
 

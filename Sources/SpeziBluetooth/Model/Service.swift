@@ -7,12 +7,6 @@
 //
 
 import CoreBluetooth
-import Observation
-
-
-public protocol BluetoothService: AnyObject { // TODO: GATTService name?
-    // TODO: enum type for Characteristic Ids? (and for service?)
-}
 
 
 @propertyWrapper
@@ -21,7 +15,7 @@ public class Service<S: BluetoothService> {
 
     public let wrappedValue: S
 
-    // TODO: do we need a projected value? maybe for underlying access?
+    // TODO: underlying access to isPrimary via projectedValue?
 
     public convenience init(wrappedValue: S, id: String) {
         self.init(wrappedValue: wrappedValue, id: CBUUID(string: id))

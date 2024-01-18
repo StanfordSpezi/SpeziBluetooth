@@ -19,6 +19,13 @@ public struct DeviceConfiguration {
 }
 
 
+extension DeviceConfiguration: Identifiable {
+    public var id: DiscoveryCriteria {
+        discoveryCriteria
+    }
+}
+
+
 extension DeviceConfiguration: Hashable {
     public static func == (lhs: DeviceConfiguration, rhs: DeviceConfiguration) -> Bool {
         lhs.discoveryCriteria == rhs.discoveryCriteria
