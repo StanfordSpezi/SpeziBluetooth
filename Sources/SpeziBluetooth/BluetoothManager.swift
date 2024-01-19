@@ -227,6 +227,10 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner { // TODO: review i
     // MARK: - Auto Connect
 
     private func kickOffAutoConnect() {
+        guard autoConnect else {
+            return // auto connect is disabled
+        }
+
         guard autoConnectItem == nil && autoConnectDeviceCandidate != nil else {
             return
         }
@@ -258,6 +262,10 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner { // TODO: review i
     ///   - device: The device for which the timer is scheduled for.
     ///   - timeout: The timeout for which the timer is scheduled for.
     private func scheduleStaleTask(for device: BluetoothPeripheral, withTimeout timeout: TimeInterval) {
+        // TODO: consider scheduling a fixed timer!!
+
+        // TODO: remove some of the logging again?
+        logger.debug("Scheduling stale timeout for peripheral \(device.cbPeripheral.debugIdentifier) with \(timeout)s")
         let timer = DiscoveryStaleTimer(device: device.id) { [weak self] in
             self?.handleStaleTask()
         }
@@ -268,7 +276,9 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner { // TODO: review i
 
     private func scheduleStaleTaskForOldestActivityDevice(ignore device: BluetoothPeripheral? = nil) {
         if let oldestActivityDevice = oldestActivityDevice(ignore: device) {
-            let nextTimeout = Date.now.timeIntervalSince(oldestActivityDevice.lastActivity)
+            let intervalSinceLastActivity = Date.now.timeIntervalSince(oldestActivityDevice.lastActivity)
+            let nextTimeout = max(0, advertisementStaleInterval - intervalSinceLastActivity)
+
             scheduleStaleTask(for: oldestActivityDevice, withTimeout: nextTimeout)
         }
     }
@@ -302,6 +312,7 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner { // TODO: review i
         }
 
         for device in staleDevices {
+            logger.debug("Removing stale peripheral \(device.cbPeripheral.debugIdentifier)")
             // we know it won't be connected, therefore we just need to remove it
             // TODO: any races?
             discoveredPeripherals.removeValue(forKey: device.id)
@@ -481,14 +492,17 @@ extension BluetoothManager {
 
             logger.debug("Peripheral \(peripheral.debugIdentifier) disconnected.")
 
-            // TODO: just remove it if we are not scanning?
+            if !manager.isScanning {
+                device.handleDisconnect()
+                manager.discoveredPeripherals.removeValue(forKey: device.id)
+            } else {
+                // we will keep disconnected devices for 500ms before the stale timer kicks off
+                let interval = max(0, manager.advertisementStaleInterval - 0.5)
+                device.handleDisconnect(disconnectActivityInterval: interval)
 
-            // we will keep disconnected devices for 25% of the stale interval time.
-            let interval = manager.advertisementStaleInterval * 0.25
-            device.handleDisconnect(disconnectActivityInterval: interval)
-
-            // We just schedule the new timer if there is a device to schedule one for.
-            manager.scheduleStaleTaskForOldestActivityDevice()
+                // We just schedule the new timer if there is a device to schedule one for.
+                manager.scheduleStaleTaskForOldestActivityDevice()
+            }
         }
     }
 }

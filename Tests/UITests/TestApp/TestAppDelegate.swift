@@ -10,11 +10,23 @@ import Spezi
 import SpeziBluetooth
 import SwiftUI
 
+class TestDevice: BluetoothDevice, Identifiable {
+    @DeviceState(\.state)
+    var state
+
+    @DeviceState(\.rssi)
+    var rssi
+
+    required init() {}
+}
+
 
 class TestAppDelegate: SpeziAppDelegate {
     override var configuration: Configuration {
         Configuration {
-            // Bluetooth()
+            Bluetooth {
+                Discover(TestDevice.self, by: .primaryService("0000FFF0-0000-1000-8000-00805F9B34FB"))
+            }
         }
     }
 }

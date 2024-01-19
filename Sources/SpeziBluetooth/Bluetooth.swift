@@ -113,18 +113,21 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
         self.bluetoothManager = BluetoothManager(discovery: Set(configuration.map { $0.parseDiscoveryConfiguration() }))
         self.deviceConfigurations = configuration // TODO: when to init the devices?
 
-        // TODO: pass device types!
-        self._devicesInjector = Modifier(wrappedValue: ConnectedDevicesInjector(configuredDeviceTypes: []))
+        let deviceTypes = configuration.map { configuration in
+            configuration.anyDeviceType
+        }
+
+        self._devicesInjector = Modifier(wrappedValue: ConnectedDevicesInjector(configuredDeviceTypes: deviceTypes))
 
         observeNearbyDevices()
     }
 
     private func observeNearbyDevices() {
         withObservationTracking {
-            _ = bluetoothManager.nearbyPeripheralsView
+            _ = bluetoothManager.discoveredPeripherals
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
-                self?.handleNearbyDevicesChange() // TODO: this doesn't observe disconnected devices!
+                self?.handleNearbyDevicesChange()
             }
             self?.observeNearbyDevices()
         }
@@ -153,8 +156,11 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
     private func handleNearbyDevicesChange() {
         let discoveredDevices = bluetoothManager.discoveredPeripherals
 
+        var checkForConnected = false
+
         // remove all delete keys
         for key in nearbyDevices.keys where discoveredDevices[key] == nil {
+            checkForConnected = true
             nearbyDevices.removeValue(forKey: key)
         }
 
@@ -169,10 +175,14 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
             device.inject(peripheral: peripheral)
             nearbyDevices[uuid] = device
 
+            checkForConnected = true
             observePeripheralState(of: uuid)
         }
 
-        handlePeripheralStateChange() // ensure that we get notified about a connected peripheral that is removed
+        if checkForConnected {
+            // ensure that we get notified about, e.g., a connected peripheral that is instantly removed
+            handlePeripheralStateChange()
+        }
     }
 
     @MainActor
@@ -283,9 +293,10 @@ extension BluetoothDevice {
         if let connectedDeviceAny = connected[ObjectIdentifier(Self.self)],
            let connectedDevice = connectedDeviceAny as? Self {
             // TODO: logger all the way?
-            AnyView(content.environment(connectedDevice))
+            print("Device \(connectedDevice) got injected!!!!")
+            return AnyView(content.environment(connectedDevice))
         } else {
-            content
+            return content
         }
     }
 }

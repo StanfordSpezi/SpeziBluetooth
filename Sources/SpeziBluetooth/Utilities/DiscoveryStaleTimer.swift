@@ -28,7 +28,7 @@ class DiscoveryStaleTimer {
 
     func schedule(for timeout: TimeInterval, in queue: DispatchQueue) {
         // `DispatchTime` only allows for integer time
-        let milliSeconds = Int(timeout / 1000)
+        let milliSeconds = Int(timeout * 1000)
         queue.asyncAfter(deadline: .now() + .milliseconds(milliSeconds), execute: workItem)
     }
 

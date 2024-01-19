@@ -243,13 +243,16 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
             stateContainer.requestedCharacteristics = nil
         }
 
+        self.stateContainer.state = .init(from: peripheral.state) // ensure that it is updated instantly.
+
         logger.debug("Discovering services for \(self.peripheral.debugIdentifier) ...")
         peripheral.discoverServices(stateContainer.requestedCharacteristics.map { Array($0.keys) })
     }
 
-    nonisolated func handleDisconnect(disconnectActivityInterval: TimeInterval) {
+    nonisolated func handleDisconnect(disconnectActivityInterval: TimeInterval = 0) {
         // TODO: will ongoing writes, reads, ... be cancelled??
         //   throw ongoing promises with .notConnected?
+        self.stateContainer.state = .init(from: peripheral.state) // ensure that it is updated instantly.
 
         self.stateContainer.lastActivity = Date.now - disconnectActivityInterval
     }

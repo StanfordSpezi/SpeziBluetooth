@@ -11,7 +11,11 @@ import SwiftUI
 
 
 struct BluetoothManagerView: View { // TODO: make this a reusable view (with debug output configuration?)
-    @State private var bluetooth = BluetoothManager(discovery: []) // discovery any devices!
+    // TODO: @State private var bluetooth = BluetoothManager(discovery: []) // discovery any devices!
+    @Environment(Bluetooth.self)
+    private var bluetooth
+    @Environment(TestDevice.self)
+    private var device: TestDevice?
 
     var body: some View {
         List {
@@ -30,7 +34,9 @@ struct BluetoothManagerView: View { // TODO: make this a reusable view (with deb
                 }
             }
 
-            if bluetooth.nearbyPeripheralsView.isEmpty {
+            let nearbyDevices = bluetooth.nearbyDevices(for: TestDevice.self)
+
+            if nearbyDevices.isEmpty {
                 VStack {
                     Text("Searching for nearby devices ...")
                         .foregroundColor(.secondary)
@@ -40,8 +46,9 @@ struct BluetoothManagerView: View { // TODO: make this a reusable view (with deb
                     .listRowBackground(Color.clear)
             } else {
                 Section {
-                    ForEach(bluetooth.nearbyPeripheralsView) { device in
-                        DeviceRowView(peripheral: device)
+                    ForEach(nearbyDevices) { device in
+                        Text("\(String(describing: device))")
+                        // TODO: DeviceRowView(peripheral: device)
                     }
                 } header: {
                     HStack {
@@ -53,12 +60,24 @@ struct BluetoothManagerView: View { // TODO: make this a reusable view (with deb
                     }
                 }
             }
+            
+            if let device {
+                Section {
+                    Text("Device State: \(device.state.rawValue)")
+                    Text("RSSI: \(device.rssi)")
+                }
+            }
         }
-                .scanNearbyDevices(with: bluetooth)
+                .scanNearbyDevices(with: bluetooth, autoConnect: true)
                 .navigationTitle("Nearby Devices")
     }
 }
 
 #Preview {
     BluetoothManagerView()
+        .previewWith {
+            Bluetooth {
+                Discover(TestDevice.self, by: .primaryService("0000FFF0-0000-1000-8000-00805F9B34FB"))
+            }
+        }
 }
