@@ -32,7 +32,7 @@ import OSLog
 /// - ``nearbyPeripherals``
 /// - ``nearbyPeripheralsView``
 @Observable
-public class BluetoothManager: KVOReceiver { // TODO: review if we should make properties MainActor (Observable?).
+public class BluetoothManager: KVOReceiver, BluetoothScanner { // TODO: review if we should make properties MainActor (Observable?).
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothManager")
     /// The dispatch queue for all Bluetooth related functionality. This is serial (not `.concurrent`) to ensure synchronization.
     private let dispatchQueue = DispatchQueue(label: "edu.stanford.spezi.bluetooth", qos: .userInitiated)
@@ -49,7 +49,6 @@ public class BluetoothManager: KVOReceiver { // TODO: review if we should make p
     public private(set) var state: BluetoothState
     /// Whether or not we are currently scanning for nearby devices.
     public private(set) var isScanning: Bool
-    private var autoConnect = false
     /// The list of discovered and connected bluetooth devices indexed by their identifier UUID.
     /// The state is isolated to our `dispatchQueue`.
     private(set) var discoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> = [:]
@@ -57,6 +56,22 @@ public class BluetoothManager: KVOReceiver { // TODO: review if we should make p
     /// The time interval after which an advertisement is considered stale and the device is removed.
     private let advertisementStaleInterval: TimeInterval // TODO: enforce minimum time? e.g. 1s? and maximum, 30s?
     @ObservationIgnored private var staleTimer: DiscoveryStaleTimer?
+
+    @ObservationIgnored private var autoConnect = false
+    @ObservationIgnored private var autoConnectItem: DispatchWorkItem?
+
+    /// Checks and determines the device candidate for auto-connect.
+    ///
+    /// Checks if there is exactly one, disconnected peripheral that can be used for the auto-connect feature.
+    private var autoConnectDeviceCandidate: BluetoothPeripheral? {
+        guard discoveredPeripherals.count == 1,
+              let firstDevice = discoveredPeripherals.values.first,
+              firstDevice.state == .disconnected else {
+            return nil
+        }
+
+        return firstDevice
+    }
 
     /// The list of nearby bluetooth devices.
     ///
@@ -130,8 +145,9 @@ public class BluetoothManager: KVOReceiver { // TODO: review if we should make p
         //   => might need to call connect on this?
 
 
-        // TODO: auto-connect flag => find first and then connect if unique (for a certain back off period)?
-        self.autoConnect = autoConnect // TODO: Race condition!
+        self.dispatchQueue.async {
+            self.autoConnect = autoConnect
+        }
 
         centralManager.scanForPeripherals(
             withServices: serviceDiscoveryIds,
@@ -147,7 +163,7 @@ public class BluetoothManager: KVOReceiver { // TODO: review if we should make p
         }
     }
 
-    func handleStoppedScanning() {
+    private func handleStoppedScanning() {
         self.autoConnect = false
 
         let devices = nearbyPeripheralsView.filter { device in
@@ -203,6 +219,33 @@ public class BluetoothManager: KVOReceiver { // TODO: review if we should make p
 
     func discoveryConfiguration(for advertisementData: AdvertisementData) -> DiscoveryConfiguration? {
         discovery.find(for: advertisementData, logger: logger)
+    }
+
+    // MARK: - Auto Connect
+
+    private func kickOffAutoConnect() {
+        guard autoConnectItem == nil && autoConnectDeviceCandidate != nil else {
+            return
+        }
+
+        let item = DispatchWorkItem { [weak self] in
+            guard let self = self else {
+                return
+            }
+
+            self.autoConnectItem = nil
+
+            guard let candidate = self.autoConnectDeviceCandidate else {
+                return
+            }
+
+            Task { // TODO: do this check on device disconnect/removal!
+                await candidate.connect()
+            }
+        }
+
+        autoConnectItem = item
+        dispatchQueue.asyncAfter(deadline: .now() + .seconds(1), execute: item)
     }
 
     // MARK: - Stale Advertisement Timeout
@@ -295,7 +338,7 @@ extension BluetoothManager {
         }
 
 
-        func centralManagerDidUpdateState(_ central: CBCentralManager) {
+        func centralManagerDidUpdateState(_ central: CBCentralManager) { // swiftlint:disable:this cyclomatic_complexity
             guard let manager else {
                 return
             }
@@ -342,7 +385,7 @@ extension BluetoothManager {
             rssi: NSNumber
         ) {
             guard let manager else {
-                return
+                return // TODO: check if we are scanning?
             }
 
             // rssi of 127 is a magic value signifying unavailability of the value.
@@ -380,7 +423,7 @@ extension BluetoothManager {
                 manager.scheduleStaleTask(for: device, withTimeout: manager.advertisementStaleInterval)
             }
 
-            // TODO: support auto-connect (more options?)
+            manager.kickOffAutoConnect()
         }
 
         func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
@@ -399,7 +442,7 @@ extension BluetoothManager {
 
             logger.error("Failed to connect to \(peripheral): \(String(describing: error))")
             Task {
-                await device.disconnect() // TODO: attempt reconnect, instead? OR make it configurable?
+                await device.disconnect() // TODO: attempt reconnect, instead? OR make it configurable? reconnect tries?
             }
         }
 

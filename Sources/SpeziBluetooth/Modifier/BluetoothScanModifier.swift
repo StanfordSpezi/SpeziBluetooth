@@ -10,13 +10,13 @@ import Spezi
 import SwiftUI
 
 
-private struct BluetoothScanModifier: ViewModifier {
-    private let manager: BluetoothManager
+private struct BluetoothScanModifier<Scanner: BluetoothScanner>: ViewModifier {
+    private let scanner: Scanner
     private let autoConnect: Bool
 
 
     private var bluetoothPoweredOn: Bool {
-        if case .poweredOn = manager.state {
+        if case .poweredOn = scanner.state {
             return true
         }
         // TODO: behavior???
@@ -27,8 +27,8 @@ private struct BluetoothScanModifier: ViewModifier {
 #endif
     }
 
-    init(manager: BluetoothManager, autoConnect: Bool) {
-        self.manager = manager
+    init(manager: Scanner, autoConnect: Bool) {
+        self.scanner = manager
         self.autoConnect = autoConnect
     }
 
@@ -43,12 +43,12 @@ private struct BluetoothScanModifier: ViewModifier {
             .onReceive(NotificationCenter.default.publisher(for: UIScene.didEnterBackgroundNotification)) { _ in
                 onBackground() // onDisappear is coupled with view rendering only and won't get fired when putting app into the background
             }
-            .onChange(of: manager.state) {
-                if case .poweredOn = manager.state {
+            .onChange(of: scanner.state) {
+                if case .poweredOn = scanner.state {
                     // TODO: this doesn't seem to work sometimes?
-                    manager.scanNearbyDevices(autoConnect: autoConnect)
+                    scanner.scanNearbyDevices(autoConnect: autoConnect)
                 } else {
-                    manager.stopScanning()
+                    scanner.stopScanning()
                 }
             }
     }
@@ -56,18 +56,18 @@ private struct BluetoothScanModifier: ViewModifier {
 
     private func onForeground() {
         if bluetoothPoweredOn {
-            manager.scanNearbyDevices(autoConnect: autoConnect)
+            scanner.scanNearbyDevices(autoConnect: autoConnect)
         }
     }
 
     private func onBackground() {
-        manager.stopScanning()
+        scanner.stopScanning()
     }
 }
 
 
 extension View {
-    // TODO: can this be a protocol?
+    // TODO: update docs
 
     /// Scan for nearby bluetooth devices.
     ///
@@ -82,7 +82,7 @@ extension View {
     ///   - manager: The Bluetooth Manager to use for scanning.
     ///   - autoConnect: If enabled, the bluetooth manager will automatically connect to the nearby device if only one is found.
     /// - Returns: The modified view.
-    public func scanNearbyDevices(with manager: BluetoothManager, autoConnect: Bool = false) -> some View {
+    public func scanNearbyDevices<Scanner: BluetoothScanner>(with manager: Scanner, autoConnect: Bool = false) -> some View {
         modifier(BluetoothScanModifier(manager: manager, autoConnect: autoConnect))
     }
 }
