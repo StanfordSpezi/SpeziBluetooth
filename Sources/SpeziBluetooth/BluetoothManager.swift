@@ -139,6 +139,9 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner { // TODO: review i
     ///
     /// - Parameter autoConnect: If enabled, the bluetooth manager will automatically connect to the nearby device if only one is found.
     public func scanNearbyDevices(autoConnect: Bool = false) {
+        guard !centralManager.isScanning else {
+            return
+        }
         // TODO: just scan for nearby devices? or also call retrieveConnectedPeripherals?
         //   let connectedPeripherals = centralManager.retrieveConnectedPeripherals(withServices: services.map(\.serviceUUID))
         //   logger.debug("Found connected Peripherals with transfer service: \(connectedPeripherals.debugDescription)")

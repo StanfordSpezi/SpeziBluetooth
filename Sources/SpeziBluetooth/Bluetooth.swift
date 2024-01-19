@@ -81,7 +81,7 @@ import Spezi
 ///
 /// > Tip: You can find a more extensive example in the main <doc:SpeziBluetooth> documentation.
 @Observable
-public class Bluetooth: Module, BluetoothScanner {
+public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "Bluetooth")
     private let bluetoothManager: BluetoothManager
     private let deviceConfigurations: Set<DeviceConfiguration> // TODO: index by type?

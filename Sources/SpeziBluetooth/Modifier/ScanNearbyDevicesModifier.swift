@@ -10,22 +10,10 @@ import Spezi
 import SwiftUI
 
 
-private struct BluetoothScanModifier<Scanner: BluetoothScanner>: ViewModifier {
+private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifier {
     private let scanner: Scanner
     private let autoConnect: Bool
 
-
-    private var bluetoothPoweredOn: Bool {
-        if case .poweredOn = scanner.state {
-            return true
-        }
-        // TODO: behavior???
-#if targetEnvironment(simulator)
-        return true
-#else
-        return ProcessInfo.processInfo.isPreviewSimulator
-#endif
-    }
 
     init(manager: Scanner, autoConnect: Bool) {
         self.scanner = manager
@@ -43,7 +31,7 @@ private struct BluetoothScanModifier<Scanner: BluetoothScanner>: ViewModifier {
             .onReceive(NotificationCenter.default.publisher(for: UIScene.didEnterBackgroundNotification)) { _ in
                 onBackground() // onDisappear is coupled with view rendering only and won't get fired when putting app into the background
             }
-            .onChange(of: scanner.state) {
+            .onChange(of: scanner.state) { // TODO: does this actually trigger a view rerender?
                 if case .poweredOn = scanner.state {
                     // TODO: this doesn't seem to work sometimes?
                     scanner.scanNearbyDevices(autoConnect: autoConnect)
@@ -55,7 +43,7 @@ private struct BluetoothScanModifier<Scanner: BluetoothScanner>: ViewModifier {
 
 
     private func onForeground() {
-        if bluetoothPoweredOn {
+        if case .poweredOn = scanner.state {
             scanner.scanNearbyDevices(autoConnect: autoConnect)
         }
     }
@@ -83,6 +71,6 @@ extension View {
     ///   - autoConnect: If enabled, the bluetooth manager will automatically connect to the nearby device if only one is found.
     /// - Returns: The modified view.
     public func scanNearbyDevices<Scanner: BluetoothScanner>(with manager: Scanner, autoConnect: Bool = false) -> some View {
-        modifier(BluetoothScanModifier(manager: manager, autoConnect: autoConnect))
+        modifier(ScanNearbyDevicesModifier(manager: manager, autoConnect: autoConnect))
     }
 }
