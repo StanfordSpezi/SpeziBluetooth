@@ -124,7 +124,7 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
             _ = bluetoothManager.nearbyPeripheralsView
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
-                self?.handleNearbyDevicesChange()
+                self?.handleNearbyDevicesChange() // TODO: this doesn't observe disconnected devices!
             }
             self?.observeNearbyDevices()
         }
@@ -159,7 +159,7 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
         }
 
         // add devices for new keys
-        for (key, peripheral) in discoveredDevices where nearbyDevices[key] == nil {
+        for (uuid, peripheral) in discoveredDevices where nearbyDevices[uuid] == nil {
             guard let configuration = deviceConfigurations.find(for: peripheral.advertisementData, logger: logger) else {
                 // TODO: just ignore but do the logger?
                 continue
@@ -167,7 +167,9 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
 
             let device = configuration.anyDeviceType.init()
             device.inject(peripheral: peripheral)
-            nearbyDevices[key] = device
+            nearbyDevices[uuid] = device
+
+            observePeripheralState(of: uuid)
         }
 
         handlePeripheralStateChange() // ensure that we get notified about a connected peripheral that is removed

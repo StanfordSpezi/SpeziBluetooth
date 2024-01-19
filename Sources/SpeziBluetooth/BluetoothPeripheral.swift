@@ -78,8 +78,13 @@ public class CharacteristicNotification {
 
 
     deinit {
+        // make sure we don't capture self after this deinit
+        let peripheral = peripheral
+        let locator = locator
+        let handlerId = handlerId
+
         Task {
-            await cancel()
+            await peripheral?.deregisterNotification(locator: locator, handlerId: handlerId)
         }
     }
 }
@@ -337,9 +342,13 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
     }
 
     func deregisterNotification(_ notification: CharacteristicNotification) {
-        notificationHandlers[notification.locator]?.removeValue(forKey: notification.handlerId)
+        deregisterNotification(locator: notification.locator, handlerId: notification.handlerId)
+    }
 
-        trySettingNotifyValue(false, serviceId: notification.locator.serviceId, characteristicId: notification.locator.characteristicId)
+    fileprivate func deregisterNotification(locator: CharacteristicLocator, handlerId: UUID) {
+        notificationHandlers[locator]?.removeValue(forKey: handlerId)
+
+        trySettingNotifyValue(false, serviceId: locator.serviceId, characteristicId: locator.characteristicId)
     }
 
     private func trySettingNotifyValue(_ notify: Bool, serviceId: CBUUID, characteristicId: CBUUID) {

@@ -408,6 +408,8 @@ extension BluetoothManager {
                     // current device was earliest to go stale, schedule timeout for next oldest device
                     manager.scheduleStaleTaskForOldestActivityDevice()
                 }
+
+                manager.kickOffAutoConnect()
                 return
             }
 
