@@ -130,6 +130,25 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
         }
     }
 
+    private func observePeripheralState(of uuid: UUID) {
+        // We must make sure that we don't capture the `peripheral` within the `onChange` closure as otherwise
+        // this would require a reference cycle within the `BluetoothPeripheral` class.
+        // Therefore, we have this indirection via the uuid here.
+        guard let peripheral = bluetoothManager.discoveredPeripherals[uuid] else {
+            return
+        }
+
+        withObservationTracking {
+            _ = peripheral.state
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.handlePeripheralStateChange()
+            }
+
+            self?.observePeripheralState(of: uuid)
+        }
+    }
+
     @MainActor
     private func handleNearbyDevicesChange() {
         let discoveredDevices = bluetoothManager.discoveredPeripherals
@@ -151,8 +170,13 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
             nearbyDevices[key] = device
         }
 
+        handlePeripheralStateChange() // ensure that we get notified about a connected peripheral that is removed
+    }
+
+    @MainActor
+    private func handlePeripheralStateChange() {
         // check for active connected device
-        let connectedDevices = discoveredDevices
+        let connectedDevices = bluetoothManager.discoveredPeripherals
             .filter { _, value in
                 value.state == .connected
             }
