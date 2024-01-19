@@ -256,6 +256,7 @@ extension BluetoothDevice {
     fileprivate static func inject(into content: AnyView, connected: ConnectedDevices) -> AnyView {
         if let connectedDeviceAny = connected[ObjectIdentifier(Self.self)],
            let connectedDevice = connectedDeviceAny as? Self {
+            // TODO: logger all the way?
             AnyView(content.environment(connectedDevice))
         } else {
             content
