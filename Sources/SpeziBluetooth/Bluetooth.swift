@@ -116,7 +116,7 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
         // TODO: pass device types!
         self._devicesInjector = Modifier(wrappedValue: ConnectedDevicesInjector(configuredDeviceTypes: []))
 
-        // TODO: for each "Discover" entry, inject a nearby devices list for this type and a connected devices optional?
+        observeNearbyDevices()
     }
 
     private func observeNearbyDevices() {

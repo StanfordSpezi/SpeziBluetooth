@@ -174,9 +174,9 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner { // TODO: review i
         }
 
         for device in devices {
-            withMutation(keyPath: \.discoveredPeripherals) {
+            // TODO: withMutation(keyPath: \.discoveredPeripherals) {
                 discoveredPeripherals.removeValue(forKey: device.id)
-            }
+            // TODO: }
         }
     }
 
@@ -305,10 +305,10 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner { // TODO: review i
 
         for device in staleDevices {
             // we know it won't be connected, therefore we just need to remove it
-            withMutation(keyPath: \.discoveredPeripherals) { // TODO: factor out into a method, avoids error prone?
+            // TODO: withMutation(keyPath: \.discoveredPeripherals) { // TODO: factor out into a method, avoids error prone?
                 // TODO: any races?
                 discoveredPeripherals.removeValue(forKey: device.id)
-            }
+            // TODO: }
         }
 
 
@@ -424,9 +424,9 @@ extension BluetoothManager {
             let device = BluetoothPeripheral(manager: manager, peripheral: peripheral, advertisementData: data, rssi: rssi.intValue)
 
             // we need to manually signify mutation as we use _modify subscript
-            manager.withMutation(keyPath: \.discoveredPeripherals) {
+            // TODO: manager.withMutation(keyPath: \.discoveredPeripherals) {
                 manager.discoveredPeripherals[peripheral.identifier] = device // save local-copy, such CB doesn't deallocate it
-            }
+            // TODO: }
 
 
             if manager.staleTimer == nil {
