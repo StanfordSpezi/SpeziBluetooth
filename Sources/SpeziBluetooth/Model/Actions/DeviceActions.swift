@@ -31,5 +31,10 @@ public struct DeviceActions {
         BluetoothDisconnectAction.self
     }
 
-    // TODO: readRSSI action?
+    /// Read the current RSSI from the Bluetooth peripheral.
+    ///
+    /// This action makes a call to ``BluetoothPeripheral/readRSSI()``
+    public var readRSSI: ReadRSSIAction.Type {
+        ReadRSSIAction.self
+    }
 }

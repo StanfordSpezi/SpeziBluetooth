@@ -155,11 +155,23 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
     }
 
     func handleConnect() {
-        if let description = manager?.findDeviceDescription(for: advertisementData) {
-            stateContainer.requestedCharacteristics = description.services.reduce(into: [:]) { result, configuration in
-                result[configuration.serviceId, default: []].append(contentsOf: configuration.characteristics)
+        // TODO: handle weak manager
+        guard let manager else {
+            logger.warning("Tried to disconnect an orphaned bluetooth peripheral!")
+            return
+        }
+
+        if let description = manager.findDeviceDescription(for: advertisementData),
+           let services = description.services {
+            stateContainer.requestedCharacteristics = services.reduce(into: [CBUUID: [CBUUID]?]()) { result, configuration in
+                if let characteristics = configuration.characteristics {
+                    result[configuration.serviceId, default: []]?.append(contentsOf: characteristics)
+                } else if result[configuration.serviceId] == nil {
+                    result[configuration.serviceId] = .some(nil)
+                }
             }
         } else {
+            // TODO: discover primary services!
             // all services will be discovered
             stateContainer.requestedCharacteristics = nil
         }
@@ -555,7 +567,9 @@ extension BluetoothPeripheral {
             logger.debug("Discovered \(services) services for peripheral \(peripheral.debugIdentifier)")
 
             for service in services {
-                let requestedCharacteristics = device.stateContainer.requestedCharacteristics?[service.uuid]
+                guard let requestedCharacteristics = device.stateContainer.requestedCharacteristics?[service.uuid] else {
+                    continue
+                }
 
                 // see peripheral(_:didDiscoverCharacteristicsFor:error:)
                 peripheral.discoverCharacteristics(requestedCharacteristics, for: service)

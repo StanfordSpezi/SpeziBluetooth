@@ -29,7 +29,7 @@ struct BluetoothManagerView: View { // TODO: make this a reusable view (with deb
                 HStack {
                     Text("State")
                     Spacer()
-                    Text(bluetooth.state.rawValue)
+                    Text(bluetooth.state.description)
                         .foregroundColor(.secondary)
                 }
             }
@@ -63,7 +63,7 @@ struct BluetoothManagerView: View { // TODO: make this a reusable view (with deb
             
             if let device {
                 Section {
-                    Text("Device State: \(device.state.rawValue)")
+                    Text("Device State: \(device.state.description)")
                     Text("RSSI: \(device.rssi)")
                 }
             }

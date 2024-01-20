@@ -19,14 +19,15 @@ public struct ServiceDescription {
     ///
     /// Those are the characteristics we try to discover. If empty, we discover all characteristics
     /// on a given service.
-    public let characteristics: Set<CBUUID> // TODO: allow nil vs. empty to discover nothing?
+    public let characteristics: Set<CBUUID>? // swiftlint:disable:this discouraged_optional_collection
 
 
     /// Create a new service description.
     /// - Parameters:
     ///   - serviceId: The bluetooth service id.
     ///   - characteristics: The characteristics we expect to be present on the service.
-    public init(serviceId: CBUUID, characteristics: Set<CBUUID>) {
+    ///     Use `nil` to discover all characteristics.
+    public init(serviceId: CBUUID, characteristics: Set<CBUUID>?) { // swiftlint:disable:this discouraged_optional_collection
         self.serviceId = serviceId
         self.characteristics = characteristics
     }

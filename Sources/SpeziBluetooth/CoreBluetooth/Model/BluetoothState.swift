@@ -7,19 +7,33 @@
 //
 
 
-/// Represents the various states of the ``BluetoothManager``.
-public enum BluetoothState: String { // TODO: make all the state enums not string raw value but just description (localized description?)
-    /// The Bluetooth module is turned off.
+/// Represents the various states of Bluetooth.
+public enum BluetoothState: UInt8 {
+    /// Bluetooth module is powered off.
     case poweredOff
 
-    // TODO: docs
+    /// Bluetooth is unsupported on this device (e.g.,
     case unsupported
 
     /// The application does not have permission to use Bluetooth features.
     case unauthorized
 
-    // TODO: docs
+    /// Bluetooth is powered on and usable.
     case poweredOn
 }
 
-// TODO: localized string representable?
+
+extension BluetoothState: CustomStringConvertible, Sendable {
+    public var description: String {
+        switch self {
+        case .poweredOff:
+            "poweredOff"
+        case .unsupported:
+            "unsupported"
+        case .unauthorized:
+            "unauthorized"
+        case .poweredOn:
+            "poweredOn"
+        }
+    }
+}

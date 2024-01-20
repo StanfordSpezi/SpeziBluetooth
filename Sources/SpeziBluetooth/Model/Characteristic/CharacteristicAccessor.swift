@@ -13,7 +13,7 @@ public struct CharacteristicAccessors<Value> {
     let id: CBUUID
     fileprivate let context: CharacteristicContext<Value>
 
-    // TODO: dynamic member lookup for the characteristic? => unsafe access or something?
+    // TODO: access current state (properties?, isNotifying? => what state to use context or peripheral/CBcharacteristic?)
 
     init(id: CBUUID, context: CharacteristicContext<Value>) {
         self.id = id
@@ -23,7 +23,6 @@ public struct CharacteristicAccessors<Value> {
 
 
 extension CharacteristicAccessors where Value: ByteDecodable {
-    // TODO: access current state (properties?, isNotifying? => what state to use context or peripheral/CBcharacteristic?)
     public func enableNotifications(_ enable: Bool = true) async {
         if enable {
             await context.enableNotifications()

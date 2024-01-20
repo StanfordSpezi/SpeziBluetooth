@@ -9,11 +9,32 @@
 import CoreBluetooth
 
 
-public enum PeripheralState: String, Sendable {
+/// Describes the state of a Bluetooth peripheral.
+public enum PeripheralState: UInt8 {
+    /// The peripheral is disconnected.
     case disconnected
+    /// The peripheral is currently establishing a connection.
     case connecting
+    /// The peripheral is connected.
     case connected
+    /// The peripheral is currently disconnecting.
     case disconnecting
+}
+
+
+extension PeripheralState: CustomStringConvertible, Sendable {
+    public var description: String {
+        switch self {
+        case .disconnected:
+            "disconnected"
+        case .connecting:
+            "connecting"
+        case .connected:
+            "connected"
+        case .disconnecting:
+            "disconnecting"
+        }
+    }
 }
 
 

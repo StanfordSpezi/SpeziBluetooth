@@ -15,6 +15,7 @@ public enum DiscoveryCriteria {
     // case name(_ name: String) // TODO: we could support name, but not in conjunction with primaryService
     // TODO: make .startsWith, .exactly (init with string literal), .endsWith
 
+    case advertisedService(_ uuid: CBUUID)
     /// Identify a device by the advertised primary service.
     case primaryService(_ uuid: CBUUID) // TODO: primary service and advertised services are two different things!!!!
 

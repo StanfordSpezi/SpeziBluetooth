@@ -19,14 +19,16 @@ public struct DeviceDescription {
     /// The set of service configurations we expect from the device.
     ///
     /// This will be the list of services we are interested in and we try to discover.
-    public let services: Set<ServiceDescription> // TODO: allow nil vs empty to discover nothing?
+    public let services: Set<ServiceDescription>? // swiftlint:disable:this discouraged_optional_collection
 
 
     /// Create a new discovery configuration for a certain type of device.
     /// - Parameters:
     ///   - discoveryCriteria: The criteria by which we identify a discovered device.
     ///   - services: The set of service configurations we expect from the device.
-    public init(discoverBy discoveryCriteria: DiscoveryCriteria, services: Set<ServiceDescription>) {
+    ///     Use `nil` to discover all services.
+    public init(discoverBy discoveryCriteria: DiscoveryCriteria, services: Set<ServiceDescription>?) {
+        // swiftlint:disable:previous discouraged_optional_collection
         self.discoveryCriteria = discoveryCriteria
         self.services = services
     }

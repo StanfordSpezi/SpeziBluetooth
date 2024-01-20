@@ -152,7 +152,7 @@ extension CharacteristicContext: DecodableCharacteristic where Value: ByteDecoda
         // assumes this is called with actor isolation!
         if let data {
             guard let value = Value(data: data) else {
-                // TODO: make it a warning!!!
+                Bluetooth.logger.error("Could decode updated value for characteristic \(self.characteristic?.debugIdentifier ?? self.characteristicId.uuidString). Invalid format!")
                 return
             }
 

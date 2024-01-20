@@ -39,8 +39,7 @@ public class Characteristic<Value> {
 
     private var context: CharacteristicContext<Value>?
 
-    // TODO auto subscribe to notify
-    fileprivate init(wrappedValue: Value? = nil, characteristic: CBUUID, notify: Bool) {
+    fileprivate init(wrappedValue: Value? = nil, characteristic: CBUUID, notify: Bool) { // swiftlint:disable:this function_default_parameter_at_end
         self.defaultValue = wrappedValue
         self.id = characteristic
         self.defaultNotify = notify
@@ -68,7 +67,6 @@ public class Characteristic<Value> {
 
 
 extension Characteristic where Value: ByteEncodable {
-    // TODO: make initializers a protocol? => allow for (short:base:) initializer!
     public convenience init(wrappedValue: Value? = nil, id: String) {
         self.init(wrappedValue: wrappedValue, id: CBUUID(string: id))
     }

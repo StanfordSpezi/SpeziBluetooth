@@ -29,6 +29,3 @@ extension Bool: ByteCodable {
         byteBuffer.writeBytes([self ? 1 : 0])
     }
 }
-
-
-// TODO: support Bool fields?

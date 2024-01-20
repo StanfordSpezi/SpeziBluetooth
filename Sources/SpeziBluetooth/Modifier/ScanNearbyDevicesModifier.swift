@@ -71,6 +71,7 @@ extension View {
     ///   - autoConnect: If enabled, the bluetooth manager will automatically connect to the nearby device if only one is found.
     /// - Returns: The modified view.
     public func scanNearbyDevices<Scanner: BluetoothScanner>(with manager: Scanner, autoConnect: Bool = false) -> some View {
-        modifier(ScanNearbyDevicesModifier(manager: manager, autoConnect: autoConnect))
+        // TODO: configure case, stop scanning after auto connect (but start again if device disconnects) => autoConnect modifier!
+        modifier(ScanNearbyDevicesModifier(manager: manager, autoConnect: autoConnect)) // TODO: enabled bool input!
     }
 }
