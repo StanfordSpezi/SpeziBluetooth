@@ -6,11 +6,12 @@
 // SPDX-License-Identifier: MIT
 //
 
+
 private struct CharacteristicsBuilder: ServiceVisitor {
-    var characteristics: [CBUUID] = [] // TODO: make this a set?
+    var characteristics: Set<CBUUID> = []
 
     mutating func visit<Value>(_ characteristic: Characteristic<Value>) {
-        characteristics.append(characteristic.id)
+        characteristics.insert(characteristic.id)
     }
 }
 
@@ -29,11 +30,24 @@ private struct ServiceDescriptionBuilder: DeviceVisitor {
 
 
 extension DiscoveryConfiguration {
-    func parseDeviceDescription() -> DeviceDescription { // TODO: rethink layout!
+    func parseDeviceDescription() -> DeviceDescription {
         let device = anyDeviceType.init()
 
         var builder = ServiceDescriptionBuilder()
         device.accept(&builder)
         return DeviceDescription(discoverBy: discoveryCriteria, services: builder.configurations)
+    }
+}
+
+
+extension Set where Element == DiscoveryConfiguration {
+    var deviceTypes: [BluetoothDevice.Type] {
+        map { configuration in
+            configuration.anyDeviceType
+        }
+    }
+
+    func parseDeviceDescription() -> Set<DeviceDescription> {
+        Set<DeviceDescription>(map { $0.parseDeviceDescription() })
     }
 }

@@ -24,7 +24,7 @@ extension BluetoothService {
             if let visitable = child as? ServiceVisitable {
                 visitable.accept(&visitor)
             } else if child is DeviceVisitable {
-                // TODO: maybe some logger to catch illegal @Service stuff?
+                preconditionFailure("@Service declaration found in \(Self.self). @Service cannot be used within BluetoothService classes!")
             }
         }
     }

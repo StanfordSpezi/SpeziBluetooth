@@ -16,7 +16,7 @@ public class Characteristic<Value> {
     let id: CBUUID
 
     private let defaultValue: Value?
-    private let defaultNotify: Bool // TODO: this should be updated once we enable notifications via the accessors type?
+    private let defaultNotify: Bool
 
     public var wrappedValue: Value? {
         guard let context else {
@@ -60,7 +60,7 @@ public class Characteristic<Value> {
 
         self.context = context
 
-        Task { // TODO: can we optimized this?
+        Task {
             await context.setup(defaultNotify: defaultNotify)
         }
     }

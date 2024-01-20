@@ -8,7 +8,7 @@
 
 import SwiftUI
 
-public struct LazyView<Content: View>: View {
+public struct LazyView<Content: View>: View { // TODO: this might not be used when we rework the lazy CB initializer!
     private let content: () -> Content
 
     public var body: some View {

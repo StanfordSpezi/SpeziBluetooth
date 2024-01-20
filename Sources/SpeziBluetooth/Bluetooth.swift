@@ -6,7 +6,6 @@
 // SPDX-License-Identifier: MIT
 //
 
-import Foundation
 import OSLog
 import Spezi
 
@@ -82,9 +81,14 @@ import Spezi
 /// > Tip: You can find a more extensive example in the main <doc:SpeziBluetooth> documentation.
 @Observable
 public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
-    private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "Bluetooth")
+    static let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "Bluetooth")
+
     private let bluetoothManager: BluetoothManager
-    private let deviceConfigurations: Set<DiscoveryConfiguration> // TODO: index by type?
+    private let deviceConfigurations: Set<DiscoveryConfiguration>
+
+    private var logger: Logger {
+        Self.logger
+    }
 
 
     /// Represents the current state of Bluetooth.
@@ -102,25 +106,32 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
     /// Stores the connected device instance for every configured ``BluetoothDevice`` type.
     @Model @ObservationIgnored  private var connectedDevicesModel = ConnectedDevices()
     /// Injects the ``BluetoothDevice`` instances from the `ConnectedDevices` model into the SwiftUI environment.
-    @Modifier @ObservationIgnored private var devicesInjector: ConnectedDevicesInjector
+    @Modifier @ObservationIgnored private var devicesInjector: ConnectedDevicesEnvironmentModifier
 
 
-    // TODO: duplication of default values; + support other configurations as well!
-    public init(minimumRSSI: Int = -65, @DiscoveryConfigurationBuilder _ devices: () -> Set<DiscoveryConfiguration>) {
+    /// TODO: docs!
+    /// - Parameters:
+    ///   - minimumRSSI:
+    ///   - advertisementStaleInterval:
+    ///   - devices:
+    public init(
+        minimumRSSI: Int = BluetoothManager.Defaults.defaultMinimumRSSI,
+        advertisementStaleInterval: TimeInterval = BluetoothManager.Defaults.defaultStaleTimeout,
+        @DiscoveryConfigurationBuilder _ devices: () -> Set<DiscoveryConfiguration>
+    ) {
         let configuration = devices()
+        let deviceTypes = configuration.deviceTypes
 
-        // TODO: better mapping method?
         // TODO: if a device class doesn't specify anything, EVERYTHING is getting discovered!
-        self.bluetoothManager = BluetoothManager(devices: Set(configuration.map { $0.parseDeviceDescription() }))
+        self.bluetoothManager = BluetoothManager(
+            devices: configuration.parseDeviceDescription(),
+            minimumRSSI: minimumRSSI,
+            advertisementStaleInterval: advertisementStaleInterval
+        )
         self.deviceConfigurations = configuration
+        self._devicesInjector = Modifier(wrappedValue: ConnectedDevicesEnvironmentModifier(configuredDeviceTypes: deviceTypes))
 
-        let deviceTypes = configuration.map { configuration in // TODO Move that out similar to parseDeviceDescription?
-            configuration.anyDeviceType
-        }
-
-        self._devicesInjector = Modifier(wrappedValue: ConnectedDevicesInjector(configuredDeviceTypes: deviceTypes))
-
-        observeNearbyDevices()
+        observeNearbyDevices() // register observation tracking
     }
 
     private func observeNearbyDevices() {
@@ -211,108 +222,25 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
         }
     }
 
-    public func scanNearbyDevices(autoConnect: Bool = false) { // TODO copy docs; + tip to modifier!
+    /// Scan for nearby bluetooth devices.
+    ///
+    /// Scans on nearby devices based on the ``Discover`` declarations provided in the initializer.
+    ///
+    /// All discovered devices for a given type can be accessed through the ``nearbyDevices(for:)`` method.
+    /// The first connected device can be accessed through the
+    /// [Environment(_:)](https://developer.apple.com/documentation/swiftui/environment/init(_:)-8slkf) in your SwiftUI view.
+    ///
+    /// - Note: Scanning for nearby devices can easily be managed via the ``SwiftUI/View/scanNearbyDevices(with:autoConnect:)``
+    ///     modifier.
+    ///
+    /// - Parameter autoConnect: If enabled, the bluetooth manager will automatically connect to
+    ///     the nearby device if only one is found for a given time threshold.
+    public func scanNearbyDevices(autoConnect: Bool = false) {
         bluetoothManager.scanNearbyDevices(autoConnect: autoConnect)
     }
 
+    /// Stop scanning for nearby bluetooth devices.
     public func stopScanning() {
         bluetoothManager.stopScanning()
-    }
-}
-
-@Observable
-private class ConnectedDevices {
-    @MainActor private var connectedDevices: [ObjectIdentifier: BluetoothDevice] = [:]
-    @MainActor private var connectedDeviceIds: [ObjectIdentifier: UUID] = [:]
-
-    
-    @MainActor
-    func update(with devices: [UUID: BluetoothDevice]) {
-        // remove devices that disconnected
-        for (identifier, uuid) in connectedDeviceIds where devices[uuid] == nil {
-            connectedDeviceIds.removeValue(forKey: identifier)
-            connectedDevices.removeValue(forKey: identifier)
-        }
-
-        // add newly connected devices that are not injected yet
-        for (uuid, device) in devices {
-            guard connectedDevices[device.typeIdentifier] == nil else {
-                continue // already present, we just inject the first device of a particular type into the environment
-            }
-
-            // Newly connected device for a type that isn't present yet. Save both device and id.
-            connectedDevices[device.typeIdentifier] = device
-            connectedDeviceIds[device.typeIdentifier] = uuid
-        }
-    }
-
-    @MainActor
-    subscript(_ identifier: ObjectIdentifier) -> BluetoothDevice? {
-        connectedDevices[identifier]
-    }
-}
-
-
-import SwiftUI // TODO: adjust
-private struct ConnectedDevicesInjector: ViewModifier {
-    private let configuredDeviceTypes: [BluetoothDevice.Type]
-
-    @Environment(ConnectedDevices.self)
-    var connectedDevices
-
-
-    init(configuredDeviceTypes: [BluetoothDevice.Type]) {
-        self.configuredDeviceTypes = configuredDeviceTypes
-    }
-
-
-    func body(content: Content) -> some View {
-        let modifiers = configuredDeviceTypes.map { $0.modifier }
-
-        modifiers.modify(content)
-    }
-}
-
-private struct ConnectedDeviceInjector<Device: BluetoothDevice>: ViewModifier {
-    @Environment(ConnectedDevices.self)
-    var connectedDevices
-
-    init() {}
-
-
-    func body(content: Content) -> some View {
-        let connectedDeviceAny = connectedDevices[ObjectIdentifier(Device.self)]
-        let connectedDevice = connectedDeviceAny as? Device
-
-        content
-            .environment(connectedDevice)
-    }
-}
-
-extension Array where Element == any ViewModifier {
-    fileprivate func modify<V: View>(_ view: V) -> AnyView {
-        var view = AnyView(view)
-        for modifier in self {
-            view = modifier.modify(view)
-        }
-        return view
-    }
-}
-
-
-extension ViewModifier {
-    fileprivate func modify(_ view: AnyView) -> AnyView {
-        AnyView(view.modifier(self))
-    }
-}
-
-
-extension BluetoothDevice {
-    fileprivate static var modifier: any ViewModifier {
-        ConnectedDeviceInjector<Self>()
-    }
-
-    fileprivate var typeIdentifier: ObjectIdentifier {
-        ObjectIdentifier(Self.self)
     }
 }

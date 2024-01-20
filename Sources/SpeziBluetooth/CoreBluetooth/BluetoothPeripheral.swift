@@ -6,88 +6,9 @@
 // SPDX-License-Identifier: MIT
 //
 
-import Combine
 import CoreBluetooth
-import NIOCore
-import Observation
+import Foundation
 import OSLog
-
-
-private enum AccessorContinuation {
-    case read(_ continuation: [CheckedContinuation<Data, Error>])
-    case write(_ continuation: CheckedContinuation<Data, Error>)
-}
-
-
-/// A dedicated state container for a ``BluetoothPeripheral``.
-///
-/// Main motivation is to have `BluetoothPeripheral` be implemented as an actor and moving state
-/// into a separate state container that is `@Observable`.
-@Observable
-private final class BluetoothPeripheralState { // TODO: move out (all of them)?
-    var name: String?
-    var rssi: Int
-    var advertisementData: AdvertisementData
-    var state: PeripheralState
-    var lastActivity: Date
-
-    var services: [CBService]? // swiftlint:disable:this discouraged_optional_collection
-
-    /// The list of requested characteristic uuids indexed by service uuids.
-    var requestedCharacteristics: [CBUUID: [CBUUID]]? // swiftlint:disable:this discouraged_optional_collection
-
-    init(name: String?, rssi: Int, advertisementData: AdvertisementData, state: CBPeripheralState, lastActivity: Date = .now) {
-        self.name = name
-        self.advertisementData = advertisementData
-        self.rssi = rssi
-        self.state = .init(from: state)
-        self.lastActivity = lastActivity
-    }
-}
-
-
-private struct CharacteristicLocator: Hashable {
-    let serviceId: CBUUID
-    let characteristicId: CBUUID
-}
-
-
-/// An active registration of a notification handler.
-///
-/// This object represents an active registration of an notification handler. Primarily, this can be used to keep
-/// track of a notification handler and cancel the registration at a later point.
-///
-/// - Tip: The notification handler will be automatically unregistered when this object is deallocated.
-public class CharacteristicNotification { // TODO: move to Model vs Utilities?
-    private weak var peripheral: BluetoothPeripheral?
-    fileprivate let locator: CharacteristicLocator
-    let handlerId: UUID
-
-
-    fileprivate init(peripheral: BluetoothPeripheral?, locator: CharacteristicLocator, handlerId: UUID) {
-        self.peripheral = peripheral
-        self.locator = locator
-        self.handlerId = handlerId
-    }
-
-
-    /// Cancel the notification handler registration.
-    public func cancel() async {
-        await peripheral?.deregisterNotification(self)
-    }
-
-
-    deinit {
-        // make sure we don't capture self after this deinit
-        let peripheral = peripheral
-        let locator = locator
-        let handlerId = handlerId
-
-        Task {
-            await peripheral?.deregisterNotification(locator: locator, handlerId: handlerId)
-        }
-    }
-}
 
 
 /// A nearby Bluetooth peripheral.
@@ -122,7 +43,7 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
     private let stateObserver: KVOStateObserver<BluetoothPeripheral>
 
     /// Ongoing accessed indexed by characteristic uuid.
-    private var ongoingAccesses: [CBCharacteristic: AccessorContinuation] = [:]
+    private var ongoingAccesses: [CBCharacteristic: CharacteristicAccessContinuation] = [:]
     /// Continuation for the current write without response access.
     private var writeWithoutResponseAccess: [CheckedContinuation<Void, Never>] = []
     /// Continuation for a currently ongoing rssi read access.
@@ -131,7 +52,7 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
     private var notificationHandlers: [CharacteristicLocator: [UUID: BluetoothNotificationHandler]] = [:]
 
     /// Observable state container for local state.
-    private let stateContainer: BluetoothPeripheralState
+    private let stateContainer: PeripheralStateContainer
 
     nonisolated var cbPeripheral: CBPeripheral {
         peripheral
@@ -183,7 +104,7 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
         self.manager = manager
         self.peripheral = peripheral
 
-        self.stateContainer = BluetoothPeripheralState(
+        self.stateContainer = PeripheralStateContainer(
             name: peripheral.name,
             rssi: rssi,
             advertisementData: advertisementData,
@@ -348,7 +269,7 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
         deregisterNotification(locator: notification.locator, handlerId: notification.handlerId)
     }
 
-    fileprivate func deregisterNotification(locator: CharacteristicLocator, handlerId: UUID) {
+    func deregisterNotification(locator: CharacteristicLocator, handlerId: UUID) {
         notificationHandlers[locator]?.removeValue(forKey: handlerId)
 
         trySettingNotifyValue(false, serviceId: locator.serviceId, characteristicId: locator.characteristicId)

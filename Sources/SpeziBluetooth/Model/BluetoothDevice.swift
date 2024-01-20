@@ -7,9 +7,10 @@
 //
 
 import Observation
+import Spezi
 
 
 // TODO docs
-public protocol BluetoothDevice: AnyObject, Observable { // TODO: Observable workaround!
+public protocol BluetoothDevice: AnyObject, EnvironmentAccessible {
     init()
 }

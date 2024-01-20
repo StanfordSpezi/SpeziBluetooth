@@ -35,6 +35,15 @@ import OSLog
 /// - ``nearbyPeripheralsView``
 @Observable
 public class BluetoothManager: KVOReceiver, BluetoothScanner {
+    public enum Defaults {
+        /// The default timeout after which stale advertisements are removed.
+        public static let defaultStaleTimeout: TimeInterval = 10
+        /// The minimum rssi of a peripheral to consider it for discovery.
+        public static let defaultMinimumRSSI = -65
+        /// The default time in seconds after which we check for auto connectable devices after the initial advertisement.
+        public static let defaultAutoConnectDebounce: Int = 2
+    }
+
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothManager")
     /// The dispatch queue for all Bluetooth related functionality. This is serial (not `.concurrent`) to ensure synchronization.
     private let dispatchQueue = DispatchQueue(label: "edu.stanford.spezi.bluetooth", qos: .userInitiated)
@@ -110,7 +119,11 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner {
     ///   - minimumRSSI: The minimum rssi a nearby peripheral must have to be considered nearby.
     ///   - advertisementStaleInterval: The time interval after which a peripheral advertisement is considered stale
     ///     if we don't hear back from the device. Minimum is 1 second.
-    public init(devices: Set<DeviceDescription>, minimumRSSI: Int = -65, advertisementStaleInterval: TimeInterval = 10) {
+    public init(
+        devices: Set<DeviceDescription>,
+        minimumRSSI: Int = Defaults.defaultMinimumRSSI,
+        advertisementStaleInterval: TimeInterval = Defaults.defaultStaleTimeout
+    ) {
         self.configuredDevices = devices
         self.minimumRSSI = minimumRSSI
         self.advertisementStaleInterval = max(1, advertisementStaleInterval)
@@ -127,6 +140,7 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner {
 
         // TODO: just lazy init this thing? how to delay (or repeatedly) show power alert?
         //   => if we retrieve connected devices can we reconstruct the central manager and "reconnect"?
+        //   => might just lazy init and deinit if the last device disconnects and isScanning is false?
         centralManager = CBCentralManager(delegate: self.delegate, queue: dispatchQueue, options: [CBCentralManagerOptionShowPowerAlertKey: true])
 
         isScanningObserver = KVOStateObserver<BluetoothManager>(receiver: self, entity: centralManager, property: \.isScanning)
@@ -135,9 +149,13 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner {
     /// Scan for nearby bluetooth devices.
     ///
     /// Scans on nearby devices based on the ``DeviceDescription`` provided in the initializer.
-    /// All discovered devices can be accessed through the ``nearbyPeripherals`` property.
+    /// All discovered devices can be accessed through the ``nearbyPeripherals`` or ``nearbyPeripheralsView`` property.
     ///
-    /// - Parameter autoConnect: If enabled, the bluetooth manager will automatically connect to the nearby device if only one is found.
+    /// - Note: Scanning for nearby devices can easily be managed via the ``SwiftUI/View/scanNearbyDevices(with:autoConnect:)``
+    ///     modifier.
+    ///
+    /// - Parameter autoConnect: If enabled, the bluetooth manager will automatically connect to
+    ///     the nearby device if only one is found for a given time threshold.
     public func scanNearbyDevices(autoConnect: Bool = false) {
         guard !centralManager.isScanning else {
             return
@@ -244,13 +262,15 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner {
                 return
             }
 
-            Task { // TODO: do this check on device disconnect/removal!
+            // TODO: ensure that we don't re-connect to a manually disconnected device
+
+            Task {
                 await candidate.connect()
             }
         }
 
         autoConnectItem = item
-        dispatchQueue.asyncAfter(deadline: .now() + .seconds(1), execute: item)
+        dispatchQueue.asyncAfter(deadline: .now() + .seconds(Defaults.defaultAutoConnectDebounce), execute: item)
     }
 
     // MARK: - Stale Advertisement Timeout
@@ -397,7 +417,6 @@ extension BluetoothManager {
             }
 
             // rssi of 127 is a magic value signifying unavailability of the value.
-            // TODO: not true?: Connecting to such a device will most likely crash.
             guard rssi.intValue >= manager.minimumRSSI, rssi.intValue != 127 else { // ensure the signal strength is not too low
                 return // logging this would just be to verbose, so we don't.
             }
