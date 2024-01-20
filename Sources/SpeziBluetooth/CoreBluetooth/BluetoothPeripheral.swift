@@ -58,7 +58,7 @@ private struct CharacteristicLocator: Hashable {
 /// track of a notification handler and cancel the registration at a later point.
 ///
 /// - Tip: The notification handler will be automatically unregistered when this object is deallocated.
-public class CharacteristicNotification {
+public class CharacteristicNotification { // TODO: move to Model vs Utilities?
     private weak var peripheral: BluetoothPeripheral?
     fileprivate let locator: CharacteristicLocator
     let handlerId: UUID
@@ -234,8 +234,8 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
     }
 
     func handleConnect() {
-        if let configuration = manager?.discoveryConfiguration(for: advertisementData) {
-            stateContainer.requestedCharacteristics = configuration.services.reduce(into: [:]) { result, configuration in
+        if let description = manager?.findDeviceDescription(for: advertisementData) {
+            stateContainer.requestedCharacteristics = description.services.reduce(into: [:]) { result, configuration in
                 result[configuration.serviceId, default: []].append(contentsOf: configuration.characteristics)
             }
         } else {
@@ -653,9 +653,22 @@ extension BluetoothPeripheral {
 
             logger.debug("Discovered \(characteristics.count) characteristic(s) for service \(service.uuid)")
 
+            for characteristic in characteristics {
+                peripheral.discoverDescriptors(for: characteristic) // TODO: always do this?
+            }
+
             Task {
                 await device.discovered(characteristics: characteristics, for: service)
             }
+        }
+
+        func peripheral(_ peripheral: CBPeripheral, didDiscoverDescriptorsFor characteristic: CBCharacteristic, error: Error?) {
+            guard let descriptors = characteristic.descriptors else {
+                return
+            }
+
+            // TODO: are we using that?
+            logger.debug("Discovered descriptors for characteristic \(characteristic.debugIdentifier): \(descriptors)")
         }
 
         func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {

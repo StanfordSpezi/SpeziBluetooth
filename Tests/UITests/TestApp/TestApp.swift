@@ -25,7 +25,7 @@ struct UITestsApp: App {
                             BluetoothManagerView()
                         }
                     }
-                    .navigationTitle("Spezi Bluetooth")
+                        .navigationTitle("Spezi Bluetooth")
                 }
             }
                 .spezi(appDelegate)

@@ -10,7 +10,7 @@ import Foundation
 
 
 extension Data {
-    init?(hex: String) { // TODO: review??
+    init?(hex: String) { // TODO: custom SPI?
         // while this seems complicated, and you can do it with shorter code,
         // this doesn't incur any heap allocations for string. Pretty neat.
 

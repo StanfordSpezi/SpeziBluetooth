@@ -9,20 +9,20 @@
 import CoreBluetooth
 
 
-/// The service configuration for a certain device.
+/// A service description for a certain device.
 ///
-/// Describes what a certain service we expect to be present for a given device.
-public struct ServiceConfiguration {
+/// Describes what characteristics we expect to be present for a certain service.
+public struct ServiceDescription {
     /// The service id.
     public let serviceId: CBUUID
     /// The characteristics present on the service.
     ///
     /// Those are the characteristics we try to discover. If empty, we discover all characteristics
     /// on a given service.
-    public let characteristics: [CBUUID]
+    public let characteristics: [CBUUID] // TODO: allow nil vs. empty to discover nothing?
 
 
-    /// Create a new service configuration.
+    /// Create a new service description.
     /// - Parameters:
     ///   - serviceId: The bluetooth service id.
     ///   - characteristics: The characteristics we expect to be present on the service.
@@ -30,6 +30,16 @@ public struct ServiceConfiguration {
         self.serviceId = serviceId
         self.characteristics = characteristics
     }
+
+
+    /// Create a new service description using strings.
+    /// - Parameters:
+    ///   - serviceId: The bluetooth service id string.
+    ///   - characteristics: The characteristics we expect to be present on the service.
+    public init(serviceId: String, characteristics: [String]) {
+        self.init(serviceId: CBUUID(string: serviceId), characteristics: characteristics.map { CBUUID(string: $0) })
+    }
 }
 
-extension ServiceConfiguration: Hashable {}
+
+extension ServiceDescription: Hashable {}

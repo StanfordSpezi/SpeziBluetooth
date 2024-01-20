@@ -59,7 +59,7 @@ extension View {
 
     /// Scan for nearby bluetooth devices.
     ///
-    /// Scans on nearby devices based on the ``DiscoveryConfiguration`` provided in the ``BluetoothManager/init(discovery:minimumRSSI:advertisementStaleTimeout:)``.
+    /// Scans on nearby devices based on the ``DeviceDescription`` provided in the ``BluetoothManager/init(discovery:minimumRSSI:advertisementStaleTimeout:)``.
     /// All discovered devices can be accessed through the ``BluetoothManager/nearbyPeripherals`` property.
     ///
     /// Nearby device search is automatically paused when the view disappears or if the app enters background and

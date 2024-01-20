@@ -84,7 +84,7 @@ import Spezi
 public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "Bluetooth")
     private let bluetoothManager: BluetoothManager
-    private let deviceConfigurations: Set<DeviceConfiguration> // TODO: index by type?
+    private let deviceConfigurations: Set<DiscoveryConfiguration> // TODO: index by type?
 
 
     /// Represents the current state of Bluetooth.
@@ -103,17 +103,18 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
     @Model @ObservationIgnored  private var connectedDevicesModel = ConnectedDevices()
     /// Injects the ``BluetoothDevice`` instances from the `ConnectedDevices` model into the SwiftUI environment.
     @Modifier @ObservationIgnored private var devicesInjector: ConnectedDevicesInjector
-    // TODO: how to provide access to the nearby devices list?
 
 
     // TODO: duplication of default values; + support other configurations as well!
-    public init(minimumRSSI: Int = -65, @DeviceConfigurationBuilder _ devices: () -> Set<DeviceConfiguration>) {
+    public init(minimumRSSI: Int = -65, @DiscoveryConfigurationBuilder _ devices: () -> Set<DiscoveryConfiguration>) {
         let configuration = devices()
 
-        self.bluetoothManager = BluetoothManager(discovery: Set(configuration.map { $0.parseDiscoveryConfiguration() }))
-        self.deviceConfigurations = configuration // TODO: when to init the devices?
+        // TODO: better mapping method?
+        // TODO: if a device class doesn't specify anything, EVERYTHING is getting discovered!
+        self.bluetoothManager = BluetoothManager(devices: Set(configuration.map { $0.parseDeviceDescription() }))
+        self.deviceConfigurations = configuration
 
-        let deviceTypes = configuration.map { configuration in
+        let deviceTypes = configuration.map { configuration in // TODO Move that out similar to parseDeviceDescription?
             configuration.anyDeviceType
         }
 
@@ -167,7 +168,8 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
         // add devices for new keys
         for (uuid, peripheral) in discoveredDevices where nearbyDevices[uuid] == nil {
             guard let configuration = deviceConfigurations.find(for: peripheral.advertisementData, logger: logger) else {
-                // TODO: just ignore but do the logger?
+                // TODO: replace peripheral.cbPeripheral.debugIdentifier with peripheral.debugIdentifier
+                logger.warning("Ignoring peripheral \(peripheral.cbPeripheral.debugIdentifier) that cannot be mapped to a device class.")
                 continue
             }
 
@@ -209,9 +211,7 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
         }
     }
 
-    // TODO: make BluetoothDeviceScanner protocol for both methods below (+ modifier implementation)
-
-    public func scanNearbyDevices(autoConnect: Bool = false) { // TODO copy docs
+    public func scanNearbyDevices(autoConnect: Bool = false) { // TODO copy docs; + tip to modifier!
         bluetoothManager.scanNearbyDevices(autoConnect: autoConnect)
     }
 
@@ -267,36 +267,52 @@ private struct ConnectedDevicesInjector: ViewModifier {
 
 
     func body(content: Content) -> some View {
-        injectConnectedDevices(into: AnyView(content))
+        let modifiers = configuredDeviceTypes.map { $0.modifier }
+
+        modifiers.modify(content)
     }
+}
 
-    @MainActor
-    private func injectConnectedDevices(into view: AnyView) -> AnyView {
-        var view = view
+private struct ConnectedDeviceInjector<Device: BluetoothDevice>: ViewModifier {
+    @Environment(ConnectedDevices.self)
+    var connectedDevices
 
-        for configuredDeviceType in configuredDeviceTypes {
-            view = configuredDeviceType.inject(into: view, connected: connectedDevices)
+    init() {}
+
+
+    func body(content: Content) -> some View {
+        let connectedDeviceAny = connectedDevices[ObjectIdentifier(Device.self)]
+        let connectedDevice = connectedDeviceAny as? Device
+
+        content
+            .environment(connectedDevice)
+    }
+}
+
+extension Array where Element == any ViewModifier {
+    fileprivate func modify<V: View>(_ view: V) -> AnyView {
+        var view = AnyView(view)
+        for modifier in self {
+            view = modifier.modify(view)
         }
-
         return view
     }
 }
 
 
+extension ViewModifier {
+    fileprivate func modify(_ view: AnyView) -> AnyView {
+        AnyView(view.modifier(self))
+    }
+}
+
+
 extension BluetoothDevice {
-    var typeIdentifier: ObjectIdentifier {
-        ObjectIdentifier(Self.self)
+    fileprivate static var modifier: any ViewModifier {
+        ConnectedDeviceInjector<Self>()
     }
 
-    @MainActor
-    fileprivate static func inject(into content: AnyView, connected: ConnectedDevices) -> AnyView {
-        if let connectedDeviceAny = connected[ObjectIdentifier(Self.self)],
-           let connectedDevice = connectedDeviceAny as? Self {
-            // TODO: logger all the way?
-            print("Device \(connectedDevice) got injected!!!!")
-            return AnyView(content.environment(connectedDevice))
-        } else {
-            return content
-        }
+    fileprivate var typeIdentifier: ObjectIdentifier {
+        ObjectIdentifier(Self.self)
     }
 }

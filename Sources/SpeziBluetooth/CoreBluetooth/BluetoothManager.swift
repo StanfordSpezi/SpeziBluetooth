@@ -15,6 +15,8 @@ import OSLog
 
 /// Manages the Bluetooth connections, state, and data transfer.
 ///
+/// // TODO: docs and proper code example!
+///
 /// ## Topics
 ///
 /// ### Create a Bluetooth Manager
@@ -32,14 +34,17 @@ import OSLog
 /// - ``nearbyPeripherals``
 /// - ``nearbyPeripheralsView``
 @Observable
-public class BluetoothManager: KVOReceiver, BluetoothScanner { // TODO: review if we should make properties MainActor (Observable?).
+public class BluetoothManager: KVOReceiver, BluetoothScanner {
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothManager")
     /// The dispatch queue for all Bluetooth related functionality. This is serial (not `.concurrent`) to ensure synchronization.
     private let dispatchQueue = DispatchQueue(label: "edu.stanford.spezi.bluetooth", qos: .userInitiated)
 
-    /// The discovery configuration describing how nearby devices are discovered.
-    let discovery: Set<DiscoveryConfiguration>
+    /// The device descriptions describing how nearby devices are discovered.
+    private let configuredDevices: Set<DeviceDescription>
+    /// The minimum rssi that is required for a device to be discovered.
     private let minimumRSSI: Int
+    /// The time interval after which an advertisement is considered stale and the device is removed.
+    private let advertisementStaleInterval: TimeInterval
 
     @ObservationIgnored private var centralManager: CBCentralManager! // swiftlint:disable:this implicitly_unwrapped_optional
     @ObservationIgnored private var delegate: Delegate? // swiftlint:disable:this weak_delegate
@@ -53,12 +58,9 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner { // TODO: review i
     /// The state is isolated to our `dispatchQueue`.
     private(set) var discoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> = [:]
 
-    /// The time interval after which an advertisement is considered stale and the device is removed.
-    private let advertisementStaleInterval: TimeInterval // TODO: enforce minimum time? e.g. 1s? and maximum, 30s?
-    @ObservationIgnored private var staleTimer: DiscoveryStaleTimer?
-
     @ObservationIgnored private var autoConnect = false
     @ObservationIgnored private var autoConnectItem: DispatchWorkItem?
+    @ObservationIgnored private var staleTimer: DiscoveryStaleTimer?
 
     /// Checks and determines the device candidate for auto-connect.
     ///
@@ -91,8 +93,8 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner { // TODO: review i
     /// The set of serviceIds we request to discover upon scanning.
     /// Returning nil means scanning for all peripherals.
     private var serviceDiscoveryIds: [CBUUID]? { // swiftlint:disable:this discouraged_optional_collection
-        let discoveryIds = discovery.compactMap { configuration in
-            if case let .primaryService(uuid) = configuration.criteria {
+        let discoveryIds = configuredDevices.compactMap { configuration in
+            if case let .primaryService(uuid) = configuration.discoveryCriteria {
                 return uuid
             }
             return nil
@@ -102,19 +104,16 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner { // TODO: review i
     }
 
     
-    /// Initializes the BluetoothManager with provided services and optional message handlers.
-    ///
-    /// // TODO: code example?
-    ///
+    /// Initialize a new Bluetooth Manager with provided device description and optional configuration options.
     /// - Parameters:
-    ///   - services: List of Bluetooth services to manage.
-    ///   - messageHandlers: List of handlers for processing incoming Bluetooth messages.
-    ///   - minimumRSSI: Minimum RSSI value to consider when discovering peripherals.
-    public init(discovery: Set<DiscoveryConfiguration>, minimumRSSI: Int = -65, advertisementStaleTimeout: TimeInterval = 10) {
-        // TODO: update docs!
-        self.discovery = discovery
+    ///   - devices: The set of device description describing **how** to discover **what** to discover.
+    ///   - minimumRSSI: The minimum rssi a nearby peripheral must have to be considered nearby.
+    ///   - advertisementStaleInterval: The time interval after which a peripheral advertisement is considered stale
+    ///     if we don't hear back from the device. Minimum is 1 second.
+    public init(devices: Set<DeviceDescription>, minimumRSSI: Int = -65, advertisementStaleInterval: TimeInterval = 10) {
+        self.configuredDevices = devices
         self.minimumRSSI = minimumRSSI
-        self.advertisementStaleInterval = advertisementStaleTimeout
+        self.advertisementStaleInterval = max(1, advertisementStaleInterval)
 
         switch CBCentralManager.authorization {
         case .denied, .restricted:
@@ -127,6 +126,7 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner { // TODO: review i
         self.delegate = Delegate(self)
 
         // TODO: just lazy init this thing? how to delay (or repeatedly) show power alert?
+        //   => if we retrieve connected devices can we reconstruct the central manager and "reconnect"?
         centralManager = CBCentralManager(delegate: self.delegate, queue: dispatchQueue, options: [CBCentralManagerOptionShowPowerAlertKey: true])
 
         isScanningObserver = KVOStateObserver<BluetoothManager>(receiver: self, entity: centralManager, property: \.isScanning)
@@ -134,7 +134,7 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner { // TODO: review i
 
     /// Scan for nearby bluetooth devices.
     ///
-    /// Scans on nearby devices based on the ``DiscoveryConfiguration`` provided in the initializer.
+    /// Scans on nearby devices based on the ``DeviceDescription`` provided in the initializer.
     /// All discovered devices can be accessed through the ``nearbyPeripherals`` property.
     ///
     /// - Parameter autoConnect: If enabled, the bluetooth manager will automatically connect to the nearby device if only one is found.
@@ -142,10 +142,8 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner { // TODO: review i
         guard !centralManager.isScanning else {
             return
         }
-        // TODO: just scan for nearby devices? or also call retrieveConnectedPeripherals?
-        //   let connectedPeripherals = centralManager.retrieveConnectedPeripherals(withServices: services.map(\.serviceUUID))
-        //   logger.debug("Found connected Peripherals with transfer service: \(connectedPeripherals.debugDescription)")
-        //   => might need to call connect on this?
+
+        // TODO: append connected: centralManager.retrieveConnectedPeripherals(withServices: services.map(\.serviceUUID))
 
 
         self.dispatchQueue.async {
@@ -220,8 +218,8 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner { // TODO: review i
         }
     }
 
-    func discoveryConfiguration(for advertisementData: AdvertisementData) -> DiscoveryConfiguration? {
-        discovery.find(for: advertisementData, logger: logger)
+    func findDeviceDescription(for advertisementData: AdvertisementData) -> DeviceDescription? {
+        configuredDevices.find(for: advertisementData, logger: logger)
     }
 
     // MARK: - Auto Connect
@@ -263,9 +261,6 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner { // TODO: review i
     ///   - timeout: The timeout for which the timer is scheduled for.
     private func scheduleStaleTask(for device: BluetoothPeripheral, withTimeout timeout: TimeInterval) {
         // TODO: consider scheduling a fixed timer!!
-
-        // TODO: remove some of the logging again?
-        logger.debug("Scheduling stale timeout for peripheral \(device.cbPeripheral.debugIdentifier) with \(timeout)s")
         let timer = DiscoveryStaleTimer(device: device.id) { [weak self] in
             self?.handleStaleTask()
         }
@@ -314,7 +309,6 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner { // TODO: review i
         for device in staleDevices {
             logger.debug("Removing stale peripheral \(device.cbPeripheral.debugIdentifier)")
             // we know it won't be connected, therefore we just need to remove it
-            // TODO: any races?
             discoveredPeripherals.removeValue(forKey: device.id)
         }
 
@@ -330,7 +324,7 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner { // TODO: review i
         self.state = .poweredOff
 
 
-        discoveredPeripherals = [:] // TODO: disconnect devices?
+        discoveredPeripherals = [:]
         self.centralManager.delegate = nil
 
         logger.debug("BluetoothManager destroyed")
@@ -398,8 +392,8 @@ extension BluetoothManager {
             // swiftlint:disable:next legacy_objc_type
             rssi: NSNumber
         ) {
-            guard let manager else {
-                return // TODO: check if we are scanning?
+            guard let manager, manager.isScanning else {
+                return
             }
 
             // rssi of 127 is a magic value signifying unavailability of the value.
@@ -423,10 +417,6 @@ extension BluetoothManager {
                 manager.kickOffAutoConnect()
                 return
             }
-
-            // TODO: see how advertisement data looks like for peripherals that advertise a primary service
-            //  + are .services pre-populated there?
-            //   : Refer to `isPrimary` property for fallback!
 
             logger.debug("Discovered peripheral \(peripheral.debugIdentifier) at \(rssi.intValue) dB (data: \(advertisementData))")
 
