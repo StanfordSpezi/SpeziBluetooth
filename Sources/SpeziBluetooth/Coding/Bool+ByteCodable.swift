@@ -19,7 +19,7 @@ extension Bool: ByteCodable {
             return nil
         }
 
-        self = byte == 1
+        self = byte > 0
     }
 
     /// Encodes a `Bool` to a Boolean characteristic (see GATT Specification Supplement, 3.36 Boolean).

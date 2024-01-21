@@ -20,8 +20,6 @@ func test() -> Configuration {
 }
 
 class Device: BluetoothDevice {
-    // TODO: keep in mind with the DSL API, what if we don't find something that is declared (service, characteristic)?
-
     @Service(id: "76763833-123123-123123")
     var primary = MyService()
 
@@ -31,14 +29,11 @@ class Device: BluetoothDevice {
     @DeviceAction(\.connect)
     var connect
 
-    // TODO No dot allow @Characteristic definitions here!
     required init() {}
 }
 
 
-class MyService: BluetoothService { // TODO conformance!
-    // TODO: do not allow nested Services
-
+class MyService: BluetoothService {
     @Characteristic(id: "0000-789876-1238123")
     var model: String?
 

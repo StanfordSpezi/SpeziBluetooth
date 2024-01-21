@@ -41,7 +41,10 @@ class Lazy<Value> {
 
 
     func destroy() {
+        let wasStored = storedValue != nil
         storedValue = nil
-        onCleanup()
+        if wasStored {
+            onCleanup()
+        }
     }
 }

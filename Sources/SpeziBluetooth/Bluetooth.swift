@@ -9,8 +9,6 @@
 import OSLog
 import Spezi
 
-// TODO: extension to CBUUID for common ids?
-
 
 // TODO: "Enable applications to connect to Bluetooth devices using modern programming paradigms."???
 
@@ -50,6 +48,10 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
         bluetoothManager.isScanning
     }
 
+    public var hasConnectedDevices: Bool {
+        connectedDevicesModel.hasConnectedDevices
+    }
+
 
     @MainActor private var nearbyDevices: [UUID: BluetoothDevice] = [:]
 
@@ -72,7 +74,6 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
         let configuration = devices()
         let deviceTypes = configuration.deviceTypes
 
-        // TODO: if a device class doesn't specify anything, EVERYTHING is getting discovered!
         self.bluetoothManager = BluetoothManager(
             devices: configuration.parseDeviceDescription(),
             minimumRSSI: minimumRSSI,
@@ -129,8 +130,7 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
         // add devices for new keys
         for (uuid, peripheral) in discoveredDevices where nearbyDevices[uuid] == nil {
             guard let configuration = deviceConfigurations.find(for: peripheral.advertisementData, logger: logger) else {
-                // TODO: replace peripheral.cbPeripheral.debugIdentifier with peripheral.debugIdentifier
-                logger.warning("Ignoring peripheral \(peripheral.cbPeripheral.debugIdentifier) that cannot be mapped to a device class.")
+                logger.warning("Ignoring peripheral \(peripheral.debugDescription) that cannot be mapped to a device class.")
                 continue
             }
 
@@ -185,12 +185,12 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
     ///
     /// - Parameter autoConnect: If enabled, the bluetooth manager will automatically connect to
     ///     the nearby device if only one is found for a given time threshold.
-    public func scanNearbyDevices(autoConnect: Bool = false) {
-        bluetoothManager.scanNearbyDevices(autoConnect: autoConnect)
+    public func scanNearbyDevices(autoConnect: Bool = false) async {
+        await bluetoothManager.scanNearbyDevices(autoConnect: autoConnect)
     }
 
     /// Stop scanning for nearby bluetooth devices.
-    public func stopScanning() {
-        bluetoothManager.stopScanning()
+    public func stopScanning() async {
+        await bluetoothManager.stopScanning()
     }
 }

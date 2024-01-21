@@ -13,6 +13,11 @@ import OrderedCollections
 import OSLog
 
 
+private struct IsRunningBluetoothQueue {
+    init() {}
+}
+
+
 /// Manages the Bluetooth connections, state, and data transfer.
 ///
 /// // TODO: docs and proper code example!
@@ -34,19 +39,11 @@ import OSLog
 /// - ``scanNearbyDevices(autoConnect:)``
 /// - ``stopScanning()``
 @Observable
-public class BluetoothManager: KVOReceiver, BluetoothScanner {
-    public enum Defaults {
-        /// The default timeout after which stale advertisements are removed.
-        public static let defaultStaleTimeout: TimeInterval = 10
-        /// The minimum rssi of a peripheral to consider it for discovery.
-        public static let defaultMinimumRSSI = -65
-        /// The default time in seconds after which we check for auto connectable devices after the initial advertisement.
-        public static let defaultAutoConnectDebounce: Int = 2
-    }
-
+public class BluetoothManager {
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothManager")
     /// The dispatch queue for all Bluetooth related functionality. This is serial (not `.concurrent`) to ensure synchronization.
     private let dispatchQueue = DispatchQueue(label: "edu.stanford.spezi.bluetooth", qos: .userInitiated)
+    private let isRunningBluetoothQueueKey = DispatchSpecificKey<IsRunningBluetoothQueue>()
 
     /// The device descriptions describing how nearby devices are discovered.
     private let configuredDevices: Set<DeviceDescription>
@@ -60,7 +57,7 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner {
     @ObservationIgnored private var isScanningObserver: KVOStateObserver<BluetoothManager>?
 
     /// Represents the current state of the Bluetooth Manager.
-    public private(set) var state: BluetoothState // TODO: this is not available before starting scanning?
+    public private(set) var state: BluetoothState
     /// Whether or not we are currently scanning for nearby devices.
     public private(set) var isScanning = false
     /// Track if we should be scanning. This is important to check which resources should stay allocated.
@@ -114,6 +111,10 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner {
         return discoveryIds.isEmpty ? nil : discoveryIds
     }
 
+    private var isRunningWithinQueue: Bool {
+        DispatchQueue.getSpecific(key: isRunningBluetoothQueueKey) != nil
+    }
+
     
     /// Initialize a new Bluetooth Manager with provided device description and optional configuration options.
     /// - Parameters:
@@ -133,6 +134,9 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner {
         self.state = .unknown
 
         self.centralDelegate = Delegate(self)
+
+        // This helps us later to identity that we are running within the bluetooth dispatch queue!
+        self.dispatchQueue.setSpecific(key: isRunningBluetoothQueueKey, value: IsRunningBluetoothQueue())
 
         // The Bluetooth permission alert shows every time when a CBCentralManager is initialized.
         // If we already have permissions the a power alert will be shown if the user has Bluetooth disabled.
@@ -168,54 +172,71 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner {
     ///
     /// - Parameter autoConnect: If enabled, the bluetooth manager will automatically connect to
     ///     the nearby device if only one is found for a given time threshold.
-    public func scanNearbyDevices(autoConnect: Bool = false) {
-        guard !isScanning else { // TODO: verify against race conditions???
+    public func scanNearbyDevices(autoConnect: Bool = false) async {
+        await withCheckedContinuation { continuation in
+            dispatchQueue.async {
+                self._scanNearbyDevices(autoConnect: autoConnect)
+                continuation.resume()
+            }
+        }
+    }
+
+    /// Stop scanning for nearby bluetooth devices.
+    public func stopScanning() async {
+        await withCheckedContinuation { continuation in
+            dispatchQueue.async {
+                self._stopScanning()
+                continuation.resume()
+            }
+        }
+    }
+
+    private func _scanNearbyDevices(autoConnect: Bool) {
+        assert(isRunningWithinQueue, "\(#function) was run outside the bluetooth queue. This introduces data races.")
+
+        guard !isScanning else {
             return
         }
 
-
-        // TODO: append connected: centralManager.retrieveConnectedPeripherals(withServices: services.map(\.serviceUUID))
         logger.debug("Starting scanning for nearby devices ...")
+
         shouldBeScanning = true
-
-
-        self.dispatchQueue.async {
-            self.autoConnect = autoConnect
-        }
+        self.autoConnect = autoConnect
 
         if case .poweredOn = centralManager.state {
             centralManager.scanForPeripherals(
                 withServices: serviceDiscoveryIds,
                 options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
             )
-            // TODO: assert this actually changes here!
-            isScanning = centralManager.isScanning // ensure this is synced
+            isScanning = centralManager.isScanning // ensure this is propagated instantly
         }
     }
 
     /// Reactive scan upon powered on.
     private func handlePoweredOn() {
         if shouldBeScanning && !isScanning {
-            scanNearbyDevices(autoConnect: autoConnect)
+            _scanNearbyDevices(autoConnect: autoConnect)
         }
     }
 
-    /// Stop scanning for nearby bluetooth devices.
-    public func stopScanning() {
+    private func _stopScanning(deinit isDeinit: Bool = false) {
+        assert(isDeinit || isRunningWithinQueue, "\(#function) was run outside the bluetooth queue. This introduces data races.")
+
+        if isScanning { // transitively checks for state == .poweredOn
+            centralManager.stopScan()
+            isScanning = centralManager.isScanning // ensure this is synced
+            logger.debug("Scanning stopped")
+        }
+
         if shouldBeScanning {
             shouldBeScanning = false
             checkForCentralDeinit()
         }
-
-        if isScanning { // transitively checks for state == .poweredOn
-            centralManager.stopScan()
-            // TODO: assert this is updating!
-            isScanning = centralManager.isScanning // ensure this is synced
-            logger.debug("Scanning stopped")
-        }
     }
 
     private func handleStoppedScanning() {
+        assert(isRunningWithinQueue, "\(#function) was run outside the bluetooth queue. This introduces data races.")
+
         self.autoConnect = false
 
         let devices = nearbyPeripheralsView.filter { device in
@@ -232,6 +253,8 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner {
     }
 
     private func clearDiscoveredPeripheral(forKey id: UUID) {
+        assert(isRunningWithinQueue, "\(#function) was run outside the bluetooth queue. This introduces data races.")
+
         discoveredPeripherals.removeValue(forKey: id)
 
         checkForCentralDeinit()
@@ -239,6 +262,8 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner {
 
     /// De-initializes the Bluetooth Central if we currently don't use it.
     private func checkForCentralDeinit() {
+        assert(isRunningWithinQueue, "\(#function) was run outside the bluetooth queue. This introduces data races.")
+
         if !shouldBeScanning && discoveredPeripherals.isEmpty {
             _centralManager.destroy()
             self.state = .unknown
@@ -273,20 +298,6 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner {
         centralManager.cancelPeripheralConnection(peripheral.cbPeripheral)
     }
 
-    func observeChange<K, V>(of keyPath: KeyPath<K, V>, value: V) async {
-        switch keyPath {
-        case \CBCentralManager.isScanning:
-            dispatchQueue.async {
-                self.isScanning = value as! Bool // swiftlint:disable:this force_cast
-                if !self.isScanning {
-                    self.handleStoppedScanning()
-                }
-            }
-        default:
-            break
-        }
-    }
-
     func findDeviceDescription(for advertisementData: AdvertisementData) -> DeviceDescription? {
         configuredDevices.find(for: advertisementData, logger: logger)
     }
@@ -294,6 +305,8 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner {
     // MARK: - Auto Connect
 
     private func kickOffAutoConnect() {
+        assert(isRunningWithinQueue, "\(#function) was run outside the bluetooth queue. This introduces data races.")
+
         guard autoConnect else {
             return // auto connect is disabled
         }
@@ -331,7 +344,8 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner {
     ///   - device: The device for which the timer is scheduled for.
     ///   - timeout: The timeout for which the timer is scheduled for.
     private func scheduleStaleTask(for device: BluetoothPeripheral, withTimeout timeout: TimeInterval) {
-        // TODO: consider scheduling a fixed timer!!
+        assert(isRunningWithinQueue, "\(#function) was run outside the bluetooth queue. This introduces data races.")
+
         let timer = DiscoveryStaleTimer(device: device.id) { [weak self] in
             self?.handleStaleTask()
         }
@@ -350,6 +364,8 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner {
     }
 
     private func cancelStaleTask(for device: BluetoothPeripheral) -> Bool {
+        assert(isRunningWithinQueue, "\(#function) was run outside the bluetooth queue. This introduces data races.")
+
         guard let staleTimer, staleTimer.targetDevice == device.id else {
             return false
         }
@@ -362,8 +378,10 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner {
     /// The device with the oldest device activity.
     /// - Parameter device: The device to ignore.
     private func oldestActivityDevice(ignore device: BluetoothPeripheral? = nil) -> BluetoothPeripheral? {
+        assert(isRunningWithinQueue, "\(#function) was run outside the bluetooth queue. This introduces data races.")
+
         // when we are just interested in the min device, this operation is a bit cheaper then sorting the whole list
-        nearbyPeripheralsView
+        return nearbyPeripheralsView
             .filter { $0.state == .disconnected && $0.id != device?.id }
             .min { lhs, rhs in
                 lhs.lastActivity < rhs.lastActivity
@@ -371,6 +389,7 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner {
     }
 
     private func handleStaleTask() {
+        assert(isRunningWithinQueue, "\(#function) was run outside the bluetooth queue. This introduces data races.")
         staleTimer = nil // reset the timer
 
         let staleDevices = nearbyPeripheralsView.filter { device in
@@ -390,7 +409,7 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner {
 
     
     deinit {
-        stopScanning()
+        _stopScanning(deinit: true)
         staleTimer?.cancel()
         autoConnectItem?.cancel()
 
@@ -400,6 +419,44 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner {
         self.centralDelegate = nil
 
         logger.debug("BluetoothManager destroyed")
+    }
+}
+
+
+extension BluetoothManager: KVOReceiver {
+    func observeChange<K, V>(of keyPath: KeyPath<K, V>, value: V) async {
+        switch keyPath {
+        case \CBCentralManager.isScanning:
+            dispatchQueue.async {
+                self.isScanning = value as! Bool // swiftlint:disable:this force_cast
+                if !self.isScanning {
+                    self.handleStoppedScanning()
+                }
+            }
+        default:
+            break
+        }
+    }
+}
+
+
+extension BluetoothManager: BluetoothScanner {
+    public var hasConnectedDevices: Bool {
+        !discoveredPeripherals.isEmpty
+    }
+}
+
+
+// MARK: Defaults
+extension BluetoothManager {
+    /// Set of default values used within the Bluetooth Manager
+    public enum Defaults {
+        /// The default timeout after which stale advertisements are removed.
+        public static let defaultStaleTimeout: TimeInterval = 10
+        /// The minimum rssi of a peripheral to consider it for discovery.
+        public static let defaultMinimumRSSI = -65
+        /// The default time in seconds after which we check for auto connectable devices after the initial advertisement.
+        public static let defaultAutoConnectDebounce: Int = 2
     }
 }
 
@@ -544,7 +601,6 @@ extension BluetoothManager {
             // just to make sure
             manager.centralManager.cancelPeripheralConnection(device.cbPeripheral)
 
-            // TODO: attempt reconnect, instead? OR make it configurable? reconnect tries?
             discardDevice(device: device)
         }
 
@@ -573,6 +629,8 @@ extension BluetoothManager {
             guard let manager else {
                 return
             }
+
+            assert(manager.isRunningWithinQueue, "\(#function) was run outside the bluetooth queue. This introduces data races.")
 
             if !manager.isScanning {
                 device.handleDisconnect()

@@ -496,23 +496,21 @@ extension BluetoothPeripheral {
             for queue in queued {
                 queue.resume()
             }
+        }
 
-            // TODO: @Characteristic assumes that we are getting notified of everything!!
-        } else {
-            switch result {
-            case let .success(data):
-                guard let service = characteristic.service else {
-                    break
-                }
-
-                let locator = CharacteristicLocator(serviceId: service.uuid, characteristicId: characteristic.uuid)
-
-                for handler in notificationHandlers[locator, default: [:]].values {
-                    await handler(data)
-                }
-            case let .failure(error):
-                logger.debug("Received unsolicited value update error for \(characteristic.debugIdentifier): \(error)")
+        switch result {
+        case let .success(data):
+            guard let service = characteristic.service else {
+                break
             }
+
+            let locator = CharacteristicLocator(serviceId: service.uuid, characteristicId: characteristic.uuid)
+
+            for handler in notificationHandlers[locator, default: [:]].values {
+                await handler(data)
+            }
+        case let .failure(error):
+            logger.debug("Received unsolicited value update error for \(characteristic.debugIdentifier): \(error)")
         }
     }
 

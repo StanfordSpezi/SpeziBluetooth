@@ -11,12 +11,14 @@ import SwiftUI
 
 
 private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifier {
+    private let enabled: Bool
     private let scanner: Scanner
     private let autoConnect: Bool
 
 
-    init(manager: Scanner, autoConnect: Bool) {
-        self.scanner = manager
+    init(enabled: Bool, scanner: Scanner, autoConnect: Bool) {
+        self.enabled = enabled
+        self.scanner = scanner
         self.autoConnect = autoConnect
     }
 
@@ -33,31 +35,42 @@ private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifie
             }
     }
 
-
+    @MainActor
     private func onForeground() {
-        scanner.scanNearbyDevices(autoConnect: autoConnect)
+        if enabled {
+            Task {
+                await scanner.scanNearbyDevices(autoConnect: autoConnect)
+            }
+        }
     }
 
+    @MainActor
     private func onBackground() {
-        scanner.stopScanning()
+        Task {
+            await scanner.stopScanning()
+        }
     }
 }
 
 
 extension View {
-    /// Scan for nearby bluetooth devices.
-    ///
-    /// How nearby devices are accessed depends on the passed ``BluetoothScanner`` implementation.
+    /// Scan for nearby Bluetooth devices.
     ///
     /// Nearby device search is automatically paused when the view disappears or if the app enters background and
     /// is automatically started again when the view appears or the app enters the foreground again.
     /// Further, scanning is automatically started if Bluetooth is turned on by the user while the view was already presented.
     ///
     /// The auto connect feature allows you to automatically connect to a bluetooth peripheral if it is the only device
-    /// discovered for a short period in time. // TODO: link to auto connect modifier?
+    /// discovered for a short period in time.
+    ///
+    /// - Tip: If you want to continuously search for auto-connectable device in the background,
+    ///     you might want to use the ``SwiftUI/View/autoConnect(enabled:device:)`` modifier instead.
+    ///
+    /// How nearby devices are accessed depends on the passed ``BluetoothScanner`` implementation.
     ///
     /// - Parameters:
-    ///   - manager: The Bluetooth Manager to use for scanning.
+    ///   - enabled: Flag indicating if nearby device scanning is enabled.
+    ///   - scanner: The Bluetooth Manager to use for scanning.
     ///   - autoConnect: If enabled, the bluetooth manager will automatically connect to the nearby device if only one is found.
     /// - Returns: The modified view.
     ///
@@ -65,8 +78,8 @@ extension View {
     ///
     /// ### Bluetooth Scanner
     /// - ``BluetoothScanner``
-    public func scanNearbyDevices<Scanner: BluetoothScanner>(with manager: Scanner, autoConnect: Bool = false) -> some View {
-        // TODO: configure case, stop scanning after auto connect (but start again if device disconnects) => autoConnect modifier!
-        modifier(ScanNearbyDevicesModifier(manager: manager, autoConnect: autoConnect)) // TODO: enabled bool input!
+    public func scanNearbyDevices<Scanner: BluetoothScanner>(enabled: Bool = true, with scanner: Scanner, autoConnect: Bool = false) -> some View {
+        // swiftlint:disable:previous function_default_parameter_at_end
+        modifier(ScanNearbyDevicesModifier(enabled: enabled, scanner: scanner, autoConnect: autoConnect))
     }
 }

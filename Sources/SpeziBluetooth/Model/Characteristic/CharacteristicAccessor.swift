@@ -9,11 +9,28 @@
 import CoreBluetooth
 
 
+/// TODO: docs
+///
+///
+/// ### Reading a value
+/// - ``read()``
+///
+/// ### Controlling notifications
+/// - ``isNotifying``
+/// - ``enableNotifications(_:)``
+///
+/// ### Writing a value
+/// - ``write(_:)``
+/// - ``write(_:expecting:)``
+/// - ``writeWithoutResponse(_:)``
+///
+/// ### Characteristic properties
+/// - ``properties``
+/// - ``descriptors``
 public struct CharacteristicAccessors<Value> {
     let id: CBUUID
     fileprivate let context: CharacteristicContext<Value>
 
-    // TODO: access current state (properties?, isNotifying? => what state to use context or peripheral/CBcharacteristic?)
 
     init(id: CBUUID, context: CharacteristicContext<Value>) {
         self.id = id
@@ -23,6 +40,25 @@ public struct CharacteristicAccessors<Value> {
 
 
 extension CharacteristicAccessors where Value: ByteDecodable {
+    /// Characteristic is currently notifying about updated values.
+    ///
+    /// This is false if device is not connected.
+    public var isNotifying: Bool {
+        // TODO: this is not observable
+        context.characteristic?.isNotifying ?? false
+    }
+
+    public var properties: CBCharacteristicProperties? {
+        // TODO: this is not observable?
+        context.characteristic?.properties
+    }
+
+    public var descriptors: [CBDescriptor]? {
+        // TODO: this is not observable
+        context.characteristic?.descriptors
+    }
+
+
     public func enableNotifications(_ enable: Bool = true) async {
         if enable {
             await context.enableNotifications()
@@ -31,7 +67,6 @@ extension CharacteristicAccessors where Value: ByteDecodable {
         }
     }
 
-    // TODO: this must update the property!
     public func read() async throws -> Value {
         guard let characteristic = context.characteristic else {
             throw BluetoothError.notConnected

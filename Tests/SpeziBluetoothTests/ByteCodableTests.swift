@@ -6,39 +6,78 @@
 // SPDX-License-Identifier: MIT
 //
 
-@testable import SpeziBluetooth
-import XCTest
 import NIO
+@testable @_spi(TestingSupport) import SpeziBluetooth
+import XCTBluetooth
+import XCTest
 
 
 final class ByteCodableTests: XCTestCase {
     func testData() throws {
         let data = try XCTUnwrap(Data(hex: "0xAABBCCDDEE"))
 
-        try testIdentity(of: Data.self, using: data)
+        try testIdentity(of: Data.self, from: data)
     }
 
-    func testByteBuffer() {
+    func testBoolean() throws {
+        let trueData = try XCTUnwrap(Data(hex: "0x01"))
+        try testIdentity(of: Bool.self, from: trueData)
 
+        let falseData = try XCTUnwrap(Data(hex: "0x00"))
+        try testIdentity(of: Bool.self, from: falseData)
+
+        var empty = ByteBuffer()
+        XCTAssertNil(Bool(from: &empty))
     }
-}
 
+    func testString() throws {
+        let data = try XCTUnwrap("Hello World".data(using: .utf8))
+        try testIdentity(of: String.self, from: data)
 
+        var empty = ByteBuffer()
+        XCTAssertEqual(String(from: &empty), "")
+    }
 
-// TODO: move this to a XCTBluetooth?
+    func testInt8() throws {
+        try testIdentity(from: Int8.max)
+        try testIdentity(from: Int8.min)
+    }
 
-// TODO: a test identity starting from the type?
+    func testInt16() throws {
+        try testIdentity(from: Int16.max)
+        try testIdentity(from: Int16.min)
+    }
 
-func testIdentity<T: ByteCodable>(of type: T.Type, using data: Data) throws {
-    var decodingBuffer = ByteBuffer(data: data)
+    func testInt32() throws {
+        try testIdentity(from: Int32.max)
+        try testIdentity(from: Int32.min)
+    }
 
-    let instance: T = try XCTUnwrap(T(from: &decodingBuffer))
+    func testInt64() throws {
+        try testIdentity(from: Int64.max)
+        try testIdentity(from: Int64.min)
+    }
 
-    var encodingBuffer = ByteBuffer()
-    encodingBuffer.reserveCapacity(data.count)
+    func testUInt8() throws {
+        try testIdentity(from: UInt8.max)
+        try testIdentity(from: UInt8.min)
 
-    instance.encode(to: &encodingBuffer)
+        var empty = ByteBuffer()
+        XCTAssertNil(UInt8(from: &empty))
+    }
 
-    let encodingData = Data(buffer: encodingBuffer)
-    XCTAssertEqual(encodingData, data)
+    func testUInt16() throws {
+        try testIdentity(from: UInt16.max)
+        try testIdentity(from: UInt16.min)
+    }
+
+    func testUInt32() throws {
+        try testIdentity(from: UInt32.max)
+        try testIdentity(from: UInt32.min)
+    }
+
+    func testUInt64() throws {
+        try testIdentity(from: UInt64.max)
+        try testIdentity(from: UInt64.min)
+    }
 }

@@ -23,7 +23,7 @@ public struct CharacteristicDescription {
     ///   - discoverDescriptors: Optional flag to specify that descriptors of this characteristic should be discovered.
     public init(id: CBUUID, discoverDescriptors: Bool = false) {
         self.characteristicId = id
-        self.discoverDescriptors = discoverDescriptors // TODO: support for @characteristic (access + specify)
+        self.discoverDescriptors = discoverDescriptors
     }
 }
 

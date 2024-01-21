@@ -11,8 +11,7 @@ private struct CharacteristicsBuilder: ServiceVisitor {
     var characteristics: Set<CharacteristicDescription> = []
 
     mutating func visit<Value>(_ characteristic: Characteristic<Value>) {
-        // TODO: support forwarding discover descriptors flag!
-        characteristics.insert(CharacteristicDescription(id: characteristic.id))
+        characteristics.insert(characteristic.description)
     }
 }
 

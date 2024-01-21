@@ -12,14 +12,17 @@ public protocol BluetoothScanner {
     /// The current state of the bluetooth scanner.
     var state: BluetoothState { get }
 
+    /// Indicates if there is at least one connected peripheral.
+    var hasConnectedDevices: Bool { get }
+
     /// Scan for nearby bluetooth devices.
     ///
     /// How devices are discovered and how they can be accessed is implementation defined.
     ///
     /// - Parameter autoConnect: If enabled, the bluetooth manager will automatically connect to
     ///     the nearby device if only one is found for a given time threshold.
-    func scanNearbyDevices(autoConnect: Bool)
+    func scanNearbyDevices(autoConnect: Bool) async
 
     /// Stop scanning for nearby bluetooth devices.
-    func stopScanning()
+    func stopScanning() async
 }

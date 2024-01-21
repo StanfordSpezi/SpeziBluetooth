@@ -18,7 +18,8 @@ let package = Package(
         .iOS(.v17)
     ],
     products: [
-        .library(name: "SpeziBluetooth", targets: ["SpeziBluetooth"])
+        .library(name: "SpeziBluetooth", targets: ["SpeziBluetooth"]),
+        .library(name: "XCTBluetooth", targets: ["XCTBluetooth"])
     ],
     dependencies: [
         .package(url: "https://github.com/StanfordSpezi/Spezi", from: "1.0.0"),
@@ -38,10 +39,17 @@ let package = Package(
                 .process("Resources")
             ]
         ),
+        .target(
+            name: "XCTBluetooth",
+            dependencies: [
+                .target(name: "SpeziBluetooth")
+            ]
+        ),
         .testTarget(
             name: "SpeziBluetoothTests",
             dependencies: [
                 .target(name: "SpeziBluetooth"),
+                .target(name: "XCTBluetooth"),
                 .product(name: "NIO", package: "swift-nio")
             ]
         )

@@ -14,6 +14,8 @@ class ConnectedDevices {
     @MainActor private var connectedDevices: [ObjectIdentifier: BluetoothDevice] = [:]
     @MainActor private var connectedDeviceIds: [ObjectIdentifier: UUID] = [:]
 
+    var hasConnectedDevices: Bool = false
+
 
     @MainActor
     func update(with devices: [UUID: BluetoothDevice]) {
@@ -33,6 +35,8 @@ class ConnectedDevices {
             connectedDevices[device.typeIdentifier] = device
             connectedDeviceIds[device.typeIdentifier] = uuid
         }
+
+        hasConnectedDevices = !connectedDevices.isEmpty
     }
 
     @MainActor
