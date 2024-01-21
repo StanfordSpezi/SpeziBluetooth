@@ -31,21 +31,11 @@ private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifie
             .onReceive(NotificationCenter.default.publisher(for: UIScene.didEnterBackgroundNotification)) { _ in
                 onBackground() // onDisappear is coupled with view rendering only and won't get fired when putting app into the background
             }
-            .onChange(of: scanner.state) { // TODO: does this actually trigger a view rerender?
-                if case .poweredOn = scanner.state {
-                    // TODO: this doesn't seem to work sometimes?
-                    scanner.scanNearbyDevices(autoConnect: autoConnect)
-                } else {
-                    scanner.stopScanning()
-                }
-            }
     }
 
 
     private func onForeground() {
-        if case .poweredOn = scanner.state {
-            scanner.scanNearbyDevices(autoConnect: autoConnect)
-        }
+        scanner.scanNearbyDevices(autoConnect: autoConnect)
     }
 
     private func onBackground() {

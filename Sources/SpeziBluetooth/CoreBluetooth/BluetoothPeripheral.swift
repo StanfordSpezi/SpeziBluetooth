@@ -157,9 +157,8 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
     }
 
     func handleConnect() {
-        // TODO: handle weak manager
         guard let manager else {
-            logger.warning("Tried to disconnect an orphaned bluetooth peripheral!")
+            logger.warning("Tried handling connection attempt for an orphaned bluetooth peripheral!")
             return
         }
 
@@ -184,6 +183,7 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
         peripheral.discoverServices(stateContainer.requestedCharacteristics.map { Array($0.keys) })
     }
 
+    /// Handles a disconnect or failed connection attempt.
     nonisolated func handleDisconnect(disconnectActivityInterval: TimeInterval = 0) {
         // TODO: will ongoing writes, reads, ... be cancelled??
         //   throw ongoing promises with .notConnected?
@@ -329,27 +329,6 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
         }
     }
 
-    private func queueRWAccess(for characteristic: CBCharacteristic) async { // TODO: move
-        guard let access = ongoingAccesses[characteristic] else {
-            return
-        }
-
-        switch access {
-        case .read(let readContinuation, var queued):
-            await withCheckedContinuation { continuation in
-                queued.append(continuation)
-                // using updateValue as of https://github.com/apple/swift/issues/63156. Revert to subscript access with Swift 5.10
-                ongoingAccesses.updateValue(.read(readContinuation, queued: queued), forKey: characteristic)
-            }
-        case .write(let writeContinuation, var queued):
-            await withCheckedContinuation { continuation in
-                queued.append(continuation)
-                // using updateValue as of https://github.com/apple/swift/issues/63156. Revert to subscript access with Swift 5.10
-                ongoingAccesses.updateValue(.write(writeContinuation, queued: queued), forKey: characteristic)
-            }
-        }
-    }
-
     /// Write the value of a characteristic without expecting a response.
     ///
     /// Writes the value of a characteristic without expecting a confirmation from the peripheral.
@@ -417,6 +396,27 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
             peripheral.readRSSI()
         }
     }
+
+    private func queueRWAccess(for characteristic: CBCharacteristic) async {
+        guard let access = ongoingAccesses[characteristic] else {
+            return
+        }
+
+        switch access {
+        case .read(let readContinuation, var queued):
+            await withCheckedContinuation { continuation in
+                queued.append(continuation)
+                // using updateValue as of https://github.com/apple/swift/issues/63156. Revert to subscript access with Swift 5.10
+                ongoingAccesses.updateValue(.read(readContinuation, queued: queued), forKey: characteristic)
+            }
+        case .write(let writeContinuation, var queued):
+            await withCheckedContinuation { continuation in
+                queued.append(continuation)
+                // using updateValue as of https://github.com/apple/swift/issues/63156. Revert to subscript access with Swift 5.10
+                ongoingAccesses.updateValue(.write(writeContinuation, queued: queued), forKey: characteristic)
+            }
+        }
+    }
 }
 
 
@@ -454,6 +454,22 @@ extension BluetoothPeripheral {
 
             if notificationHandlers[locator] != nil {
                 peripheral.setNotifyValue(true, for: characteristic)
+            }
+        }
+
+        // check if we discover descriptors
+        guard let requestedCharacteristics = stateContainer.requestedCharacteristics,
+              let descriptions = requestedCharacteristics[service.uuid] else {
+            return
+        }
+
+        for characteristic in characteristics {
+            guard let description = descriptions?.first(where: { $0.characteristicId == characteristic.uuid }) else {
+                continue
+            }
+
+            if description.discoverDescriptors {
+                peripheral.discoverDescriptors(for: characteristic)
             }
         }
     }
@@ -617,10 +633,6 @@ extension BluetoothPeripheral {
             }
 
             logger.debug("Discovered \(characteristics.count) characteristic(s) for service \(service.uuid)")
-
-            for characteristic in characteristics { // TODO: dp it just in DEBUG builds? or configurable?
-                peripheral.discoverDescriptors(for: characteristic)
-            }
 
             Task {
                 await device.discovered(characteristics: characteristics, for: service)

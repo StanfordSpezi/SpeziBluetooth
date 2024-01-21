@@ -21,9 +21,7 @@ struct UITestsApp: App {
             NavigationStack {
                 List {
                     NavigationLink("Nearby Devices") {
-                        LazyView { // this indirection is required to force that BluetoothManager is only instantiated later on
-                            BluetoothManagerView()
-                        }
+                        BluetoothManagerView()
                     }
                         .navigationTitle("Spezi Bluetooth")
                 }

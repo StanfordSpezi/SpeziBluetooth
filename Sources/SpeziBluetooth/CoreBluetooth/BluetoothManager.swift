@@ -23,16 +23,16 @@ import OSLog
 ///
 /// - ``init(devices:minimumRSSI:advertisementStaleInterval:)``
 ///
-/// ### Tracking State
+/// ### Bluetooth State
 ///
 /// - ``state``
 /// - ``isScanning``
 ///
 /// ### Discovering nearby Peripherals
-/// - ``scanNearbyDevices(autoConnect:)``
-/// - ``stopScanning()``
 /// - ``nearbyPeripherals``
 /// - ``nearbyPeripheralsView``
+/// - ``scanNearbyDevices(autoConnect:)``
+/// - ``stopScanning()``
 @Observable
 public class BluetoothManager: KVOReceiver, BluetoothScanner {
     public enum Defaults {
@@ -55,14 +55,16 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner {
     /// The time interval after which an advertisement is considered stale and the device is removed.
     private let advertisementStaleInterval: TimeInterval
 
-    @ObservationIgnored private var centralManager: CBCentralManager! // swiftlint:disable:this implicitly_unwrapped_optional
-    @ObservationIgnored private var delegate: Delegate? // swiftlint:disable:this weak_delegate
+    @Lazy @ObservationIgnored private var centralManager: CBCentralManager
+    @ObservationIgnored private var centralDelegate: Delegate? // swiftlint:disable:this weak_delegate
     @ObservationIgnored private var isScanningObserver: KVOStateObserver<BluetoothManager>?
 
     /// Represents the current state of the Bluetooth Manager.
-    public private(set) var state: BluetoothState
+    public private(set) var state: BluetoothState // TODO: this is not available before starting scanning?
     /// Whether or not we are currently scanning for nearby devices.
-    public private(set) var isScanning: Bool
+    public private(set) var isScanning = false
+    /// Track if we should be scanning. This is important to check which resources should stay allocated.
+    private var shouldBeScanning = false
     /// The list of discovered and connected bluetooth devices indexed by their identifier UUID.
     /// The state is isolated to our `dispatchQueue`.
     private(set) var discoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> = [:]
@@ -128,22 +130,32 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner {
         self.minimumRSSI = minimumRSSI
         self.advertisementStaleInterval = max(1, advertisementStaleInterval)
 
-        switch CBCentralManager.authorization {
-        case .denied, .restricted:
-            self.state = .unauthorized
-        default:
-            self.state = .poweredOff
+        self.state = .unknown
+
+        self.centralDelegate = Delegate(self)
+
+        // The Bluetooth permission alert shows every time when a CBCentralManager is initialized.
+        // If we already have permissions the a power alert will be shown if the user has Bluetooth disabled.
+        // To have those alerts shown at the right time (and repeatedly), we lazily initialize the CBCentralManager and also deinit it
+        // once we don't use it anymore (we are not scanning and no device is currently connected).
+        // All this state handling happens here within the closures passed to the `Lazy` property wrapper.
+        _centralManager = Lazy { [weak self] in
+            let central = CBCentralManager(
+                delegate: self?.centralDelegate,
+                queue: self?.dispatchQueue,
+                options: [CBCentralManagerOptionShowPowerAlertKey: true]
+            )
+
+            if let self = self {
+                self.isScanningObserver = KVOStateObserver(receiver: self, entity: central, property: \.isScanning)
+            }
+
+            self?.logger.debug("Initialized CBCentralManager.")
+            return central
+        } onCleanup: { [weak self] in
+            self?.logger.debug("Destroyed CBCentralManager.")
+            self?.isScanningObserver = nil
         }
-        self.isScanning = false
-
-        self.delegate = Delegate(self)
-
-        // TODO: just lazy init this thing? how to delay (or repeatedly) show power alert?
-        //   => if we retrieve connected devices can we reconstruct the central manager and "reconnect"?
-        //   => might just lazy init and deinit if the last device disconnects and isScanning is false?
-        centralManager = CBCentralManager(delegate: self.delegate, queue: dispatchQueue, options: [CBCentralManagerOptionShowPowerAlertKey: true])
-
-        isScanningObserver = KVOStateObserver<BluetoothManager>(receiver: self, entity: centralManager, property: \.isScanning)
     }
 
     /// Scan for nearby bluetooth devices.
@@ -157,28 +169,49 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner {
     /// - Parameter autoConnect: If enabled, the bluetooth manager will automatically connect to
     ///     the nearby device if only one is found for a given time threshold.
     public func scanNearbyDevices(autoConnect: Bool = false) {
-        guard !centralManager.isScanning else {
+        guard !isScanning else { // TODO: verify against race conditions???
             return
         }
 
+
         // TODO: append connected: centralManager.retrieveConnectedPeripherals(withServices: services.map(\.serviceUUID))
+        logger.debug("Starting scanning for nearby devices ...")
+        shouldBeScanning = true
 
 
         self.dispatchQueue.async {
             self.autoConnect = autoConnect
         }
 
-        centralManager.scanForPeripherals(
-            withServices: serviceDiscoveryIds,
-            options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
-        )
+        if case .poweredOn = centralManager.state {
+            centralManager.scanForPeripherals(
+                withServices: serviceDiscoveryIds,
+                options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
+            )
+            // TODO: assert this actually changes here!
+            isScanning = centralManager.isScanning // ensure this is synced
+        }
+    }
+
+    /// Reactive scan upon powered on.
+    private func handlePoweredOn() {
+        if shouldBeScanning && !isScanning {
+            scanNearbyDevices(autoConnect: autoConnect)
+        }
     }
 
     /// Stop scanning for nearby bluetooth devices.
     public func stopScanning() {
-        if centralManager.isScanning { // transitively checks for state == .poweredOn
+        if shouldBeScanning {
+            shouldBeScanning = false
+            checkForCentralDeinit()
+        }
+
+        if isScanning { // transitively checks for state == .poweredOn
             centralManager.stopScan()
-            logger.log("Scanning stopped")
+            // TODO: assert this is updating!
+            isScanning = centralManager.isScanning // ensure this is synced
+            logger.debug("Scanning stopped")
         }
     }
 
@@ -190,7 +223,25 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner {
         }
 
         for device in devices {
-            discoveredPeripherals.removeValue(forKey: device.id)
+            clearDiscoveredPeripheral(forKey: device.id)
+        }
+
+        if devices.isEmpty { // otherwise deinit was already called
+            checkForCentralDeinit()
+        }
+    }
+
+    private func clearDiscoveredPeripheral(forKey id: UUID) {
+        discoveredPeripherals.removeValue(forKey: id)
+
+        checkForCentralDeinit()
+    }
+
+    /// De-initializes the Bluetooth Central if we currently don't use it.
+    private func checkForCentralDeinit() {
+        if !shouldBeScanning && discoveredPeripherals.isEmpty {
+            _centralManager.destroy()
+            self.state = .unknown
         }
     }
 
@@ -329,7 +380,7 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner {
         for device in staleDevices {
             logger.debug("Removing stale peripheral \(device.cbPeripheral.debugIdentifier)")
             // we know it won't be connected, therefore we just need to remove it
-            discoveredPeripherals.removeValue(forKey: device.id)
+            clearDiscoveredPeripheral(forKey: device.id)
         }
 
 
@@ -341,11 +392,12 @@ public class BluetoothManager: KVOReceiver, BluetoothScanner {
     deinit {
         stopScanning()
         staleTimer?.cancel()
+        autoConnectItem?.cancel()
+
         self.state = .poweredOff
 
-
         discoveredPeripherals = [:]
-        self.centralManager.delegate = nil
+        self.centralDelegate = nil
 
         logger.debug("BluetoothManager destroyed")
     }
@@ -376,6 +428,7 @@ extension BluetoothManager {
                 // Start working with the peripheral
                 logger.info("CBManager is powered on")
                 manager.state = .poweredOn
+                manager.handlePoweredOn()
             case .poweredOff:
                 logger.info("CBManager is not powered on")
                 manager.state = .poweredOff
@@ -394,7 +447,7 @@ extension BluetoothManager {
                 manager.state = .unauthorized
             case .unknown:
                 logger.log("CBManager state is unknown")
-                manager.state = .unsupported
+                manager.state = .unknown
             case .unsupported:
                 logger.log("Bluetooth is not supported on this device")
                 manager.state = .unsupported
@@ -451,26 +504,6 @@ extension BluetoothManager {
             manager.kickOffAutoConnect()
         }
 
-        func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
-            guard let manager else {
-                return
-            }
-
-            // Documentation reads: "Because connection attempts don’t time out, a failed connection usually indicates a transient issue,
-            // in which case you may attempt connecting to the peripheral again."
-
-            guard let device = manager.discoveredPeripherals[peripheral.identifier] else {
-                logger.warning("Unknown peripheral \(peripheral.debugIdentifier) failed with error: \(String(describing: error))")
-                manager.centralManager.cancelPeripheralConnection(peripheral)
-                return
-            }
-
-            logger.error("Failed to connect to \(peripheral): \(String(describing: error))")
-            Task {
-                await device.disconnect() // TODO: attempt reconnect, instead? OR make it configurable? reconnect tries?
-            }
-        }
-
         func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
             guard let manager else {
                 return
@@ -488,6 +521,33 @@ extension BluetoothManager {
             }
         }
 
+        func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
+            guard let manager else {
+                return
+            }
+
+            // Documentation reads: "Because connection attempts don’t time out, a failed connection usually indicates a transient issue,
+            // in which case you may attempt connecting to the peripheral again."
+
+            guard let device = manager.discoveredPeripherals[peripheral.identifier] else {
+                logger.warning("Unknown peripheral \(peripheral.debugIdentifier) failed with error: \(String(describing: error))")
+                manager.centralManager.cancelPeripheralConnection(peripheral)
+                return
+            }
+
+            if let error {
+                logger.error("Failed to connect to \(peripheral): \(error)")
+            } else {
+                logger.error("Failed to connect to \(peripheral)")
+            }
+
+            // just to make sure
+            manager.centralManager.cancelPeripheralConnection(device.cbPeripheral)
+
+            // TODO: attempt reconnect, instead? OR make it configurable? reconnect tries?
+            discardDevice(device: device)
+        }
+
 
         func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
             guard let manager else {
@@ -499,13 +559,26 @@ extension BluetoothManager {
                 return
             }
 
-            logger.debug("Peripheral \(peripheral.debugIdentifier) disconnected.")
+            if let error {
+                logger.debug("Peripheral \(peripheral.debugIdentifier) disconnected due to an error: \(error)")
+            } else {
+                logger.debug("Peripheral \(peripheral.debugIdentifier) disconnected.")
+            }
+
+            discardDevice(device: device)
+        }
+
+
+        private func discardDevice(device: BluetoothPeripheral) {
+            guard let manager else {
+                return
+            }
 
             if !manager.isScanning {
                 device.handleDisconnect()
-                manager.discoveredPeripherals.removeValue(forKey: device.id)
+                manager.clearDiscoveredPeripheral(forKey: device.id)
             } else {
-                // we will keep disconnected devices for 500ms before the stale timer kicks off
+                // we will keep discarded devices for 500ms before the stale timer kicks off
                 let interval = max(0, manager.advertisementStaleInterval - 0.5)
                 device.handleDisconnect(disconnectActivityInterval: interval)
 
@@ -514,4 +587,4 @@ extension BluetoothManager {
             }
         }
     }
-}
+} // swiftlint:disable:this file_length
