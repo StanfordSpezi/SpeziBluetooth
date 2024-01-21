@@ -15,7 +15,7 @@ import OSLog
 ///
 /// ## Topics
 ///
-/// ### Device State
+/// ### Peripheral State
 /// - ``id``
 /// - ``name``
 /// - ``state``
@@ -27,13 +27,22 @@ import OSLog
 /// - ``connect()``
 /// - ``disconnect()``
 ///
-/// ### Device Interactions
+/// ### Reading a value
 /// - ``read(characteristic:)``
+///
+/// ### Writing a value
 /// - ``write(data:for:)``
 /// - ``writeWithoutResponse(data:for:)``
+///
+/// ### Notifications
+/// - ``registerNotifications(service:characteristic:_:)``
 /// - ``registerNotifications(for:_:)``
+/// - ``CharacteristicNotification``
+/// - ``BluetoothNotificationHandler``
+///
+/// ### Retrieving the lates signal strength
 /// - ``readRSSI()``
-public actor BluetoothPeripheral: Identifiable, KVOReceiver {
+public actor BluetoothPeripheral {
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothDevice")
 
     private weak var manager: BluetoothManager?
@@ -56,11 +65,6 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
 
     nonisolated var cbPeripheral: CBPeripheral {
         peripheral
-    }
-
-    /// The internally managed identifier for the peripheral.
-    public nonisolated var id: UUID {
-        peripheral.identifier
     }
 
     /// The name of the peripheral.
@@ -87,7 +91,7 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
     ///
     /// Services are discovered automatically upon connection
     public nonisolated var services: [CBService]? { // swiftlint:disable:this discouraged_optional_collection
-        stateContainer.services // TODO: Observable wrappers???
+        stateContainer.services
     }
 
     nonisolated var lastActivity: Date {
@@ -130,7 +134,7 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
     /// Make a connection to the peripheral.
     ///
     /// - Note: This method returns as soon as the request to connect was processed locally. It does
-    ///     not wait till the connection was completed successfully. // TODO: we could return the error then?
+    ///     not wait till the connection was completed successfully.
     ///
     /// - Note: You might want to verify via the ``AdvertisementData/isConnectable`` property that the device is connectable.
     public func connect() async {
@@ -172,7 +176,6 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
                 }
             }
         } else {
-            // TODO: discover primary services!
             // all services will be discovered
             stateContainer.requestedCharacteristics = nil
         }
@@ -185,11 +188,44 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
 
     /// Handles a disconnect or failed connection attempt.
     nonisolated func handleDisconnect(disconnectActivityInterval: TimeInterval = 0) {
-        // TODO: will ongoing writes, reads, ... be cancelled??
-        //   throw ongoing promises with .notConnected?
         self.stateContainer.state = .init(from: peripheral.state) // ensure that it is updated instantly.
-
         self.stateContainer.lastActivity = Date.now - disconnectActivityInterval
+
+        Task {
+            await clearAccesses()
+        }
+    }
+
+    func clearAccesses() {
+        for continuation in writeWithoutResponseAccess {
+            continuation.resume()
+        }
+        writeWithoutResponseAccess.removeAll()
+
+        for continuation in rssiReadAccess {
+            continuation.resume(throwing: BluetoothError.notConnected)
+        }
+        rssiReadAccess.removeAll()
+
+        let ongoingAccesses = ongoingAccesses
+        self.ongoingAccesses.removeAll()
+
+        for (_, access) in ongoingAccesses {
+            switch access {
+            case let .read(continuations, queued):
+                for continuation in continuations {
+                    continuation.resume(throwing: BluetoothError.notConnected)
+                }
+                for queue in queued {
+                    queue.resume()
+                }
+            case let .write(continuation, queued):
+                continuation.resume(throwing: BluetoothError.notConnected)
+                for queue in queued {
+                    queue.resume()
+                }
+            }
+        }
     }
 
     nonisolated func update(advertisement: AdvertisementData, rssi: Int) {
@@ -208,16 +244,6 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
     /// - Returns: True if the device is considered stale given the above criteria.
     nonisolated func isConsideredStale(interval: TimeInterval) -> Bool {
         state == .disconnected && lastActivity.addingTimeInterval(interval) < .now
-    }
-
-    func observeChange<K, V>(of keyPath: KeyPath<K, V>, value: V) async {
-        switch keyPath {
-        case \CBPeripheral.state:
-            // force cast is okay as we implicitly verify the type using the KeyPath in the case statement.
-            self.stateContainer.state = .init(from: value as! CBPeripheralState) // swiftlint:disable:this force_cast
-        default:
-            break
-        }
     }
 
     /// Register a notification handler for a characteristic.
@@ -311,18 +337,20 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
     ///
     /// Writes the value of a characteristic expecting a confirmation from the peripheral.
     ///
+    /// - Note: The write operation is specified in Bluetooth Core Specification, Volume 3,
+    ///     Part G, 4.9.3 Write Characteristic Value.
+    ///
     /// - Parameters:
     ///   - data: The value to write.
     ///   - characteristic: The characteristic to which the value is written.
     /// - Returns: The response from the device.
-    /// - Throws: Throws an `CBError`, `CBATTError` or ``BluetoothError`` if the write fails.
-    public func write(data: Data, for characteristic: CBCharacteristic) async throws -> Data {
+    /// - Throws: Throws an `CBError` or `CBATTError` if the write fails.
+    public func write(data: Data, for characteristic: CBCharacteristic) async throws {
         while ongoingAccesses[characteristic] != nil {
             await queueRWAccess(for: characteristic)
         }
 
-        // TODO: are we actually getting data back?
-        return try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { continuation in
             // using updateValue as of https://github.com/apple/swift/issues/63156. Revert to subscript access with Swift 5.10
             ongoingAccesses.updateValue(.write(continuation), forKey: characteristic)
             peripheral.writeValue(data, for: characteristic, type: .withResponse)
@@ -332,6 +360,9 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
     /// Write the value of a characteristic without expecting a response.
     ///
     /// Writes the value of a characteristic without expecting a confirmation from the peripheral.
+    ///
+    /// - Note: The write operation is specified in Bluetooth Core Specification, Volume 3,
+    ///     Part G, 4.9.1 Write Without Response.
     ///
     /// - Parameters:
     ///   - data: The value to write.
@@ -356,7 +387,7 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
     ///
     /// - Parameter characteristic: The characteristic for which you want to read the value.
     /// - Returns: The value that the peripheral was returned.
-    /// - Throws: Throws an `CBError`, `CBATTError` or ``BluetoothError`` if the read fails.
+    /// - Throws: Throws an `CBError` or `CBATTError` if the read fails.
     public func read(characteristic: CBCharacteristic) async throws -> Data {
         // if there is already a read for this characteristic, we just piggy back onto it
         if case .read(var continuations, let queued) = ongoingAccesses[characteristic] {
@@ -415,6 +446,26 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
                 // using updateValue as of https://github.com/apple/swift/issues/63156. Revert to subscript access with Swift 5.10
                 ongoingAccesses.updateValue(.write(writeContinuation, queued: queued), forKey: characteristic)
             }
+        }
+    }
+}
+
+
+extension BluetoothPeripheral: Identifiable {
+    /// The internally managed identifier for the peripheral.
+    public nonisolated var id: UUID {
+        peripheral.identifier
+    }
+}
+
+extension BluetoothPeripheral: KVOReceiver {
+    func observeChange<K, V>(of keyPath: KeyPath<K, V>, value: V) async {
+        switch keyPath {
+        case \CBPeripheral.state:
+            // force cast is okay as we implicitly verify the type using the KeyPath in the case statement.
+            self.stateContainer.state = .init(from: value as! CBPeripheralState) // swiftlint:disable:this force_cast
+        default:
+            break
         }
     }
 }
@@ -514,7 +565,7 @@ extension BluetoothPeripheral {
         }
     }
 
-    fileprivate func receivedWriteResponse(for characteristic: CBCharacteristic, result: Result<Data, Error>) {
+    fileprivate func receivedWriteResponse(for characteristic: CBCharacteristic, result: Result<Void, Error>) {
         guard case let .write(continuation, queued) = ongoingAccesses[characteristic] else {
             logger.warning("Received write response for \(characteristic.debugIdentifier) without an ongoing access. Discarding write ...")
             return
@@ -659,8 +710,8 @@ extension BluetoothPeripheral {
             Task {
                 if let error {
                     await device.receivedWriteResponse(for: characteristic, result: .failure(error))
-                } else if let value = characteristic.value {
-                    await device.receivedWriteResponse(for: characteristic, result: .success(value))
+                } else {
+                    await device.receivedWriteResponse(for: characteristic, result: .success(()))
                 }
             }
         }

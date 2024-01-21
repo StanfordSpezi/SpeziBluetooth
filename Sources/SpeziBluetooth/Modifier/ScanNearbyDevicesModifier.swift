@@ -64,7 +64,7 @@ extension View {
     /// discovered for a short period in time.
     ///
     /// - Tip: If you want to continuously search for auto-connectable device in the background,
-    ///     you might want to use the ``SwiftUI/View/autoConnect(enabled:device:)`` modifier instead.
+    ///     you might want to use the ``SwiftUI/View/autoConnect(enabled:with:)`` modifier instead.
     ///
     /// How nearby devices are accessed depends on the passed ``BluetoothScanner`` implementation.
     ///

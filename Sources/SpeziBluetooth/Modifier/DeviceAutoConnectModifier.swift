@@ -43,7 +43,6 @@ extension View {
     /// - Returns: THe modified view.
     public func autoConnect<Scanner: BluetoothScanner>(enabled: Bool = false, with scanner: Scanner) -> some View {
         // swiftlint:disable:previous function_default_parameter_at_end
-        // TODO: control that we definitely want to force a connection to something?
         modifier(DeviceAutoConnectModifier(enabled: enabled, scanner: scanner))
     }
 }

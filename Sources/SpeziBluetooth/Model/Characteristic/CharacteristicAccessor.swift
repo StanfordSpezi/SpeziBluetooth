@@ -11,22 +11,22 @@ import CoreBluetooth
 
 /// TODO: docs
 ///
-///
-/// ### Reading a value
-/// - ``read()``
-///
-/// ### Controlling notifications
-/// - ``isNotifying``
-/// - ``enableNotifications(_:)``
-///
-/// ### Writing a value
-/// - ``write(_:)``
-/// - ``write(_:expecting:)``
-/// - ``writeWithoutResponse(_:)``
+/// ## Topics
 ///
 /// ### Characteristic properties
 /// - ``properties``
 /// - ``descriptors``
+///
+/// ### Reading a value
+/// - ``read()``
+///
+/// ### Writing a value
+/// - ``write(_:)``
+/// - ``writeWithoutResponse(_:)``
+///
+/// ### Controlling notifications
+/// - ``isNotifying``
+/// - ``enableNotifications(_:)``
 public struct CharacteristicAccessors<Value> {
     let id: CBUUID
     fileprivate let context: CharacteristicContext<Value>
@@ -44,17 +44,20 @@ extension CharacteristicAccessors where Value: ByteDecodable {
     ///
     /// This is false if device is not connected.
     public var isNotifying: Bool {
-        // TODO: this is not observable
         context.characteristic?.isNotifying ?? false
     }
 
+    /// Properties of the characteristic.
+    ///
+    /// Nil if device is not connected.
     public var properties: CBCharacteristicProperties? {
-        // TODO: this is not observable?
         context.characteristic?.properties
     }
 
-    public var descriptors: [CBDescriptor]? {
-        // TODO: this is not observable
+    /// Descriptors of the characteristic.
+    ///
+    /// Nil if device is not connected or descriptors are not yet discovered.
+    public var descriptors: [CBDescriptor]? { // swiftlint:disable:this discouraged_optional_collection
         context.characteristic?.descriptors
     }
 
@@ -82,19 +85,13 @@ extension CharacteristicAccessors where Value: ByteDecodable {
 
 
 extension CharacteristicAccessors where Value: ByteEncodable {
-    public func write<Response: ByteDecodable>(_ value: Value, expecting response: Response.Type = Response.self) async throws -> Response {
+    public func write(_ value: Value) async throws {
         guard let characteristic = context.characteristic else {
             throw BluetoothError.notConnected
         }
 
         let requestData = value.encode()
-        let responseData = try await context.peripheral.write(data: requestData, for: characteristic)
-
-        guard let response = Response(data: responseData) else {
-            throw BluetoothError.incompatibleDataFormat
-        }
-
-        return response
+        try await context.peripheral.write(data: requestData, for: characteristic)
     }
 
     public func writeWithoutResponse(_ value: Value) async throws {
@@ -104,12 +101,5 @@ extension CharacteristicAccessors where Value: ByteEncodable {
 
         let data = value.encode()
         await context.peripheral.writeWithoutResponse(data: data, for: characteristic)
-    }
-}
-
-
-extension CharacteristicAccessors where Value: ByteCodable {
-    public func write(_ value: Value) async throws -> Value {
-        try await write(value, expecting: Value.self)
     }
 }

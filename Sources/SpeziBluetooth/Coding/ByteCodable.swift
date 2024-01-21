@@ -18,7 +18,7 @@ import NIOFoundationCompat
 /// properly formatted binary data.
 ///
 /// - Note: For reference, the types Bluetooth supports are illustrated in
-///     Bluetooth Core Specification, Part E, 3.9 Type Names.
+///     Bluetooth Core Specification, Volume 1, Part E, 3.9 Type Names.
 public protocol ByteDecodable {
     /// Decode the type from the `ByteBuffer`.
     ///
@@ -36,7 +36,7 @@ public protocol ByteDecodable {
 /// Conforming types can be encoded into a `ByteBuffer`.
 ///
 /// - Note: For reference, the types Bluetooth supports are illustrated in
-///     Bluetooth Core Specification, Part E, 3.9 Type Names.
+///     Bluetooth Core Specification, Volume 1, Part E, 3.9 Type Names.
 public protocol ByteEncodable {
     /// Encode into the `ByteBuffer`.
     ///
@@ -53,7 +53,7 @@ public protocol ByteEncodable {
 /// Conforming types can be encoded into or decodable from a `ByteBuffer`.
 ///
 /// - Note: For reference, the types Bluetooth supports are illustrated in
-///     Bluetooth Core Specification, Part E, 3.9 Type Names.
+///     Bluetooth Core Specification, Volume 1, Part E, 3.9 Type Names.
 public typealias ByteCodable = ByteEncodable & ByteDecodable
 
 

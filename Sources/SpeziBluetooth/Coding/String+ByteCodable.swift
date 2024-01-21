@@ -21,7 +21,7 @@ extension String: ByteCodable {
     /// This implementation does not account for fixed-length strings (e.g., utf8s{#} and utf8s{#z} representations).
     ///
     /// - Note: For reference, the variable-length types in Bluetooth are illustrated in
-    ///     Bluetooth Core Specification, Part E, 3.9.3 Variable length types.
+    ///     Bluetooth Core Specification, Volume 1, Part E, 3.9.3 Variable length types.
     /// - Parameter byteBuffer: The bytebuffer to decode from.
     public init?(from byteBuffer: inout ByteBuffer) {
         guard let string = byteBuffer.readString(length: byteBuffer.readableBytes) else {
@@ -39,7 +39,7 @@ extension String: ByteCodable {
     /// This implementation does not account for fixed-length strings (e.g., utf8s{#} and utf8s{#z} representations).
     ///
     /// - Note: For reference, the variable-length types in Bluetooth are illustrated in
-    ///     Bluetooth Core Specification, Part E, 3.9.3 Variable length types.
+    ///     Bluetooth Core Specification, Volume 1, Part E, 3.9.3 Variable length types.
     /// - Parameter byteBuffer: The bytebuffer to decode from.
     public func encode(to byteBuffer: inout ByteBuffer) {
         byteBuffer.writeString(self)

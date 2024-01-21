@@ -25,7 +25,7 @@ class TestAppDelegate: SpeziAppDelegate {
     override var configuration: Configuration {
         Configuration {
             Bluetooth {
-                Discover(TestDevice.self, by: .primaryService("0000FFF0-0000-1000-8000-00805F9B34FB"))
+                Discover(TestDevice.self, by: .advertisedService("0000FFF0-0000-1000-8000-00805F9B34FB"))
             }
         }
     }

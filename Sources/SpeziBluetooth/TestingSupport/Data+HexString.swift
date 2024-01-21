@@ -10,8 +10,12 @@ import Foundation
 
 
 extension Data {
+    /// Create `Data` from a hex string.
+    ///
+    /// The hex string may be prefixed with `"0x"` or `"0X"`.
+    /// - Parameter hex: The hex string.
     @_spi(TestingSupport)
-    public init?(hex: String) { // TODO: custom SPI?
+    public init?(hex: String) {
         // while this seems complicated, and you can do it with shorter code,
         // this doesn't incur any heap allocations for string. Pretty neat.
 

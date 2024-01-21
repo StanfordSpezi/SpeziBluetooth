@@ -60,11 +60,14 @@ public class BluetoothManager {
     public private(set) var state: BluetoothState
     /// Whether or not we are currently scanning for nearby devices.
     public private(set) var isScanning = false
-    /// Track if we should be scanning. This is important to check which resources should stay allocated.
-    private var shouldBeScanning = false
     /// The list of discovered and connected bluetooth devices indexed by their identifier UUID.
     /// The state is isolated to our `dispatchQueue`.
     private(set) var discoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> = [:]
+    /// Track if we should be scanning. This is important to check which resources should stay allocated.
+    private var shouldBeScanning = false
+    /// The identifier of the last manually disconnected device.
+    /// This is to avoid automatically reconnecting to a device that was manually disconnected.
+    private var lastManuallyDisconnectedDevice: UUID?
 
     @ObservationIgnored private var autoConnect = false
     @ObservationIgnored private var autoConnectItem: DispatchWorkItem?
@@ -76,7 +79,8 @@ public class BluetoothManager {
     private var autoConnectDeviceCandidate: BluetoothPeripheral? {
         guard discoveredPeripherals.count == 1,
               let firstDevice = discoveredPeripherals.values.first,
-              firstDevice.state == .disconnected else {
+              firstDevice.state == .disconnected,
+              firstDevice.id != lastManuallyDisconnectedDevice else {
             return nil
         }
 
@@ -102,10 +106,7 @@ public class BluetoothManager {
     /// Returning nil means scanning for all peripherals.
     private var serviceDiscoveryIds: [CBUUID]? { // swiftlint:disable:this discouraged_optional_collection
         let discoveryIds = configuredDevices.compactMap { configuration in
-            if case let .primaryService(uuid) = configuration.discoveryCriteria {
-                return uuid
-            }
-            return nil
+            configuration.discoveryCriteria.discoveryId
         }
 
         return discoveryIds.isEmpty ? nil : discoveryIds
@@ -167,7 +168,7 @@ public class BluetoothManager {
     /// Scans on nearby devices based on the ``DeviceDescription`` provided in the initializer.
     /// All discovered devices can be accessed through the ``nearbyPeripherals`` or ``nearbyPeripheralsView`` property.
     ///
-    /// - Note: Scanning for nearby devices can easily be managed via the ``SwiftUI/View/scanNearbyDevices(with:autoConnect:)``
+    /// - Tip: Scanning for nearby devices can easily be managed via the ``SwiftUI/View/scanNearbyDevices(enabled:with:autoConnect:)``
     ///     modifier.
     ///
     /// - Parameter autoConnect: If enabled, the bluetooth manager will automatically connect to
@@ -267,6 +268,7 @@ public class BluetoothManager {
         if !shouldBeScanning && discoveredPeripherals.isEmpty {
             _centralManager.destroy()
             self.state = .unknown
+            self.lastManuallyDisconnectedDevice = nil
         }
     }
 
@@ -296,6 +298,7 @@ public class BluetoothManager {
         logger.debug("Disconnecting peripheral \(peripheral.cbPeripheral.debugIdentifier) ...")
         // stale timer is handled in the delegate method
         centralManager.cancelPeripheralConnection(peripheral.cbPeripheral)
+        lastManuallyDisconnectedDevice = peripheral.id
     }
 
     func findDeviceDescription(for advertisementData: AdvertisementData) -> DeviceDescription? {
@@ -325,8 +328,6 @@ public class BluetoothManager {
             guard let candidate = self.autoConnectDeviceCandidate else {
                 return
             }
-
-            // TODO: ensure that we don't re-connect to a manually disconnected device
 
             Task {
                 await candidate.connect()
@@ -441,6 +442,7 @@ extension BluetoothManager: KVOReceiver {
 
 
 extension BluetoothManager: BluetoothScanner {
+    @_documentation(visibility: internal)
     public var hasConnectedDevices: Bool {
         !discoveredPeripherals.isEmpty
     }
@@ -528,6 +530,7 @@ extension BluetoothManager {
 
             // rssi of 127 is a magic value signifying unavailability of the value.
             guard rssi.intValue >= manager.minimumRSSI, rssi.intValue != 127 else { // ensure the signal strength is not too low
+                // TODO: should this remove an existing device!??
                 return // logging this would just be to verbose, so we don't.
             }
 

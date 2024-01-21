@@ -18,12 +18,12 @@ struct BluetoothManagerView: View { // TODO: make this a reusable view (with deb
     private var device: TestDevice?
 
     var body: some View {
-        List {
+        List { // swiftlint:disable:this closure_body_length
             Section("State Tests") {
                 HStack {
                     Text("Scanning")
                     Spacer()
-                    Text(bluetooth.isScanning ? "Yes": "No")
+                    Text(bluetooth.isScanning ? "Yes" : "No")
                         .foregroundColor(.secondary)
                 }
                 HStack {
@@ -73,11 +73,12 @@ struct BluetoothManagerView: View { // TODO: make this a reusable view (with deb
     }
 }
 
+
 #Preview {
     BluetoothManagerView()
         .previewWith {
             Bluetooth {
-                Discover(TestDevice.self, by: .primaryService("0000FFF0-0000-1000-8000-00805F9B34FB"))
+                Discover(TestDevice.self, by: .advertisedService("0000FFF0-0000-1000-8000-00805F9B34FB"))
             }
         }
 }

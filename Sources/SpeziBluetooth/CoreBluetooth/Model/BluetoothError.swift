@@ -14,23 +14,32 @@ public enum BluetoothError: String, Error, CustomStringConvertible, LocalizedErr
     /// Could not decode the ByteBuffer into the provided ByteDecodable.
     case incompatibleDataFormat
     /// Thrown when accessing a ``Characteristic`` when the device is not connected yet.
-    case notConnected // TODO: can we throw CBErrors? hwo do errors look? are thes CBErrors or NSErrors?
+    case notConnected
 
     
     /// Provides a human-readable description of the error.
     public var description: String {
-        errorDescription ?? "BluetoothError: \(rawValue)"
+        "\(errorDescription!): \(failureReason!)" // swiftlint:disable:this force_unwrapping
     }
 
-    // TODO error description and failure reason
 
     /// Provides a detailed description of the error.
     public var errorDescription: String? {
         switch self {
         case .incompatibleDataFormat:
-            "Incompatible Data Format"
+            String(localized: "Decoding Error", bundle: .module)
         case .notConnected:
-            "Not Connected"
+            String(localized: "Not Connected", bundle: .module)
+        }
+    }
+
+
+    public var failureReason: String? {
+        switch self {
+        case .incompatibleDataFormat:
+            String(localized: "Could not decode byte representation into provided format.", bundle: .module)
+        case .notConnected:
+            String(localized: "Peripheral is not connected.", bundle: .module)
         }
     }
 }

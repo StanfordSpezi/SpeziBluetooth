@@ -12,7 +12,7 @@ import NIO
 /// `ByteCodable` types that are a `FixedWithInteger`.
 ///
 /// - Note: For reference, the basic types in Bluetooth are illustrated in
-///     Bluetooth Core Specification, Part E, 3.9.1 Basic types.
+///     Bluetooth Core Specification, Volume 1, Part E, 3.9.1 Basic types.
 protocol FixedWidthByteCodable: FixedWidthInteger, ByteCodable {}
 
 
@@ -25,7 +25,7 @@ extension FixedWidthByteCodable {
     /// Further, it covers `int8`, `int16`, `int32`, and `int64` of `int#` types of Bluetooth.
     ///
     /// - Note: For reference, the basic types in Bluetooth are illustrated in
-    ///     Bluetooth Core Specification, Part E, 3.9.1 Basic types.
+    ///     Bluetooth Core Specification, Volume 1, Part E, 3.9.1 Basic types.
     /// - Parameter byteBuffer: The bytebuffer to decode from.
     public init?(from byteBuffer: inout ByteBuffer) {
         guard let value = byteBuffer.readInteger(endianness: .little, as: Self.self) else {
@@ -42,7 +42,7 @@ extension FixedWidthByteCodable {
     /// Further, it covers `int8`, `int16`, `int32`, and `int64` of `int#` types of Bluetooth.
     ///
     /// - Note: For reference, the basic types in Bluetooth are illustrated in
-    ///     Bluetooth Core Specification, Part E, 3.9.1 Basic types.
+    ///     Bluetooth Core Specification, Volume 1, Part E, 3.9.1 Basic types.
     /// - Parameter byteBuffer: The bytebuffer to decode from.
     public func encode(to byteBuffer: inout ByteBuffer) {
         byteBuffer.writeInteger(self, endianness: .little)

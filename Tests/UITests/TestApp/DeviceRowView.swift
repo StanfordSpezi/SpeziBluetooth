@@ -31,7 +31,7 @@ struct DeviceRowView: View {
                 HStack {
                     Text(peripheral.id.uuidString)
                     Spacer()
-                    Text("\(peripheral.state.rawValue)") // TODO: description
+                    Text("\(peripheral.state.description)")
                 }
                     .font(.caption2)
                     .foregroundColor(.secondary)

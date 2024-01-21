@@ -14,7 +14,9 @@ class DiscoveryStaleTimer {
     /// The dispatch work item that schedules the next stale timer.
     private let workItem: DispatchWorkItem
 
-    init(device: UUID, handler: @escaping () -> Void) { // TODO: document reference cycle?
+    init(device: UUID, handler: @escaping () -> Void) {
+        // make sure that you don't create a reference cycle through the closure above!
+
         self.targetDevice = device
         self.workItem = DispatchWorkItem { // we do not capture self here!!
             handler()

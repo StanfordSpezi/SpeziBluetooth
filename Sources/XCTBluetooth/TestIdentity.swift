@@ -12,6 +12,13 @@ import SpeziBluetooth
 import XCTest
 
 
+/// Tests the identity invariant of a `ByteCodable` implementation.
+///
+/// This function encodes a provided value into its byte representation, then
+/// decodes it back into the value and asserts its equality using `XCTAssertEqual`.
+///
+/// - Parameter value: The value to encode and decode.
+/// - Throws: Failed test.
 public func testIdentity<T: ByteCodable & Equatable>(from value: T) throws {
     let data = value.encode()
 
@@ -23,6 +30,14 @@ public func testIdentity<T: ByteCodable & Equatable>(from value: T) throws {
 }
 
 
+/// Tests the identity invariant of a `ByteCodable` implementation.
+///
+/// This function decodes the type from the provided byte representation, then
+/// encodes it back into its byte representations and asserts its equality using `XCTAssertEqual`.
+/// - Parameters:
+///   - type: The type to test.
+///   - data: The data representation to decode.
+/// - Throws: Failed test.
 public func testIdentity<T: ByteCodable>(of type: T.Type, from data: Data) throws {
     var decodingBuffer = ByteBuffer(data: data)
 

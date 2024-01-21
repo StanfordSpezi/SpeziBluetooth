@@ -106,7 +106,7 @@ class ExampleAppDelegate: SpeziAppDelegate {
 }
 ```
 
-The `MyDevice` type showcases the interaction with the ``BluetoothService`` and the implementation of the ``BluetoothMessageHandler`` protocol.
+The `MyDevice` type showcases the interaction with the ``BluetoothService`` and the implementation of the ``BluetoothNotificationHandler`` protocol.
 It does all the message handling, and is responsible for parsing the information.
 
 > Tip: We highly recommend to use SwiftNIO [`ByteBuffer`](https://swiftpackageindex.com/apple/swift-nio/2.61.1/documentation/niocore/bytebuffer)s to parse more complex data coming in from the wire. You can learn more about creating a `ByteBuffer` from a Foundation `Data` instance using [NIOFoundationCompat](https://swiftpackageindex.com/apple/swift-nio/2.61.1/documentation/niofoundationcompat/niocore/bytebuffer).
@@ -177,9 +177,10 @@ public class MyDevice: BluetoothMessageHandler {
 - ``Discover``
 - ``DiscoveryCriteria``
 
-### Searching for nearby devices
+### Discovering nearby devices
 
-- ``SwiftUI/View/scanNearbyDevices(with:autoConnect:)``
+- ``SwiftUI/View/scanNearbyDevices(enabled:with:autoConnect:)``
+- ``SwiftUI/View/autoConnect(enabled:with:)``
 
 ### Declaring a Bluetooth Device
 
@@ -192,9 +193,9 @@ public class MyDevice: BluetoothMessageHandler {
 
 ### Coding
 
+- ``ByteCodable``
 - ``ByteEncodable``
 - ``ByteDecodable``
-- ``ByteCodable``
 
 ### Core Bluetooth 
 

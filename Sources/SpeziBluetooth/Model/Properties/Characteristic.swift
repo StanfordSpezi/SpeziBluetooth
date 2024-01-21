@@ -30,7 +30,6 @@ import Foundation
 ///
 /// ### Writing a value
 /// - ``CharacteristicAccessors/write(_:)``
-/// - ``CharacteristicAccessors/write(_:expecting:)``
 /// - ``CharacteristicAccessors/writeWithoutResponse(_:)``
 ///
 /// ### Characteristic properties

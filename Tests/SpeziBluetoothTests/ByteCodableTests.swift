@@ -7,7 +7,7 @@
 //
 
 import NIO
-@testable @_spi(TestingSupport) import SpeziBluetooth
+@testable @_spi(TestingSupport) import SpeziBluetooth // swiftlint:disable:this attributes
 import XCTBluetooth
 import XCTest
 

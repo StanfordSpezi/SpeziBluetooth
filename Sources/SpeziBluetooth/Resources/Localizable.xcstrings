@@ -1,35 +1,42 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "BLUETOOTH_ERROR_DEVICE_TIME_OUT" : {
-      "extractionState" : "stale",
+    "Could not decode byte representation into provided format." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The device no longer sends new measurement values. The connection seemed to have timed out."
+            "value" : "Could not decode byte representation into provided format."
           }
         }
       }
     },
-    "BLUETOOTH_ERROR_NOT_CONNECTED" : {
-      "extractionState" : "stale",
+    "Decoding Error" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The device is not connected. Please ensure that the device is powered on or try to restart the device."
+            "value" : "Decoding Error"
           }
         }
       }
     },
-    "BLUETOOTH_ERROR_NOT_READABLE" : {
-      "extractionState" : "stale",
+    "Not Connected" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The characteristic you requested was not readable."
+            "value" : "Not Connected"
+          }
+        }
+      }
+    },
+    "Peripheral is not connected." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peripheral is not connected."
           }
         }
       }

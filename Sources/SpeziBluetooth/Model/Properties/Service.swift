@@ -15,8 +15,6 @@ public class Service<S: BluetoothService> {
 
     public let wrappedValue: S
 
-    // TODO: underlying access to isPrimary via projectedValue?
-
     public convenience init(wrappedValue: S, id: String) {
         self.init(wrappedValue: wrappedValue, id: CBUUID(string: id))
     }

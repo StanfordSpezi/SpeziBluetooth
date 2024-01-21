@@ -10,9 +10,123 @@ import OSLog
 import Spezi
 
 
-// TODO: "Enable applications to connect to Bluetooth devices using modern programming paradigms."???
-
-/// Enable applications to connect to Bluetooth devices.
+/// Connect and communicate with Bluetooth devices using modern programming paradigms.
+///
+/// This module allows to connect and communicate with Bluetooth devices using modern programming paradigms.
+/// Under the hood this module uses Apple's [CoreBluetooth](https://developer.apple.com/documentation/corebluetooth)
+/// through the ``BluetoothManager``.
+///
+/// ### Create you Bluetooth device
+///
+/// The Bluetooth module allows to declarative define your Bluetooth device using a ``BluetoothDevice`` implementation and property wrappers
+/// like ``Service`` and ``Characteristic``.
+///
+/// The below code examples demonstrate how you can implement your own Bluetooth device.
+///
+/// First of all we define our Bluetooth service by implementing a ``BluetoothService``.
+/// We use the ``Characteristic`` property wrapper to declare its characteristics.
+/// Note that the value types need to be optional and conform to ``ByteEncodable``, ``ByteDecodable`` or ``ByteCodable`` respectively.
+///
+/// ```swift
+/// class DeviceInformationService: BluetoothService {
+///     @Characteristic(id: "2A29")
+///     var manufacturer: String?
+///     @Characteristic(id: "2A26"
+///     var firmwareRevision: String?
+/// }
+/// ```
+///
+/// We can use this Bluetooth service now in your `MyDevice` Bluetooth device implementation as follows.
+///
+/// - Tip: We use the ``DeviceState`` and ``DeviceAction`` property wrappers to get access to the device state and its actions. Those two
+///     property wrappers can also be used within a ``BluetoothService`` type.
+///
+/// ```swift
+/// class MyDevice: BluetoothDevice {
+///     @DeviceState(\.id)
+///     var id: UUID
+///     @DeviceState(\.name)
+///     var name: String?
+///     @DeviceState(\.state)
+///     var state: PeripheralState
+///
+///     @Service(id: "180A")
+///     var deviceInformation = DeviceInformationService()
+///
+///     @DeviceAction(\.connect)
+///     var connect
+///     @DeviceAction(\.disconnect)
+///     var disconnect
+///
+///     init() {} // required initializer
+/// }
+/// ```
+///
+/// ### Configure the Bluetooth Module
+///
+/// We use the above `BluetoothDevice` implementation to configure the `Bluetooth` module within your
+/// [SpeziAppDelegate](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/speziappdelegate).
+///
+/// ```swift
+/// import Spezi
+///
+/// class ExampleDelegate: SpeziAppDelegate {
+///     override var configuration: Configuration {
+///         Configuration {
+///             Bluetooth {
+///                 // Define which devices type to discover by what criteria .
+///                 // In this case we search for some custom FFF0 characteristic that is advertised.
+///                 Discover(MyDevice.self, by: .advertisedService("FFF0"))
+///             }
+///         }
+///     }
+/// }
+/// ```
+///
+/// ### Using the Bluetooth Module
+///
+/// // TODO: explain code sample?
+///
+/// ```swift
+/// import SpeziBluetooth
+/// import SwiftUI
+///
+/// struct MyView: View {
+///     @Environment(Bluetooth.self)
+///     var bluetooth
+///     @Environment(MyDevice.self)
+///     var myDevice: MyDevice?
+///
+///     var body: some View {
+///         List {
+///             if let myDevice {
+///                 Section {
+///                     Text("Device")
+///                     Spacer()
+///                     Text("\(myDevice.state.description)")
+///                 }
+///             }
+///
+///             Section {
+///                 ForEach(bluetooth.nearbyDevices(for: MyDevice.self), id: \.id) { device in
+///                     Text("\(device.name ?? "unknown")")
+///                 }
+///             } header: {
+///                 HStack {
+///                     Text("Devices")
+///                         .padding(.trailing, 10)
+///                     if bluetooth.isScanning {
+///                         ProgressView()
+///                     }
+///                 }
+///             }
+///         }
+///             .scanNearbyDevices(with: bluetooth)
+///     }
+/// }
+/// ```
+/// // TODO: access connected devices
+/// // TODO: searching for nearby devices!
 ///
 /// ## Topics
 ///
@@ -44,10 +158,11 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
         bluetoothManager.state
     }
 
-    public var isScanning: Bool {
+    public var isScanning: Bool { // TODO: docs
         bluetoothManager.isScanning
     }
 
+    @_documentation(visibility: internal)
     public var hasConnectedDevices: Bool {
         connectedDevicesModel.hasConnectedDevices
     }
@@ -180,7 +295,7 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
     /// The first connected device can be accessed through the
     /// [Environment(_:)](https://developer.apple.com/documentation/swiftui/environment/init(_:)-8slkf) in your SwiftUI view.
     ///
-    /// - Note: Scanning for nearby devices can easily be managed via the ``SwiftUI/View/scanNearbyDevices(with:autoConnect:)``
+    /// - Tip: Scanning for nearby devices can easily be managed via the ``SwiftUI/View/scanNearbyDevices(enabled:with:autoConnect:)``
     ///     modifier.
     ///
     /// - Parameter autoConnect: If enabled, the bluetooth manager will automatically connect to

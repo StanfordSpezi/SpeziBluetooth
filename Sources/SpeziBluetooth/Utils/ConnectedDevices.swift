@@ -14,7 +14,7 @@ class ConnectedDevices {
     @MainActor private var connectedDevices: [ObjectIdentifier: BluetoothDevice] = [:]
     @MainActor private var connectedDeviceIds: [ObjectIdentifier: UUID] = [:]
 
-    var hasConnectedDevices: Bool = false
+    var hasConnectedDevices = false
 
 
     @MainActor
