@@ -11,7 +11,17 @@
 ///
 /// Declares by which ``DiscoveryCriteria`` a given ``BluetoothDevice`` implementation is discovered.
 ///
-/// - Note: The criteria must be unique across all discovery configurations.
+/// - Important: The discovery criteria must be unique across all discovery configurations. Not doing so will result in undefined behavior.
+///
+/// ## Topics
+///
+/// ### Discovering a device
+///
+/// - ``init(_:by:)``
+///
+/// ### Semantic Model
+/// - ``DiscoveryConfiguration``
+/// - ``DiscoveryConfigurationBuilder``
 public struct Discover<Device: BluetoothDevice> {
     let deviceType: Device.Type
     let discoveryCriteria: DiscoveryCriteria

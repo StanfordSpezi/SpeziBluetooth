@@ -12,7 +12,7 @@ import Foundation
 
 @Observable
 @propertyWrapper
-public class Characteristic<Value> {
+public class Characteristic<Value> { // TODO: topics to CharacteristicAccessors
     let id: CBUUID
 
     private let defaultValue: Value?

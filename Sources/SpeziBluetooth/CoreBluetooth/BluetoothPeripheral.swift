@@ -129,9 +129,11 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
     ///
     /// Make a connection to the peripheral.
     ///
+    /// - Note: This method returns as soon as the request to connect was processed locally. It does
+    ///     not wait till the connection was completed successfully. // TODO: we could return the error then?
+    ///
     /// - Note: You might want to verify via the ``AdvertisementData/isConnectable`` property that the device is connectable.
     public func connect() async {
-        // TODO: make it async till it connects??
         guard let manager else {
             logger.warning("Tried to connect an orphaned bluetooth peripheral!")
             return
@@ -163,9 +165,9 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
 
         if let description = manager.findDeviceDescription(for: advertisementData),
            let services = description.services {
-            stateContainer.requestedCharacteristics = services.reduce(into: [CBUUID: [CBUUID]?]()) { result, configuration in
+            stateContainer.requestedCharacteristics = services.reduce(into: [CBUUID: Set<CharacteristicDescription>?]()) { result, configuration in
                 if let characteristics = configuration.characteristics {
-                    result[configuration.serviceId, default: []]?.append(contentsOf: characteristics)
+                    result[configuration.serviceId, default: []]?.formUnion(characteristics)
                 } else if result[configuration.serviceId] == nil {
                     result[configuration.serviceId] = .some(nil)
                 }
@@ -208,17 +210,11 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
         state == .disconnected && lastActivity.addingTimeInterval(interval) < .now
     }
 
-    nonisolated func matches(criteria: DiscoveryCriteria) -> Bool {
-        switch criteria {
-        case let .primaryService(uuid):
-            return advertisementData.serviceUUIDs?.contains(uuid) ?? false
-        }
-    }
-
     func observeChange<K, V>(of keyPath: KeyPath<K, V>, value: V) async {
         switch keyPath {
         case \CBPeripheral.state:
-            self.stateContainer.state = .init(from: value as! CBPeripheralState)
+            // force cast is okay as we implicitly verify the type using the KeyPath in the case statement.
+            self.stateContainer.state = .init(from: value as! CBPeripheralState) // swiftlint:disable:this force_cast
         default:
             break
         }
@@ -321,8 +317,8 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
     /// - Returns: The response from the device.
     /// - Throws: Throws an `CBError`, `CBATTError` or ``BluetoothError`` if the write fails.
     public func write(data: Data, for characteristic: CBCharacteristic) async throws -> Data {
-        guard ongoingAccesses[characteristic] == nil else {
-            throw BluetoothError.concurrentWriteCharacteristicAccess
+        while ongoingAccesses[characteristic] != nil {
+            await queueRWAccess(for: characteristic)
         }
 
         // TODO: are we actually getting data back?
@@ -330,6 +326,27 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
             // using updateValue as of https://github.com/apple/swift/issues/63156. Revert to subscript access with Swift 5.10
             ongoingAccesses.updateValue(.write(continuation), forKey: characteristic)
             peripheral.writeValue(data, for: characteristic, type: .withResponse)
+        }
+    }
+
+    private func queueRWAccess(for characteristic: CBCharacteristic) async { // TODO: move
+        guard let access = ongoingAccesses[characteristic] else {
+            return
+        }
+
+        switch access {
+        case .read(let readContinuation, var queued):
+            await withCheckedContinuation { continuation in
+                queued.append(continuation)
+                // using updateValue as of https://github.com/apple/swift/issues/63156. Revert to subscript access with Swift 5.10
+                ongoingAccesses.updateValue(.read(readContinuation, queued: queued), forKey: characteristic)
+            }
+        case .write(let writeContinuation, var queued):
+            await withCheckedContinuation { continuation in
+                queued.append(continuation)
+                // using updateValue as of https://github.com/apple/swift/issues/63156. Revert to subscript access with Swift 5.10
+                ongoingAccesses.updateValue(.write(writeContinuation, queued: queued), forKey: characteristic)
+            }
         }
     }
 
@@ -362,16 +379,18 @@ public actor BluetoothPeripheral: Identifiable, KVOReceiver {
     /// - Returns: The value that the peripheral was returned.
     /// - Throws: Throws an `CBError`, `CBATTError` or ``BluetoothError`` if the read fails.
     public func read(characteristic: CBCharacteristic) async throws -> Data {
-        guard ongoingAccesses[characteristic] == nil else {
-            if case var .read(continuations) = ongoingAccesses[characteristic] {
-                return try await withCheckedThrowingContinuation { continuation in
-                    continuations.append(continuation)
-                    // using updateValue as of https://github.com/apple/swift/issues/63156. Revert to subscript access with Swift 5.10
-                    ongoingAccesses.updateValue(.read(continuations), forKey: characteristic)
-                }
-            } else {
-                throw BluetoothError.concurrentWriteCharacteristicAccess
+        // if there is already a read for this characteristic, we just piggy back onto it
+        if case .read(var continuations, let queued) = ongoingAccesses[characteristic] {
+            return try await withCheckedThrowingContinuation { continuation in
+                continuations.append(continuation)
+                // using updateValue as of https://github.com/apple/swift/issues/63156. Revert to subscript access with Swift 5.10
+                ongoingAccesses.updateValue(.read(continuations, queued: queued), forKey: characteristic)
             }
+        }
+
+        while ongoingAccesses[characteristic] != nil {
+            // otherwise there is a write and we wait for its completion before we read again
+            await queueRWAccess(for: characteristic)
         }
 
         return try await withCheckedThrowingContinuation { continuation in
@@ -447,7 +466,7 @@ extension BluetoothPeripheral {
     }
 
     fileprivate func receivedUpdatedValue(for characteristic: CBCharacteristic, result: Result<Data, Error>) async {
-        if case let .read(continuations) = ongoingAccesses[characteristic] {
+        if case let .read(continuations, queued) = ongoingAccesses[characteristic] {
             ongoingAccesses[characteristic] = nil
             
             if case let .failure(error) = result {
@@ -457,6 +476,11 @@ extension BluetoothPeripheral {
             for continuation in continuations {
                 continuation.resume(with: result)
             }
+
+            for queue in queued {
+                queue.resume()
+            }
+
             // TODO: @Characteristic assumes that we are getting notified of everything!!
         } else {
             switch result {
@@ -477,7 +501,7 @@ extension BluetoothPeripheral {
     }
 
     fileprivate func receivedWriteResponse(for characteristic: CBCharacteristic, result: Result<Data, Error>) {
-        guard case let .write(continuation) = ongoingAccesses[characteristic] else {
+        guard case let .write(continuation, queued) = ongoingAccesses[characteristic] else {
             logger.warning("Received write response for \(characteristic.debugIdentifier) without an ongoing access. Discarding write ...")
             return
         }
@@ -489,6 +513,10 @@ extension BluetoothPeripheral {
         }
 
         continuation.resume(with: result)
+
+        for queue in queued {
+            queue.resume()
+        }
     }
 }
 
@@ -567,9 +595,11 @@ extension BluetoothPeripheral {
             logger.debug("Discovered \(services) services for peripheral \(peripheral.debugIdentifier)")
 
             for service in services {
-                guard let requestedCharacteristics = device.stateContainer.requestedCharacteristics?[service.uuid] else {
+                guard let requestedCharacteristicsDescriptions = device.stateContainer.requestedCharacteristics?[service.uuid] else {
                     continue
                 }
+
+                let requestedCharacteristics = requestedCharacteristicsDescriptions?.map { $0.characteristicId }
 
                 // see peripheral(_:didDiscoverCharacteristicsFor:error:)
                 peripheral.discoverCharacteristics(requestedCharacteristics, for: service)
@@ -588,8 +618,8 @@ extension BluetoothPeripheral {
 
             logger.debug("Discovered \(characteristics.count) characteristic(s) for service \(service.uuid)")
 
-            for characteristic in characteristics {
-                peripheral.discoverDescriptors(for: characteristic) // TODO: always do this?
+            for characteristic in characteristics { // TODO: dp it just in DEBUG builds? or configurable?
+                peripheral.discoverDescriptors(for: characteristic)
             }
 
             Task {
@@ -602,7 +632,6 @@ extension BluetoothPeripheral {
                 return
             }
 
-            // TODO: are we using that?
             logger.debug("Discovered descriptors for characteristic \(characteristic.debugIdentifier): \(descriptors)")
         }
 

@@ -16,6 +16,13 @@
 /// ### Managing Connection
 /// - ``connect``
 /// - ``disconnect``
+/// - ``readRSSI``
+///
+/// ### Implementations
+///
+/// - ``BluetoothConnectAction``
+/// - ``BluetoothDisconnectAction``
+/// - ``ReadRSSIAction``
 public struct DeviceActions {
     /// Connect to the Bluetooth peripheral.
     ///

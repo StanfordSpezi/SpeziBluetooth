@@ -8,10 +8,11 @@
 
 
 private struct CharacteristicsBuilder: ServiceVisitor {
-    var characteristics: Set<CBUUID> = []
+    var characteristics: Set<CharacteristicDescription> = []
 
     mutating func visit<Value>(_ characteristic: Characteristic<Value>) {
-        characteristics.insert(characteristic.id)
+        // TODO: support forwarding discover descriptors flag!
+        characteristics.insert(CharacteristicDescription(id: characteristic.id))
     }
 }
 

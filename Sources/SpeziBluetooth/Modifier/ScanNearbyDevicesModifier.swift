@@ -55,21 +55,26 @@ private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifie
 
 
 extension View {
-    // TODO: update docs
-
     /// Scan for nearby bluetooth devices.
     ///
-    /// Scans on nearby devices based on the ``DeviceDescription`` provided in the ``BluetoothManager/init(discovery:minimumRSSI:advertisementStaleTimeout:)``.
-    /// All discovered devices can be accessed through the ``BluetoothManager/nearbyPeripherals`` property.
+    /// How nearby devices are accessed depends on the passed ``BluetoothScanner`` implementation.
     ///
     /// Nearby device search is automatically paused when the view disappears or if the app enters background and
     /// is automatically started again when the view appears or the app enters the foreground again.
     /// Further, scanning is automatically started if Bluetooth is turned on by the user while the view was already presented.
     ///
+    /// The auto connect feature allows you to automatically connect to a bluetooth peripheral if it is the only device
+    /// discovered for a short period in time. // TODO: link to auto connect modifier?
+    ///
     /// - Parameters:
     ///   - manager: The Bluetooth Manager to use for scanning.
     ///   - autoConnect: If enabled, the bluetooth manager will automatically connect to the nearby device if only one is found.
     /// - Returns: The modified view.
+    ///
+    /// ## Topics
+    ///
+    /// ### Bluetooth Scanner
+    /// - ``BluetoothScanner``
     public func scanNearbyDevices<Scanner: BluetoothScanner>(with manager: Scanner, autoConnect: Bool = false) -> some View {
         // TODO: configure case, stop scanning after auto connect (but start again if device disconnects) => autoConnect modifier!
         modifier(ScanNearbyDevicesModifier(manager: manager, autoConnect: autoConnect)) // TODO: enabled bool input!

@@ -15,32 +15,31 @@ import CoreBluetooth
 public struct ServiceDescription {
     /// The service id.
     public let serviceId: CBUUID
-    /// The characteristics present on the service.
+    /// The description of characteristics present on the service.
     ///
     /// Those are the characteristics we try to discover. If empty, we discover all characteristics
     /// on a given service.
-    public let characteristics: Set<CBUUID>? // swiftlint:disable:this discouraged_optional_collection
+    public let characteristics: Set<CharacteristicDescription>? // swiftlint:disable:this discouraged_optional_collection
 
 
     /// Create a new service description.
     /// - Parameters:
     ///   - serviceId: The bluetooth service id.
-    ///   - characteristics: The characteristics we expect to be present on the service.
+    ///   - characteristics: The description of characteristics we expect to be present on the service.
     ///     Use `nil` to discover all characteristics.
-    public init(serviceId: CBUUID, characteristics: Set<CBUUID>?) { // swiftlint:disable:this discouraged_optional_collection
+    public init(serviceId: CBUUID, characteristics: Set<CharacteristicDescription>?) { // swiftlint:disable:this discouraged_optional_collection
         self.serviceId = serviceId
         self.characteristics = characteristics
-    }
-
-
-    /// Create a new service description using strings.
-    /// - Parameters:
-    ///   - serviceId: The bluetooth service id string.
-    ///   - characteristics: The characteristics we expect to be present on the service.
-    public init(serviceId: String, characteristics: Set<String>) {
-        self.init(serviceId: CBUUID(string: serviceId), characteristics: Set(characteristics.map { CBUUID(string: $0) }))
     }
 }
 
 
-extension ServiceDescription: Hashable {}
+extension ServiceDescription: Hashable {
+    public static func == (lhs: ServiceDescription, rhs: ServiceDescription) -> Bool {
+        lhs.serviceId == rhs.serviceId
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(serviceId)
+    }
+}

@@ -10,6 +10,7 @@ import Foundation
 import NIOCore
 import NIOFoundationCompat
 
+// TODO: this could be a separate target?
 
 /// A type that is decodable from a `ByteBuffer`.
 ///

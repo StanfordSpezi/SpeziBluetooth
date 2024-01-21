@@ -6,6 +6,8 @@
 // SPDX-License-Identifier: MIT
 //
 
+import CoreBluetooth
+
 
 struct CharacteristicLocator: Hashable {
     let serviceId: CBUUID

@@ -67,7 +67,6 @@ extension CharacteristicAccessors where Value: ByteEncodable {
             throw BluetoothError.notConnected
         }
 
-        // TODO: how to do non response write?
         let data = value.encode()
         await context.peripheral.writeWithoutResponse(data: data, for: characteristic)
     }

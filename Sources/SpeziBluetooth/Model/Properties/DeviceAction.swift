@@ -42,6 +42,12 @@
 /// ### Managing Connection
 /// - ``DeviceActions/connect``
 /// - ``DeviceActions/disconnect``
+///
+/// ### Retrieving the lates signal strength
+/// - ``DeviceActions/readRSSI``
+///
+/// ### Device Actions
+/// - ``DeviceActions``
 @propertyWrapper
 public class DeviceAction<Action: _BluetoothPeripheralAction> {
     /// Access the device action.

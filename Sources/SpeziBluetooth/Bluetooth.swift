@@ -16,69 +16,19 @@ import Spezi
 
 /// Enable applications to connect to Bluetooth devices.
 ///
-/// > Important: If your application is not yet configured to use Spezi, follow the [Spezi setup article](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/setup) to setup the core Spezi infrastructure.
+/// ## Topics
 ///
-/// The module needs to be registered in a Spezi-based application using the [`configuration`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/speziappdelegate/configuration)
-/// in a [`SpeziAppDelegate`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/speziappdelegate):
-/// ```swift
-/// class ExampleAppDelegate: SpeziAppDelegate {
-///     override var configuration: Configuration {
-///         Configuration {
-///             Bluetooth(services: [/* ... */])
-///             // ...
-///         }
-///     }
-/// }
-/// ```
-/// > Tip: You can learn more about a [`Module` in the Spezi documentation](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module).
+/// ### Configure the Bluetooth Module
+/// - ``init(minimumRSSI:advertisementStaleInterval:_:)``
 ///
-/// You will have to ensure that the ``Bluetooth`` module is correctly set up with the right services, e.g., as shown in the example shown in the <doc:SpeziBluetooth> documentation.
+/// ### Bluetooth State
+/// - ``state``
+/// - ``isScanning``
 ///
-/// ## Usage
-///
-/// The most common usage of the ``Bluetooth`` module is using it as a dependency using the [`@Dependency`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module/dependency) property wrapper within an other Spezi [`Module`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module).
-///
-/// [You can learn more about the Spezi dependency injection mechanisms in the Spezi documentation](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module-dependency).
-///
-/// The following example demonstrates the usage of this mechanism.
-/// ```swift
-/// class BluetoothExample: Module, BluetoothMessageHandler {
-///     @Dependency private var bluetooth: Bluetooth
-///
-///
-///     /// The current Bluetooth connection state.
-///     var bluetoothState: BluetoothState {
-///         bluetooth.state
-///     }
-///     
-///
-///     // ...
-///
-///     
-///     /// Configuration method to register the `BluetoothExample` as a ``BluetoothNotificationHandler`` for the Bluetooth module.
-///     func configure() {
-///         bluetooth.add(messageHandler: self)
-///     }
-///     
-///     
-///     /// Sends a string message over Bluetooth.
-///     ///
-///     /// - Parameter information: The string message to be sent.
-///     func send(information: String) async throws {
-///         try await bluetooth.write(
-///             Data(information.utf8),
-///             service: Self.exampleService.serviceUUID,
-///             characteristic: Self.exampleCharacteristic
-///         )
-///     }
-///     
-///     func receive(_ data: Data, service: CBUUID, characteristic: CBUUID) {
-///         // ...
-///     }
-/// }
-/// ```
-///
-/// > Tip: You can find a more extensive example in the main <doc:SpeziBluetooth> documentation.
+/// ### Nearby Devices
+/// - ``nearbyDevices(for:)``
+/// - ``scanNearbyDevices(autoConnect:)``
+/// - ``stopScanning()``
 @Observable
 public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
     static let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "Bluetooth")

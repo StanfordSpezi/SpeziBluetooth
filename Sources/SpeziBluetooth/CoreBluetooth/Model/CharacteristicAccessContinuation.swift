@@ -10,6 +10,6 @@ import Foundation
 
 
 enum CharacteristicAccessContinuation {
-    case read(_ continuation: [CheckedContinuation<Data, Error>])
-    case write(_ continuation: CheckedContinuation<Data, Error>)
+    case read(_ continuation: [CheckedContinuation<Data, Error>], queued: [CheckedContinuation<Void, Never>] = [])
+    case write(_ continuation: CheckedContinuation<Data, Error>, queued: [CheckedContinuation<Void, Never>] = [])
 }

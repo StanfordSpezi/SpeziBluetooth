@@ -21,7 +21,7 @@ import OSLog
 ///
 /// ### Create a Bluetooth Manager
 ///
-/// - ``init(discovery:minimumRSSI:advertisementStaleTimeout:)``
+/// - ``init(devices:minimumRSSI:advertisementStaleInterval:)``
 ///
 /// ### Tracking State
 ///
@@ -29,7 +29,7 @@ import OSLog
 /// - ``isScanning``
 ///
 /// ### Discovering nearby Peripherals
-/// - ``scanNearbyDevices()``
+/// - ``scanNearbyDevices(autoConnect:)``
 /// - ``stopScanning()``
 /// - ``nearbyPeripherals``
 /// - ``nearbyPeripheralsView``

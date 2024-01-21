@@ -10,6 +10,13 @@ import CoreBluetooth
 
 
 /// The criteria by which we identify a discovered device.
+///
+/// ## Topics
+///
+/// ### Criteria
+/// - ``advertisedService(_:)``
+/// - ``primaryService(_:)-swift.enum.case``
+/// - ``primaryService(_:)-swift.type.method``
 public enum DiscoveryCriteria {
     // TODO: any?
     // case name(_ name: String) // TODO: we could support name, but not in conjunction with primaryService
@@ -22,7 +29,7 @@ public enum DiscoveryCriteria {
 
     /// Identify a device by the advertised primary service.
     /// - Parameter uuid: The Bluetooth ServiceId in string format.
-    /// - Returns: A ``DiscoveryCriteria/primaryService(_:)`` criteria.
+    /// - Returns: A ``DiscoveryCriteria/primaryService(_:)-swift.enum.case`` criteria.
     public static func primaryService(_ uuid: String) -> DiscoveryCriteria {
         .primaryService(CBUUID(string: uuid))
     }
@@ -33,6 +40,8 @@ public enum DiscoveryCriteria {
         case let .primaryService(uuid):
             return advertisementData.serviceUUIDs?.contains(uuid) ?? false
             // TODO: we could easily support name as well (if we support the performance degradation impact!)
+        case let .advertisedService(uuid):
+            return advertisementData.serviceUUIDs?.contains(uuid) ?? false
         }
     }
 }
@@ -42,6 +51,8 @@ extension DiscoveryCriteria: Hashable, CustomStringConvertible {
         switch self {
         case let .primaryService(uuid):
             ".primaryService(\(uuid))"
+        case let .advertisedService(uuid):
+            ".advertisedService(\(uuid))"
         }
     }
 }

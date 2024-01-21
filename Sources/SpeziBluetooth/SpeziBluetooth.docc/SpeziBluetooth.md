@@ -10,7 +10,7 @@
 #       
 -->
 
-Connect and communicate with Bluetooth devices.
+Connect and communicate with Bluetooth devices using modern programming paradigms.
 
 
 ## Overview
@@ -171,14 +171,42 @@ public class MyDevice: BluetoothMessageHandler {
 
 ## Topics
 
-### Establishing a Bluetooth Connection
+### Configuring the Bluetooth Module
 
 - ``Bluetooth``
+- ``Discover``
+- ``DiscoveryCriteria``
+
+### Searching for nearby devices
+
+- ``SwiftUI/View/scanNearbyDevices(with:autoConnect:)``
+
+### Declaring a Bluetooth Device
+
+- ``BluetoothDevice``
 - ``BluetoothService``
-- ``BluetoothMessageHandler``
+- ``Service``
+- ``Characteristic``
+- ``DeviceState``
+- ``DeviceAction``
 
+### Coding
 
-### State of a Bluetooth Connection
+- ``ByteEncodable``
+- ``ByteDecodable``
+- ``ByteCodable``
 
+### Core Bluetooth 
+
+- ``BluetoothManager``
+- ``BluetoothPeripheral``
 - ``BluetoothState``
+- ``PeripheralState``
 - ``BluetoothError``
+- ``AdvertisementData``
+
+### Configuring Core Bluetooth
+
+- ``DeviceDescription``
+- ``ServiceDescription``
+- ``CharacteristicDescription``
