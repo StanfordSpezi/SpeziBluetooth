@@ -18,9 +18,45 @@ private struct IsRunningBluetoothQueue {
 }
 
 
-/// Manages the Bluetooth connections, state, and data transfer.
+/// Connect and communicate with Bluetooth devices.
 ///
-/// // TODO: docs and proper code example!
+/// This module allows to connect and communicate with Bluetooth devices using modern programming paradigms.
+/// Under the hood this module uses Apple's [CoreBluetooth](https://developer.apple.com/documentation/corebluetooth).
+///
+/// ### Configure the Bluetooth Manager
+///
+/// To configure the Bluetooth Manager, you need to specify what devices you want to discover and what services and
+/// characteristics you are interested in.
+/// To do so, provide a set of ``DeviceDescription``s upon initialization of the `BluetoothManager`.
+///
+/// Below is a short code example to discover devices with a Heart Rate service.
+///
+/// ```swift
+/// let manager = BluetoothManager(devices [
+///     DeviceDescription(discoverBy: .advertisedService("180D"), services: [
+///         ServiceDescription(serviceId: "180D", characteristics: [
+///             "2A37", // heart rate measurement
+///             "2A38", // body sensor location
+///             "2A39" // heart rate control point
+///         ])
+///     ])
+/// ])
+///
+/// manager.scanNearbyDevices()
+/// // ...
+/// manager.stopScanning()
+/// ```
+///
+/// ### Searching for nearby devices
+///
+/// You can scan for nearby devices using the ``scanNearbyDevices(autoConnect:)`` and stop scanning with ``stopScanning()``.
+/// All discovered peripherals will be populated through the ``nearbyPeripherals`` or ``nearbyPeripheralsView`` properties.
+///
+/// Refer to the documentation of ``BluetoothPeripheral`` on how to interact with a Bluetooth peripheral.
+///
+/// - Tip: You can also use the ``SwiftUI/View/scanNearbyDevices(enabled:with:autoConnect:)`` and ``SwiftUI/View/autoConnect(enabled:with:)``
+///     modifiers within your SwiftUI view to automatically manage device scanning and/or auto connect to the
+///     first available device.
 ///
 /// ## Topics
 ///
@@ -456,7 +492,7 @@ extension BluetoothManager {
         /// The default timeout after which stale advertisements are removed.
         public static let defaultStaleTimeout: TimeInterval = 10
         /// The minimum rssi of a peripheral to consider it for discovery.
-        public static let defaultMinimumRSSI = -65
+        public static let defaultMinimumRSSI = -75
         /// The default time in seconds after which we check for auto connectable devices after the initial advertisement.
         public static let defaultAutoConnectDebounce: Int = 2
     }
@@ -530,7 +566,13 @@ extension BluetoothManager {
 
             // rssi of 127 is a magic value signifying unavailability of the value.
             guard rssi.intValue >= manager.minimumRSSI, rssi.intValue != 127 else { // ensure the signal strength is not too low
-                // TODO: should this remove an existing device!??
+                guard let device = manager.discoveredPeripherals[peripheral.identifier],
+                      device.state == .disconnected else {
+                    return
+                }
+
+                // device is now out of range, just clear it immediately.
+                manager.clearDiscoveredPeripheral(forKey: device.id)
                 return // logging this would just be to verbose, so we don't.
             }
 

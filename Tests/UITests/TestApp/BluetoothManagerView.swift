@@ -10,75 +10,33 @@ import SpeziBluetooth
 import SwiftUI
 
 
-struct BluetoothManagerView: View { // TODO: make this a reusable view (with debug output configuration?)
-    // TODO: @State private var bluetooth = BluetoothManager(discovery: []) // discovery any devices!
-    @Environment(Bluetooth.self)
-    private var bluetooth
-    @Environment(TestDevice.self)
-    private var device: TestDevice?
+struct BluetoothManagerView: View {
+    @State private var bluetooth = BluetoothManager(devices: []) // discovery any devices!
 
     var body: some View {
-        List { // swiftlint:disable:this closure_body_length
-            Section("State Tests") {
-                HStack {
-                    Text("Scanning")
-                    Spacer()
-                    Text(bluetooth.isScanning ? "Yes" : "No")
-                        .foregroundColor(.secondary)
-                }
-                HStack {
-                    Text("State")
-                    Spacer()
-                    Text(bluetooth.state.description)
-                        .foregroundColor(.secondary)
-                }
-            }
+        List {
+            BluetoothStateSection(scanner: bluetooth)
 
-            let nearbyDevices = bluetooth.nearbyDevices(for: TestDevice.self)
-
-            if nearbyDevices.isEmpty {
-                VStack {
-                    Text("Searching for nearby devices ...")
-                        .foregroundColor(.secondary)
-                    ProgressView()
-                }
-                    .frame(maxWidth: .infinity)
-                    .listRowBackground(Color.clear)
+            if bluetooth.nearbyPeripheralsView.isEmpty {
+                SearchingNearbyDevicesView()
             } else {
                 Section {
-                    ForEach(nearbyDevices) { device in
-                        Text("\(String(describing: device))")
-                        // TODO: DeviceRowView(peripheral: device)
+                    ForEach(bluetooth.nearbyPeripheralsView) { peripheral in
+                        DeviceRowView(peripheral: peripheral)
                     }
                 } header: {
-                    HStack {
-                        Text("Devices")
-                            .padding(.trailing, 10)
-                        if bluetooth.isScanning {
-                            ProgressView()
-                        }
-                    }
-                }
-            }
-            
-            if let device {
-                Section {
-                    Text("Device State: \(device.state.description)")
-                    Text("RSSI: \(device.rssi)")
+                    DevicesHeader(loading: bluetooth.isScanning)
                 }
             }
         }
-                .scanNearbyDevices(with: bluetooth, autoConnect: true)
+                .scanNearbyDevices(with: bluetooth)
                 .navigationTitle("Nearby Devices")
     }
 }
 
 
 #Preview {
-    BluetoothManagerView()
-        .previewWith {
-            Bluetooth {
-                Discover(TestDevice.self, by: .advertisedService("0000FFF0-0000-1000-8000-00805F9B34FB"))
-            }
-        }
+    NavigationStack {
+        BluetoothManagerView()
+    }
 }

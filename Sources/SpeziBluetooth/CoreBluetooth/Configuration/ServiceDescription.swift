@@ -31,6 +31,15 @@ public struct ServiceDescription {
         self.serviceId = serviceId
         self.characteristics = characteristics
     }
+
+    /// Create a new service description.
+    /// - Parameters:
+    ///   - serviceId: The bluetooth service id.
+    ///   - characteristics: The description of characteristics we expect to be present on the service.
+    ///     Use `nil` to discover all characteristics.
+    public init(serviceId: String, characteristics: Set<CharacteristicDescription>?) { // swiftlint:disable:this discouraged_optional_collection
+        self.init(serviceId: CBUUID(string: serviceId), characteristics: characteristics)
+    }
 }
 
 

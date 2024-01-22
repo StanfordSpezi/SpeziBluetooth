@@ -13,6 +13,9 @@ import OSLog
 
 /// A nearby Bluetooth peripheral.
 ///
+/// This class represents a nearby Bluetooth peripheral.
+/// You may connect to the peripheral and read or write its characteristic data.
+///
 /// ## Topics
 ///
 /// ### Peripheral State
@@ -40,7 +43,7 @@ import OSLog
 /// - ``CharacteristicNotification``
 /// - ``BluetoothNotificationHandler``
 ///
-/// ### Retrieving the lates signal strength
+/// ### Retrieving the latest signal strength
 /// - ``readRSSI()``
 public actor BluetoothPeripheral {
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothDevice")
@@ -203,7 +206,7 @@ public actor BluetoothPeripheral {
         writeWithoutResponseAccess.removeAll()
 
         for continuation in rssiReadAccess {
-            continuation.resume(throwing: BluetoothError.notConnected)
+            continuation.resume(throwing: BluetoothError.notPresent)
         }
         rssiReadAccess.removeAll()
 
@@ -214,13 +217,13 @@ public actor BluetoothPeripheral {
             switch access {
             case let .read(continuations, queued):
                 for continuation in continuations {
-                    continuation.resume(throwing: BluetoothError.notConnected)
+                    continuation.resume(throwing: BluetoothError.notPresent)
                 }
                 for queue in queued {
                     queue.resume()
                 }
             case let .write(continuation, queued):
-                continuation.resume(throwing: BluetoothError.notConnected)
+                continuation.resume(throwing: BluetoothError.notPresent)
                 for queue in queued {
                     queue.resume()
                 }
@@ -261,7 +264,7 @@ public actor BluetoothPeripheral {
         _ handler: @escaping BluetoothNotificationHandler
     ) throws -> CharacteristicNotification {
         guard let service = characteristic.service else {
-            throw BluetoothError.notConnected
+            throw BluetoothError.notPresent
         }
 
         return registerNotifications(service: service.uuid, characteristic: characteristic.uuid, handler)
@@ -333,7 +336,7 @@ public actor BluetoothPeripheral {
         }
     }
 
-    /// Write the value of a characteristic expecting a response.
+    /// Write the value of a characteristic expecting a confirmation.
     ///
     /// Writes the value of a characteristic expecting a confirmation from the peripheral.
     ///
@@ -357,7 +360,7 @@ public actor BluetoothPeripheral {
         }
     }
 
-    /// Write the value of a characteristic without expecting a response.
+    /// Write the value of a characteristic without expecting a confirmation.
     ///
     /// Writes the value of a characteristic without expecting a confirmation from the peripheral.
     ///

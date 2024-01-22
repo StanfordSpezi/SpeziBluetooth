@@ -39,6 +39,12 @@
 /// - ``BluetoothPeripheral/state``
 /// - ``BluetoothPeripheral/rssi``
 /// - ``BluetoothPeripheral/advertisementData``
+///
+/// ### Declaring device state
+/// - ``init(_:)``
+///
+/// ### Property wrapper access
+/// - ``wrappedValue``
 @propertyWrapper
 public class DeviceState<Value> {
     private let keyPath: KeyPath<BluetoothPeripheral, Value>

@@ -12,6 +12,9 @@ public protocol BluetoothScanner {
     /// The current state of the bluetooth scanner.
     var state: BluetoothState { get }
 
+    /// Whether or not we are currently scanning for nearby devices.
+    var isScanning: Bool { get }
+
     /// Indicates if there is at least one connected peripheral.
     var hasConnectedDevices: Bool { get }
 

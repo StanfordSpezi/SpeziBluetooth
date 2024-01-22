@@ -21,22 +21,22 @@
         }
       }
     },
-    "Not Connected" : {
+    "Not Present" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Not Connected"
+            "value" : "Not Present"
           }
         }
       }
     },
-    "Peripheral is not connected." : {
+    "The request characteristic was not present on the device." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Peripheral is not connected."
+            "value" : "The request characteristic was not present on the device."
           }
         }
       }

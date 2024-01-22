@@ -16,6 +16,8 @@
 /// ### Managing Connection
 /// - ``connect``
 /// - ``disconnect``
+///
+/// ### Retrieving current signal strength
 /// - ``readRSSI``
 ///
 /// ### Implementations
@@ -38,7 +40,7 @@ public struct DeviceActions {
         BluetoothDisconnectAction.self
     }
 
-    /// Read the current RSSI from the Bluetooth peripheral.
+    /// Retrieve the current signal strength.
     ///
     /// This action makes a call to ``BluetoothPeripheral/readRSSI()``
     public var readRSSI: ReadRSSIAction.Type {

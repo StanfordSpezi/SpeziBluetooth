@@ -39,12 +39,16 @@
 ///
 /// ## Topics
 ///
-/// ### Managing Connection
+/// ### Available Device Actions
 /// - ``DeviceActions/connect``
 /// - ``DeviceActions/disconnect``
-///
-/// ### Retrieving the lates signal strength
 /// - ``DeviceActions/readRSSI``
+///
+/// ### Declaring a device action
+/// - ``init(_:)``
+///
+/// ### Property wrapper access
+/// - ``wrappedValue``
 ///
 /// ### Device Actions
 /// - ``DeviceActions``

@@ -25,13 +25,13 @@ import Spezi
 ///
 /// First of all we define our Bluetooth service by implementing a ``BluetoothService``.
 /// We use the ``Characteristic`` property wrapper to declare its characteristics.
-/// Note that the value types need to be optional and conform to ``ByteEncodable``, ``ByteDecodable`` or ``ByteCodable`` respectively.
+/// Note that the value types needs to be optional and conform to ``ByteEncodable``, ``ByteDecodable`` or ``ByteCodable`` respectively.
 ///
 /// ```swift
 /// class DeviceInformationService: BluetoothService {
 ///     @Characteristic(id: "2A29")
 ///     var manufacturer: String?
-///     @Characteristic(id: "2A26"
+///     @Characteristic(id: "2A26")
 ///     var firmwareRevision: String?
 /// }
 /// ```
@@ -85,7 +85,21 @@ import Spezi
 ///
 /// ### Using the Bluetooth Module
 ///
-/// // TODO: explain code sample?
+/// Once you have the `Bluetooth` module configured within your Spezi app, you can access the module within your
+/// [`Environment`](https://developer.apple.com/documentation/swiftui/environment).
+///
+/// You can use the ``SwiftUI/View/scanNearbyDevices(enabled:with:autoConnect:)`` and ``SwiftUI/View/autoConnect(enabled:with:)``
+/// modifiers to scan for nearby devices and/or auto connect to the first available device. Otherwise, you can also manually start and stop scanning for nearby devices
+/// using ``scanNearbyDevices(autoConnect:)`` and ``stopScanning()``.
+///
+/// To retrieve the list of nearby devices you may use ``nearbyDevices(for:)``.
+///
+/// > Tip: To easily access the first connected device, you can just query the SwiftUI Environment for your `BluetoothDevice` type.
+///     Make sure to declare the property as optional using the respective [`Environment(_:)`](https://developer.apple.com/documentation/swiftui/environment/init(_:)-8slkf)
+///     initializer.
+///
+/// The below code example demonstrates all these steps of retrieving the `Bluetooth` module from the environment, listing all nearby devices,
+/// auto connecting to the first one and displaying some basic information of the currently connected device.
 ///
 /// ```swift
 /// import SpeziBluetooth
@@ -121,12 +135,10 @@ import Spezi
 ///                 }
 ///             }
 ///         }
-///             .scanNearbyDevices(with: bluetooth)
+///             .scanNearbyDevices(with: bluetooth, autoConnect: true)
 ///     }
 /// }
 /// ```
-/// // TODO: access connected devices
-/// // TODO: searching for nearby devices!
 ///
 /// ## Topics
 ///
@@ -158,7 +170,8 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
         bluetoothManager.state
     }
 
-    public var isScanning: Bool { // TODO: docs
+    /// Whether or not we are currently scanning for nearby devices.
+    public var isScanning: Bool {
         bluetoothManager.isScanning
     }
 
@@ -176,10 +189,21 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
     @Modifier @ObservationIgnored private var devicesInjector: ConnectedDevicesEnvironmentModifier
 
 
-    /// TODO: docs!
+    /// Configure the Bluetooth Module.
+    ///
+    /// Configures the Bluetooth Module with the provided set of ``DiscoveryConfiguration``s.
+    /// Below is a short code example on how you would discover a `ExampleDevice` by its advertised service id.
+    ///
+    /// ```swift
+    /// Bluetooth {
+    ///     Discover(ExampleDevice.self, by: .advertisedService("..."))
+    /// }
+    /// ```
+    ///
     /// - Parameters:
-    ///   - minimumRSSI:
-    ///   - advertisementStaleInterval:
+    ///   - minimumRSSI: The minimum rssi a nearby peripheral must have to be considered nearby.
+    ///   - advertisementStaleInterval: The time interval after which a peripheral advertisement is considered stale
+    ///     if we don't hear back from the device. Minimum is 1 second.
     ///   - devices:
     public init(
         minimumRSSI: Int = BluetoothManager.Defaults.defaultMinimumRSSI,
@@ -280,6 +304,12 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
         self.connectedDevicesModel.update(with: connectedDevices)
     }
 
+    /// Retrieve nearby devices.
+    ///
+    /// Use this method to retrieve nearby discovered Bluetooth peripherals. This method will only
+    /// return nearby devices that are of the provided ``BluetoothDevice`` type.
+    /// - Parameter device: The device type to filter for.
+    /// - Returns: A list of nearby devices of a given ``BluetoothDevice`` type.
     @MainActor
     public func nearbyDevices<Device: BluetoothDevice>(for device: Device.Type = Device.self) -> [Device] {
         nearbyDevices.values.compactMap { device in

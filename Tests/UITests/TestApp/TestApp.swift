@@ -13,7 +13,8 @@ import SwiftUI
 
 @main
 struct UITestsApp: App {
-    @UIApplicationDelegateAdaptor(TestAppDelegate.self) var appDelegate
+    @UIApplicationDelegateAdaptor(TestAppDelegate.self)
+    var appDelegate
     
     
     var body: some Scene {
@@ -23,8 +24,11 @@ struct UITestsApp: App {
                     NavigationLink("Nearby Devices") {
                         BluetoothManagerView()
                     }
-                        .navigationTitle("Spezi Bluetooth")
+                    NavigationLink("Auto Connect Device") {
+                        BluetoothModuleView()
+                    }
                 }
+                    .navigationTitle("Spezi Bluetooth")
             }
                 .spezi(appDelegate)
         }

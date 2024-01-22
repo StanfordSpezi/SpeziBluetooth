@@ -10,8 +10,8 @@ import SpeziBluetooth
 import SwiftUI
 
 
-struct DeviceRowView: View {
-    private let peripheral: BluetoothPeripheral
+struct DeviceRowView<Peripheral: SomePeripheral>: View {
+    private let peripheral: Peripheral
 
     var body: some View {
         Button(action: peripheralAction) {
@@ -39,23 +39,21 @@ struct DeviceRowView: View {
         }
     }
 
-    init(peripheral: BluetoothPeripheral) {
+    init(peripheral: Peripheral) {
         self.peripheral = peripheral
     }
 
 
+    @MainActor
     func peripheralAction() {
         let state = peripheral.state
         Task {
             switch state {
-            case .disconnected:
-                await peripheral.connect()
-            case .connecting, .connected, .disconnecting: // TODO: investigate how to deal with disconnecting state!
+            case .disconnected, .disconnecting:
+                await self.peripheral.connect()
+            case .connecting, .connected:
                 await self.peripheral.disconnect()
             }
         }
     }
 }
-
-
-// TODO: find a way to mock peripheral for preview purposes?
