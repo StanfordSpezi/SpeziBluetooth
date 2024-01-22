@@ -21,8 +21,8 @@ jobs:
     uses: StanfordSpezi/.github/.github/workflows/xcodebuild-or-fastlane.yml@v2
     with:
       runsonlabels: '["macOS", "self-hosted"]'
-      scheme: SpeziBluetooth
-      artifactname: SpeziBluetooth.xcresult
+      scheme: SpeziBluetooth-Package
+      artifactname: SpeziBluetooth-Package.xcresult
   ios:
     name: Build and Test iOS
     uses: StanfordSpezi/.github/.github/workflows/xcodebuild-or-fastlane.yml@v2
@@ -36,4 +36,4 @@ jobs:
     needs: [packageios, ios]
     uses: StanfordSpezi/.github/.github/workflows/create-and-upload-coverage-report.yml@v2
     with:
-      coveragereports: SpeziBluetooth.xcresult TestApp.xcresult
+      coveragereports: SpeziBluetooth-Package.xcresult TestApp.xcresult

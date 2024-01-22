@@ -125,6 +125,7 @@ import Foundation
 /// ### Property wrapper access
 /// - ``wrappedValue``
 /// - ``projectedValue``
+/// - ``CharacteristicAccessors``
 @Observable
 @propertyWrapper
 public class Characteristic<Value> {

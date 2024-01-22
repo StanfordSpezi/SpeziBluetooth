@@ -16,32 +16,38 @@ SPDX-License-Identifier: MIT
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2FStanfordSpezi%2FSpeziBluetooth%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/StanfordSpezi/SpeziBluetooth)
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2FStanfordSpezi%2FSpeziBluetooth%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/StanfordSpezi/SpeziBluetooth)
 
-Connect and communicate with Bluetooth devices.
+Connect and communicate with Bluetooth devices using modern programming paradigms.
 
 
 ## Overview
 
-The Spezi Bluetooth module provides a convenient way to handle state management with a Bluetooth device, retrieve data from different services and characteristics, and write data to a combination of services and characteristics.
+The Spezi Bluetooth module provides a convenient way to handle state management with a Bluetooth device,
+retrieve data from different services and characteristics,
+and write data to a combination of services and characteristics.
+
+This package uses Apples [CoreBluetooth](https://developer.apple.com/documentation/corebluetooth) framework under the hood.
 
 > [!NOTE]  
-> You will need a basic understanding of the Bluetooth Terminology and the underlying software model to understand the structure and API of the Spezi Bluetooth module. You can find a good overview in the [Wikipedia Bluetooth Low Energy (LE) Software Model section](https://en.wikipedia.org/wiki/Bluetooth_Low_Energy#Software_model) or the [Developer’s Guide
-to Bluetooth Technology](https://www.bluetooth.com/blog/a-developers-guide-to-bluetooth/).
+> You will need a basic understanding of the Bluetooth Terminology and the underlying software model to
+  understand the structure and API of the Spezi Bluetooth module. You can find a good overview in the
+  [Wikipedia Bluetooth Low Energy (LE) Software Model section](https://en.wikipedia.org/wiki/Bluetooth_Low_Energy#Software_model)
+  or the [Developer’s Guide to Bluetooth Technology](https://www.bluetooth.com/blog/a-developers-guide-to-bluetooth/).
 
 
 ## Setup
 
 
-### 1. Add Spezi Bluetooth as a Dependency
+### Add Spezi Bluetooth as a Dependency
 
 You need to add the Spezi Bluetooth Swift package to
 [your app in Xcode](https://developer.apple.com/documentation/xcode/adding-package-dependencies-to-your-app#) or
 [Swift package](https://developer.apple.com/documentation/xcode/creating-a-standalone-swift-package-with-xcode#Add-a-dependency-on-another-Swift-package).
 
 > [!IMPORTANT]  
-> If your application is not yet configured to use Spezi, follow the [Spezi setup article](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/initial-setup) to setup the core Spezi infrastructure.
+> If your application is not yet configured to use Spezi, follow the [Spezi setup article](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/initial-setup) to set up the core Spezi infrastructure.
 
 
-### 2. Register the Module
+### Register the Module
 
 The [`Bluetooth`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth) module needs to be registered in a Spezi-based application using the 
 [`configuration`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/speziappdelegate/configuration) in a
@@ -50,8 +56,9 @@ The [`Bluetooth`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/doc
 class ExampleAppDelegate: SpeziAppDelegate {
     override var configuration: Configuration {
         Configuration {
-            Bluetooth(services: [/* ... */])
-            // ...
+            Bluetooth {
+                // discover devices ...
+            }
         }
     }
 }
@@ -63,118 +70,127 @@ class ExampleAppDelegate: SpeziAppDelegate {
 
 ## Example
 
-`MyDeviceModule` demonstrates the capabilities of the Spezi Bluetooth module.
-This class integrates the [`Bluetooth`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth) module to create a `MyDevice` instance injected in the SwiftUI environment to send string messages over Bluetooth and collect them in a messages array.
+### Create you Bluetooth device
 
-> [!NOTE]  
-> The type uses the Spezi dependency injection of the `Bluetooth` module, the most common usage of the [`Bluetooth`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth) module. [You can learn more about the Spezi dependency injection mechanisms in the Spezi documentation](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module-dependency).
+The [`Bluetooth`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth) 
+module allows to declarative define your Bluetooth device using a [`BluetoothDevice`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetoothdevice) implementation and property wrappers
+like [`Service`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/service) and [`Characteristic`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/characteristic).
+
+The below code examples demonstrate how you can implement your own Bluetooth device.
+
+First of all we define our Bluetooth service by implementing a [`BluetoothService`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetoothservice).
+We use the [`Characteristic`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/characteristic) property wrapper to declare its characteristics.
+Note that the value types needs to be optional and conform to [`ByteEncodable`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/byteencodable), [`ByteDecodable`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bytedecoable) or [`ByteCodable`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bytecodable) respectively.
+
+```swift
+class DeviceInformationService: BluetoothService {
+    @Characteristic(id: "2A29")
+    var manufacturer: String?
+    @Characteristic(id: "2A26")
+    var firmwareRevision: String?
+}
+```
+
+We can use this Bluetooth service now in your `MyDevice` Bluetooth device implementation as follows.
+
+> Tip: We use the [`DeviceState`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/devicestate) and [`DeviceAction`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/deviceaction) property wrappers to get access to the device state and its actions. Those two
+  property wrappers can also be used within a [`BluetoothService`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetoothservice) type.
+
+```swift
+class MyDevice: BluetoothDevice {
+    @DeviceState(\.id)
+    var id: UUID
+    @DeviceState(\.name)
+    var name: String?
+    @DeviceState(\.state)
+    var state: PeripheralState
+
+    @Service(id: "180A")
+    var deviceInformation = DeviceInformationService()
+
+    @DeviceAction(\.connect)
+    var connect
+    @DeviceAction(\.disconnect)
+    var disconnect
+
+    init() {} // required initializer
+}
+```
+
+### Configure the Bluetooth Module
+
+We use the above `BluetoothDevice` implementation to configure the [`Bluetooth`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth) module within your
+[SpeziAppDelegate](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/speziappdelegate).
 
 ```swift
 import Spezi
-import SpeziBluetooth
 
-
-public class MyDeviceModule: DefaultInitializable, Module {
-    /// Spezi dependency injection of the `Bluetooth` module; see https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module-dependency for more details.
-    @Dependency private var bluetooth: Bluetooth
-    /// Injecting the `MyDevice` class in the SwiftUI environment as documented at https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/interactions-with-swiftui
-    @Model private var myDevice: MyDevice
-    
-    
-    public required init() {}
-    
-    
-    /// Configuration method to create the `MyDevice` and pass in the Bluetooth module.
-    public func configure() {
-        self.myDevice = MyDevice(bluetooth: bluetooth)
-    }
-}
-```
-
-The next step is to define the Bluetooth services and caracteristics that you want to read from or get notified about:
-```swift
-enum MyDeviceBluetoothConstants {
-    /// UUID for the example characteristic.
-    static let exampleCharacteristic = CBUUID(string: "a7779a75-f00a-05b4-147b-abf02f0d9b17")
-    /// Configuration for the example Bluetooth service.
-    static let exampleService = BluetoothService(
-        serviceUUID: CBUUID(string: "a7779a75-f00a-05b4-147b-abf02f0d9b17"),
-        characteristicUUIDs: [exampleCharacteristic]
-    )
-}
-```
-
-You will have to ensure that the [`Bluetooth`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth) module is correctly setup with the right services, e.g., as shown in the following example:
-```swift
-class ExampleAppDelegate: SpeziAppDelegate {
+class ExampleDelegate: SpeziAppDelegate {
     override var configuration: Configuration {
         Configuration {
-            Bluetooth(services: [MyDeviceBluetoothConstants.exampleService])
-            // ...
+            Bluetooth {
+                // Define which devices type to discover by what criteria .
+                // In this case we search for some custom FFF0 characteristic that is advertised.
+                Discover(MyDevice.self, by: .advertisedService("FFF0"))
+            }
         }
     }
 }
 ```
 
-The `MyDevice` type showcases the interaction with the ``BluetoothService`` and the implementation of the ``BluetoothMessageHandler`` protocol.
-It does all the message handling, and is responsible for parsing the information.
+### Using the Bluetooth Module
 
-> [!NOTE]  
-> We highly recommend to use SwiftNIO [`ByteBuffer`](https://swiftpackageindex.com/apple/swift-nio/2.61.1/documentation/niocore/bytebuffer)s to parse more complex data coming in from the wire. You can learn more about creating a `ByteBuffer` from a Foundation `Data` instance using [NIOFoundationCompat](https://swiftpackageindex.com/apple/swift-nio/2.61.1/documentation/niofoundationcompat/niocore/bytebuffer).
+Once you have the `Bluetooth` module configured within your Spezi app, you can access the module within your
+[`Environment`](https://developer.apple.com/documentation/swiftui/environment).
+
+You can use the [`scanNearbyDevices(enabled:with:autoConnect:)`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/swiftui/view/scanNearbyDevices(enabled:with:autoConnect:)) and [`autoConnect(enabled:with:)`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/swiftui/view/autoConnect(enabled:with:))
+modifiers to scan for nearby devices and/or auto connect to the first available device. Otherwise, you can also manually start and stop scanning for nearby devices
+using [`scanNearbyDevices(autoConnect:)`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth/scanNearbyDevices(autoConnect:)) and [`stopScanning()`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth/stopScanning()).
+
+To retrieve the list of nearby devices you may use [`nearbyDevices(for:)`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth/nearbyDevices(for:)).
+
+> Tip: To easily access the first connected device, you can just query the SwiftUI Environment for your `BluetoothDevice` type.
+Make sure to declare the property as optional using the respective [`Environment(_:)`](https://developer.apple.com/documentation/swiftui/environment/init(_:)-8slkf)
+initializer.
+
+The below code example demonstrates all these steps of retrieving the `Bluetooth` module from the environment, listing all nearby devices,
+auto connecting to the first one and displaying some basic information of the currently connected device.
 
 ```swift
-import Foundation
-import Observation
-import OSLog
+import SpeziBluetooth
+import SwiftUI
 
+struct MyView: View {
+    @Environment(Bluetooth.self)
+    var bluetooth
+    @Environment(MyDevice.self)
+    var myDevice: MyDevice?
 
-@Observable
-public class MyDevice: BluetoothMessageHandler {
-    /// Spezi dependency injection of the `Bluetooth` module; see https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module-dependency for more details.
-    private let bluetooth: Bluetooth
-    private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "Example")
-    
-    /// Array of messages received from the Bluetooth connection.
-    private(set) public var messages: [String] = []
-    
-    
-    /// The current Bluetooth connection state.
-    public var bluetoothState: BluetoothState {
-        bluetooth.state
-    }
-    
-    
-    required init(bluetooth: Bluetooth) {
-        self.bluetooth = bluetooth
-        bluetooth.add(messageHandler: self)
-    }
-    
-    
-    /// Sends a string message over Bluetooth.
-    ///
-    /// - Parameter information: The string message to be sent.
-    public func send(information: String) async throws {
-        try await bluetooth.write(
-            Data(information.utf8),
-            service: MyDeviceBluetoothConstants.exampleService.serviceUUID,
-            characteristic: MyDeviceBluetoothConstants.exampleCharacteristic
-        )
-    }
-    
-    // Example implementation of the ``BluetoothMessageHandler`` requirements.
-    public func recieve(_ data: Data, service: CBUUID, characteristic: CBUUID) {
-        switch service {
-        case MyDeviceBluetoothConstants.exampleService.serviceUUID:
-            guard MyDeviceBluetoothConstants.exampleCharacteristic == characteristic else {
-                logger.debug("Unknown characteristic Id: \(MyDeviceBluetoothConstants.exampleCharacteristic)")
-                return
+    var body: some View {
+        List {
+            if let myDevice {
+                Section {
+                    Text("Device")
+                    Spacer()
+                    Text("\(myDevice.state.description)")
+                }
             }
-            
-            // Convert the received data into a string and append it to the messages array.
-            messages.append(String(decoding: data, as: UTF8.self))
-        default:
-            logger.debug("Unknown Service: \(service.uuidString)")
+
+            Section {
+                ForEach(bluetooth.nearbyDevices(for: MyDevice.self), id: \.id) { device in
+                    Text("\(device.name ?? "unknown")")
+                }
+            } header: {
+                HStack {
+                    Text("Devices")
+                        .padding(.trailing, 10)
+                    if bluetooth.isScanning {
+                        ProgressView()
+                    }
+                }
+            }
         }
+            .scanNearbyDevices(with: bluetooth, autoConnect: true)
     }
 }
 ```
