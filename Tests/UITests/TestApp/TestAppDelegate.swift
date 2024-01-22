@@ -14,7 +14,9 @@ import SwiftUI
 class TestAppDelegate: SpeziAppDelegate {
     override var configuration: Configuration {
         Configuration {
-            Bluetooth()
+            Bluetooth {
+                Discover(TestDevice.self, by: .advertisedService("FFF0"))
+            }
         }
     }
 }

@@ -6,12 +6,8 @@
 // SPDX-License-Identifier: MIT
 //
 
-@testable import SpeziBluetooth
-import XCTest
+import Foundation
 
 
-final class SpeziBluetoothTests: XCTestCase {
-    func testSpeziBluetooth() throws {
-        XCTAssertTrue(true)
-    }
-}
+/// Notification handler for a change value of a specified characteristic.
+public typealias BluetoothNotificationHandler = (_ data: Data) async -> Void

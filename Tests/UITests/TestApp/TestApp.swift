@@ -7,18 +7,28 @@
 //
 
 import Spezi
+import SpeziBluetooth
 import SwiftUI
 
 
 @main
 struct UITestsApp: App {
-    @UIApplicationDelegateAdaptor(TestAppDelegate.self) var appDelegate
+    @UIApplicationDelegateAdaptor(TestAppDelegate.self)
+    var appDelegate
     
     
     var body: some Scene {
         WindowGroup {
             NavigationStack {
-                Text("Spezi Bluetooth")
+                List {
+                    NavigationLink("Nearby Devices") {
+                        BluetoothManagerView()
+                    }
+                    NavigationLink("Auto Connect Device") {
+                        BluetoothModuleView()
+                    }
+                }
+                    .navigationTitle("Spezi Bluetooth")
             }
                 .spezi(appDelegate)
         }
