@@ -16,7 +16,7 @@ import Spezi
 /// Under the hood this module uses Apple's [CoreBluetooth](https://developer.apple.com/documentation/corebluetooth)
 /// through the ``BluetoothManager``.
 ///
-/// ### Create you Bluetooth device
+/// ### Create your Bluetooth device
 ///
 /// The Bluetooth module allows to declarative define your Bluetooth device using a ``BluetoothDevice`` implementation and property wrappers
 /// like ``Service`` and ``Characteristic``.
@@ -36,7 +36,7 @@ import Spezi
 /// }
 /// ```
 ///
-/// We can use this Bluetooth service now in your `MyDevice` Bluetooth device implementation as follows.
+/// We can use this Bluetooth service now in the `MyDevice` implementation as follows.
 ///
 /// - Tip: We use the ``DeviceState`` and ``DeviceAction`` property wrappers to get access to the device state and its actions. Those two
 ///     property wrappers can also be used within a ``BluetoothService`` type.
@@ -64,7 +64,7 @@ import Spezi
 ///
 /// ### Configure the Bluetooth Module
 ///
-/// We use the above `BluetoothDevice` implementation to configure the `Bluetooth` module within your
+/// We use the above `BluetoothDevice` implementation to configure the `Bluetooth` module within the
 /// [SpeziAppDelegate](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/speziappdelegate).
 ///
 /// ```swift

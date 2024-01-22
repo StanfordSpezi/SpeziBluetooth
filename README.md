@@ -70,7 +70,7 @@ class ExampleAppDelegate: SpeziAppDelegate {
 
 ## Example
 
-### Create you Bluetooth device
+### Create your Bluetooth device
 
 The [`Bluetooth`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth) 
 module allows to declarative define your Bluetooth device using a [`BluetoothDevice`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetoothdevice) implementation and property wrappers
@@ -91,7 +91,7 @@ class DeviceInformationService: BluetoothService {
 }
 ```
 
-We can use this Bluetooth service now in your `MyDevice` Bluetooth device implementation as follows.
+We can use this Bluetooth service now in the `MyDevice` implementation as follows.
 
 > Tip: We use the [`DeviceState`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/devicestate) and [`DeviceAction`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/deviceaction) property wrappers to get access to the device state and its actions. Those two
   property wrappers can also be used within a [`BluetoothService`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetoothservice) type.
@@ -119,7 +119,7 @@ class MyDevice: BluetoothDevice {
 
 ### Configure the Bluetooth Module
 
-We use the above `BluetoothDevice` implementation to configure the [`Bluetooth`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth) module within your
+We use the above `BluetoothDevice` implementation to configure the [`Bluetooth`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth) module within the
 [SpeziAppDelegate](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/speziappdelegate).
 
 ```swift

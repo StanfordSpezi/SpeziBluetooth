@@ -18,7 +18,7 @@ import Foundation
 /// If your device is connected, the characteristic value is automatically updated upon a characteristic read or a notify.
 ///
 /// - Note: Every `Characteristic` is [Observable](https://developer.apple.com/documentation/Observation) out of the box.
-///     So you can easily use the characteristic value within your SwiftUI view and it will be automatically rerendered
+///     So you can easily use the characteristic value within your SwiftUI view and it will be automatically re-rendered
 ///     when the characteristic value is updated.
 ///
 /// The below code example demonstrates declaring the Firmware Revision characteristic of the Device Information service.
@@ -82,7 +82,7 @@ import Foundation
 ///     func handleConnected() async throws { // manually called from the outside
 ///         try await $bodySensorLocation.read()
 ///         if energyExpendedFeatureSupported {
-///             try await $heartRateControlPoint.write(0x01) // resets the energey expended measurement
+///             try await $heartRateControlPoint.write(0x01) // resets the energy expended measurement
 ///         }
 ///     }
 ///

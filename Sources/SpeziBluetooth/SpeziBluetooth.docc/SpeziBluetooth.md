@@ -36,7 +36,7 @@ You need to add the Spezi Bluetooth Swift package to
 [your app in Xcode](https://developer.apple.com/documentation/xcode/adding-package-dependencies-to-your-app#) or
 [Swift package](https://developer.apple.com/documentation/xcode/creating-a-standalone-swift-package-with-xcode#Add-a-dependency-on-another-Swift-package).
 
-> Important: If your application is not yet configured to use Spezi, follow the [Spezi setup article](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/initial-setup) to setup the core Spezi infrastructure.
+> Important: If your application is not yet configured to use Spezi, follow the [Spezi setup article](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/initial-setup) to set up the core Spezi infrastructure.
 
 
 ### Register the Module
@@ -61,7 +61,7 @@ class ExampleAppDelegate: SpeziAppDelegate {
 
 ## Example
 
-### Create you Bluetooth device
+### Create your Bluetooth device
 
 The ``Bluetooth`` module allows to declarative define your Bluetooth device using a ``BluetoothDevice`` implementation and property wrappers
 like ``Service`` and ``Characteristic``.
@@ -81,7 +81,7 @@ class DeviceInformationService: BluetoothService {
 }
 ```
 
-We can use this Bluetooth service now in your `MyDevice` Bluetooth device implementation as follows.
+We can use this Bluetooth service now in the `MyDevice` implementation as follows.
 
 > Tip: We use the ``DeviceState`` and ``DeviceAction`` property wrappers to get access to the device state and its actions. Those two
     property wrappers can also be used within a ``BluetoothService`` type.
@@ -109,7 +109,7 @@ class MyDevice: BluetoothDevice {
 
 ### Configure the Bluetooth Module
 
-We use the above `BluetoothDevice` implementation to configure the ``Bluetooth`` module within your
+We use the above `BluetoothDevice` implementation to configure the ``Bluetooth`` module within the
 [SpeziAppDelegate](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/speziappdelegate).
 
 ```swift
