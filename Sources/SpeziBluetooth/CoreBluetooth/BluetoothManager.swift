@@ -572,7 +572,7 @@ extension BluetoothManager {
                 }
 
                 // device is now out of range, just clear it immediately.
-                manager.clearDiscoveredPeripheral(forKey: device.id) // TODO : revise this, with a timeout?
+                manager.clearDiscoveredPeripheral(forKey: device.id)
                 return // logging this would just be to verbose, so we don't.
             }
 
