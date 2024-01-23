@@ -31,12 +31,12 @@ import CoreBluetooth
 /// - ``isNotifying``
 /// - ``enableNotifications(_:)``
 public struct CharacteristicAccessors<Value> {
-    let id: CBUUID
-    fileprivate let context: CharacteristicContext<Value>
+    private let information: Characteristic<Value>.Information
+    private let context: CharacteristicPeripheralAssociation<Value>?
 
 
-    init(id: CBUUID, context: CharacteristicContext<Value>) {
-        self.id = id
+    init(information: Characteristic<Value>.Information, context: CharacteristicPeripheralAssociation<Value>?) {
+        self.information = information
         self.context = context
     }
 }
@@ -46,23 +46,23 @@ extension CharacteristicAccessors {
     /// Determine if the characteristic is available.
     ///
     /// Returns true if the characteristic is available for the current device.
-    /// It is ture if (a) the device is connected and (b) the device exposes the requested characteristic.
+    /// It is true if (a) the device is connected and (b) the device exposes the requested characteristic.
     public var isPresent: Bool {
-        context.characteristic != nil
+        context?.characteristic != nil
     }
 
     /// Properties of the characteristic.
     ///
     /// Nil if device is not connected.
     public var properties: CBCharacteristicProperties? {
-        context.characteristic?.properties
+        context?.characteristic?.properties
     }
 
     /// Descriptors of the characteristic.
     ///
     /// Nil if device is not connected or descriptors are not yet discovered.
     public var descriptors: [CBDescriptor]? { // swiftlint:disable:this discouraged_optional_collection
-        context.characteristic?.descriptors
+        context?.characteristic?.descriptors
     }
 }
 
@@ -70,15 +70,34 @@ extension CharacteristicAccessors {
 extension CharacteristicAccessors where Value: ByteDecodable {
     /// Characteristic is currently notifying about updated values.
     ///
-    /// This is false if device is not connected.
+    /// This is also false if device is not connected.
     public var isNotifying: Bool {
-        context.characteristic?.isNotifying ?? false
+        context?.characteristic?.isNotifying ?? false
+    }
+
+
+    public func onChange(_ perform: @escaping (Value) -> Void) { // TODO: docs
+        guard let context else {
+            // We save the instance in the global registrar if its available.
+            // It will be available if w  e are instantiated through the Bluetooth module.
+            // This indirection is required to support self referencing closures without encountering a strong reference cycle.
+            NotificationRegistrar.instance?.insert(for: information, closure: perform)
+            return
+        }
+
+        context.setNotificationClosure(perform)
     }
 
 
     /// Enable or disable characteristic notifications.
     /// - Parameter enable: Flag indicating if notifications should be enabled.
     public func enableNotifications(_ enable: Bool = true) async {
+        guard let context else {
+            // this will value will be populated to the context once it is set up // TODO: rename all context!
+            information.defaultNotify = enable
+            return
+        }
+
         if enable {
             await context.enableNotifications()
         } else {
@@ -92,7 +111,8 @@ extension CharacteristicAccessors where Value: ByteDecodable {
     ///     It might also throw a ``BluetoothError/notPresent`` or ``BluetoothError/incompatibleDataFormat`` error.
     @discardableResult
     public func read() async throws -> Value {
-        guard let characteristic = context.characteristic else {
+        guard let context,
+            let characteristic = context.characteristic else {
             throw BluetoothError.notPresent
         }
 
@@ -117,7 +137,8 @@ extension CharacteristicAccessors where Value: ByteEncodable {
     /// - Throws: Throws an `CBError` or `CBATTError` if the write fails.
     ///     It might also throw a ``BluetoothError/notPresent`` error.
     public func write(_ value: Value) async throws {
-        guard let characteristic = context.characteristic else {
+        guard let context,
+              let characteristic = context.characteristic else {
             throw BluetoothError.notPresent
         }
 
@@ -135,7 +156,8 @@ extension CharacteristicAccessors where Value: ByteEncodable {
     /// - Throws: Throws an `CBError` or `CBATTError` if the write fails.
     ///     It might also throw a ``BluetoothError/notPresent`` error.
     public func writeWithoutResponse(_ value: Value) async throws {
-        guard let characteristic = context.characteristic else {
+        guard let context,
+                let characteristic = context.characteristic else {
             throw BluetoothError.notPresent
         }
 

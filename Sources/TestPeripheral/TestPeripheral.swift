@@ -12,13 +12,13 @@ import SpeziBluetooth
 
 
 @main
-public class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
+class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
     private let dispatchQueue = DispatchQueue(label: "edu.stanford.spezi.bluetooth-peripheral", qos: .userInitiated)
     var peripheralManager: CBPeripheralManager!
 
     var healthThermometer: CBMutableService?
 
-    public override init() {
+    override init() {
         super.init()
         peripheralManager = CBPeripheralManager(delegate: self, queue: dispatchQueue)
     }
@@ -55,7 +55,7 @@ public class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
 
     // MARK: - CBPeripheralManagerDelegate
 
-    public func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
+    func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
         // TODO: logger!
         if peripheral.state == .poweredOn {
             startAdvertising()
@@ -64,16 +64,22 @@ public class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
         }
     }
 
-    public func peripheralManager(_ peripheral: CBPeripheralManager, didAdd service: CBService, error: Error?) {
+    func peripheralManager(_ peripheral: CBPeripheralManager, didAdd service: CBService, error: Error?) {
         if let error = error {
             print("Error adding service \(service.uuid): \(error.localizedDescription)")
             return
         }
 
-        peripheralManager.startAdvertising(advertisementData)
+        if let healthThermometer {
+            let advertisementData: [String: Any] = [
+                CBAdvertisementDataServiceUUIDsKey: [healthThermometer.uuid],
+                CBAdvertisementDataLocalNameKey: "Test Thermometer"
+            ]
+            peripheralManager.startAdvertising(advertisementData)
+        }
     }
 
-    public func peripheralManagerDidStartAdvertising(_ peripheral: CBPeripheralManager, error: Error?) {
+    func peripheralManagerDidStartAdvertising(_ peripheral: CBPeripheralManager, error: Error?) {
         if let error = error {
             print("Error starting advertising: \(error.localizedDescription)")
         } else {

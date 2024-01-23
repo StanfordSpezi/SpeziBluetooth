@@ -263,7 +263,8 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
         // remove all delete keys
         for key in nearbyDevices.keys where discoveredDevices[key] == nil {
             checkForConnected = true
-            nearbyDevices.removeValue(forKey: key)
+            let device = nearbyDevices.removeValue(forKey: key)
+            device?.clearState()
         }
 
         // add devices for new keys
@@ -273,9 +274,12 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
                 continue
             }
 
-            let device = configuration.anyDeviceType.init()
-            device.inject(peripheral: peripheral)
-            nearbyDevices[uuid] = device
+
+            NotificationRegistrar.$instance.withValue(NotificationRegistrar()) {
+                let device = configuration.anyDeviceType.init()
+                device.inject(peripheral: peripheral)
+                nearbyDevices[uuid] = device
+            }
 
             checkForConnected = true
             observePeripheralState(of: uuid)

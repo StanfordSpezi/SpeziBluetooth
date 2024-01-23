@@ -9,6 +9,8 @@
 import CoreBluetooth
 import Foundation
 
+// TODO: change docs about init access!
+
 
 /// Declare a characteristic within a Bluetooth service.
 ///
@@ -129,66 +131,75 @@ import Foundation
 @Observable
 @propertyWrapper
 public class Characteristic<Value> {
-    private let id: CBUUID
-    private let discoverDescriptors: Bool
+    class Information {
+        let id: CBUUID
+        let discoverDescriptors: Bool
 
-    private let defaultValue: Value?
-    private let defaultNotify: Bool
+        var defaultValue: Value?
+        var defaultNotify: Bool
+
+        init(id: CBUUID, discoverDescriptors: Bool, defaultValue: Value?, defaultNotify: Bool) {
+            self.id = id
+            self.discoverDescriptors = discoverDescriptors
+            self.defaultValue = defaultValue
+            self.defaultNotify = defaultNotify
+        }
+    }
+
+    private let information: Information
 
     var description: CharacteristicDescription {
-        CharacteristicDescription(id: id, discoverDescriptors: discoverDescriptors)
+        CharacteristicDescription(id: information.id, discoverDescriptors: information.discoverDescriptors)
     }
 
     /// Access the current characteristic value.
     ///
     /// This is either the last read value or the latest notified value.
     public var wrappedValue: Value? {
-        guard let context else {
-            return defaultValue
+        guard let association else {
+            return information.defaultValue
         }
-        return context.value
+        return association.value
     }
 
     /// Retrieve a temporary accessors instance.
     public var projectedValue: CharacteristicAccessors<Value> {
-        guard let context else {
-            preconditionFailure(
-                """
-                Failed to access bluetooth characteristic. Make sure your @Characteristic is only declared within your bluetooth device class \
-                that is managed by SpeziBluetooth.
-                """
-            )
-        }
-        return CharacteristicAccessors(id: id, context: context)
+        CharacteristicAccessors(information: information, context: association)
     }
 
-    private var context: CharacteristicContext<Value>?
+    private var association: CharacteristicPeripheralAssociation<Value>?
 
     fileprivate init(wrappedValue: Value? = nil, characteristic: CBUUID, notify: Bool, discoverDescriptors: Bool = false) {
         // swiftlint:disable:previous function_default_parameter_at_end
-        self.defaultValue = wrappedValue
-        self.id = characteristic
-        self.defaultNotify = notify
-        self.discoverDescriptors = discoverDescriptors
+        self.information = .init(id: characteristic, discoverDescriptors: discoverDescriptors, defaultValue: wrappedValue, defaultNotify: notify)
     }
 
 
     @MainActor
     func inject(peripheral: BluetoothPeripheral, serviceId: CBUUID, service: CBService?) {
-        let characteristic = service?.characteristics?.first(where: { $0.uuid == self.id })
+        let characteristic = service?.characteristics?.first(where: { $0.uuid == information.id })
 
-        let context = CharacteristicContext<Value>(
+        // Any potential onChange closure registration that happened within the initializer. Forward them to the association
+        let notificationClosure = NotificationRegistrar.instance?.retrieve(for: information)
+
+        let context = CharacteristicPeripheralAssociation<Value>(
             peripheral: peripheral,
             serviceId: serviceId,
-            characteristicId: self.id,
-            characteristic: characteristic
+            characteristicId: information.id,
+            characteristic: characteristic,
+            notificationClosure: notificationClosure
         )
 
-        self.context = context
+        self.association = context
+        self.information.defaultValue = nil
 
         Task {
-            await context.setup(defaultNotify: defaultNotify)
+            await context.setup(defaultNotify: information.defaultNotify)
         }
+    }
+
+    func clearState() {
+        association?.clearState()
     }
 }
 

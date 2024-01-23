@@ -13,7 +13,7 @@ import SpeziBluetooth
 public enum TemperatureType: UInt8 {
     case reserved
     case armpit
-    case body // TODO: general
+    case body
     case ear
     case finger
     case gastrointestinalTract

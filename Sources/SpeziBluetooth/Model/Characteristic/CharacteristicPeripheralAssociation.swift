@@ -25,7 +25,7 @@ private protocol DecodableCharacteristic {
 
 
 /// Captures and synchronizes access to the state of a ``Characteristic`` property wrapper.
-actor CharacteristicContext<Value> {
+actor CharacteristicPeripheralAssociation<Value> {
     let peripheral: BluetoothPeripheral
     let characteristicId: CBUUID
     let serviceId: CBUUID
@@ -33,8 +33,12 @@ actor CharacteristicContext<Value> {
     private let characteristicBox: OptionalBox<CBCharacteristic>
     private let valueBox: OptionalBox<Value>
 
+    /// This flag controls if we are supposed to be subscribed to characteristic notifications.
     private var notify = false
+    /// The registration object we received from the ``BluetoothPeripheral`` for our notification handler.
     private var registration: CharacteristicNotification?
+    /// The user supplied notification closure we use to forward notifications.
+    private let notificationClosure: OptionalBox<(Value) -> Void>
 
     nonisolated var characteristic: CBCharacteristic? { // nil if device is not connected yet
         characteristicBox.value
@@ -49,16 +53,18 @@ actor CharacteristicContext<Value> {
         peripheral: BluetoothPeripheral,
         serviceId: CBUUID,
         characteristicId: CBUUID,
-        characteristic: CBCharacteristic?
+        characteristic: CBCharacteristic?,
+        notificationClosure: ((Value) -> Void)?
     ) {
         self.peripheral = peripheral
         self.serviceId = serviceId
         self.characteristicId = characteristicId
         self.characteristicBox = OptionalBox(value: characteristic)
         self.valueBox = OptionalBox(value: nil)
+        self.notificationClosure = OptionalBox(value: notificationClosure)
     }
 
-    /// Setup the context. Must be called after initialization to set up all handlers and write the initial value.
+    /// Setup the association. Must be called after initialization to set up all handlers and write the initial value.
     /// - Parameter defaultNotify: Flag indicating if notification handlers should be registered immediately.
     func setup(defaultNotify: Bool) async {
         trackServicesUpdates() // enable observation tracking for peripheral.services
@@ -74,6 +80,14 @@ actor CharacteristicContext<Value> {
                 await enableNotifications()
             }
         }
+    }
+
+    nonisolated func clearState() { // signal from the Bluetooth state to cleanup the device
+        self.notificationClosure.value = nil // might contain a self reference!
+    }
+
+    nonisolated func setNotificationClosure(_ closure: ((Value) -> Void)?) {
+        self.notificationClosure.value = closure
     }
 
     /// Enable notifications (if not already) for the characteristic.
@@ -147,9 +161,9 @@ actor CharacteristicContext<Value> {
 }
 
 
-extension CharacteristicContext: DecodableCharacteristic where Value: ByteDecodable {
+extension CharacteristicPeripheralAssociation: DecodableCharacteristic where Value: ByteDecodable {
     nonisolated func handleUpdateValueAssumingIsolation(_ data: Data?) {
-        // assumes this is called with actor isolation!
+        assertIsolated("\(#function) was called without actor isolation.")
         if let data {
             guard let value = Value(data: data) else {
                 Bluetooth.logger.error("Could decode updated value for characteristic \(self.characteristic?.debugIdentifier ?? self.characteristicId.uuidString). Invalid format!")
@@ -157,6 +171,9 @@ extension CharacteristicContext: DecodableCharacteristic where Value: ByteDecoda
             }
 
             self.valueBox.value = value
+            if let handler = notificationClosure.value {
+                handler(value)
+            }
         } else {
             self.valueBox.value = nil
         }

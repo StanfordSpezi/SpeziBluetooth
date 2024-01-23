@@ -54,6 +54,9 @@
 /// - ``DeviceActions``
 @propertyWrapper
 public class DeviceAction<Action: _BluetoothPeripheralAction> {
+    private var peripheral: BluetoothPeripheral?
+
+
     /// Access the device action.
     public var wrappedValue: Action {
         guard let peripheral else {
@@ -66,8 +69,6 @@ public class DeviceAction<Action: _BluetoothPeripheralAction> {
         }
         return Action(from: peripheral)
     }
-
-    private var peripheral: BluetoothPeripheral?
 
 
     /// Provide a `KeyPath` to the device action you want to access.

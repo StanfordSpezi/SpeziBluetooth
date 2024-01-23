@@ -17,6 +17,9 @@ import SpeziBluetooth
 /// It is possible that none are implemented at all.
 /// For more information refer to the specification.
 public class DeviceInformationService: BluetoothService {
+    @Characteristic(id: "Hello World")
+    public var testString: String?
+
     /// The manufacturer name string.
     @Characteristic(id: .manufacturerNameStringCharacteristic)
     public var manufacturerName: String?
