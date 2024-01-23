@@ -315,7 +315,7 @@ public actor BluetoothPeripheral {
     private func trySettingNotifyValue(_ notify: Bool, serviceId: CBUUID, characteristicId: CBUUID) {
         if let service = services?.first(where: { $0.uuid == serviceId }),
            let characteristic = service.characteristics?.first(where: { $0.uuid == characteristicId }),
-           characteristic.properties.contains(.notify) {
+           characteristic.properties.contains(.notify) || characteristic.properties.contains(.indicate) {
             peripheral.setNotifyValue(notify, for: characteristic)
         }
     }
@@ -500,7 +500,8 @@ extension BluetoothPeripheral {
     fileprivate func discovered(characteristics: [CBCharacteristic], for service: CBService) {
         // automatically subscribe to discovered characteristics for which we have a handler subscribed!
         for characteristic in characteristics {
-            guard characteristic.properties.contains(.notify) else {
+            // TODO: how about the encryption required stuff?
+            guard characteristic.properties.contains(.notify) || characteristic.properties.contains(.indicate) else {
                 continue
             }
 

@@ -18,6 +18,7 @@ let package = Package(
         .iOS(.v17)
     ],
     products: [
+        .library(name: "BluetoothServices", targets: ["BluetoothServices"]),
         .library(name: "SpeziBluetooth", targets: ["SpeziBluetooth"]),
         .library(name: "XCTBluetooth", targets: ["XCTBluetooth"])
     ],
@@ -40,9 +41,22 @@ let package = Package(
             ]
         ),
         .target(
+            name: "BluetoothServices",
+            dependencies: [
+                .target(name: "SpeziBluetooth")
+            ]
+        ),
+        .target(
             name: "XCTBluetooth",
             dependencies: [
                 .target(name: "SpeziBluetooth")
+            ]
+        ),
+        .executableTarget(
+            name: "TestPeripheral",
+            dependencies: [
+                .target(name: "SpeziBluetooth"),
+                .target(name: "BluetoothServices")
             ]
         ),
         .testTarget(

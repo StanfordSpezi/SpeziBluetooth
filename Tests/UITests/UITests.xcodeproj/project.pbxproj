@@ -20,6 +20,8 @@
 		A95542B92B5E3F490066646D /* SearchingNearbyDevicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A95542B82B5E3F490066646D /* SearchingNearbyDevicesView.swift */; };
 		A95542BB2B5E3F7B0066646D /* DevicesHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A95542BA2B5E3F7B0066646D /* DevicesHeader.swift */; };
 		A95542BD2B5E40DF0066646D /* TestDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = A95542BC2B5E40DF0066646D /* TestDevice.swift */; };
+		A9C17DEA2B5F1EAA00976924 /* BluetoothServices in Frameworks */ = {isa = PBXBuildFile; productRef = A9C17DE92B5F1EAA00976924 /* BluetoothServices */; };
+		A9C17DEC2B5F1ED500976924 /* HealthThermometerDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9C17DEB2B5F1ED500976924 /* HealthThermometerDevice.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -62,6 +64,8 @@
 		A95542B82B5E3F490066646D /* SearchingNearbyDevicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchingNearbyDevicesView.swift; sourceTree = "<group>"; };
 		A95542BA2B5E3F7B0066646D /* DevicesHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicesHeader.swift; sourceTree = "<group>"; };
 		A95542BC2B5E40DF0066646D /* TestDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestDevice.swift; sourceTree = "<group>"; };
+		A9C17DEB2B5F1ED500976924 /* HealthThermometerDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthThermometerDevice.swift; sourceTree = "<group>"; };
+		A9C17DEF2B5F566200976924 /* TestApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TestApp.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -70,6 +74,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A92802B72B5081F200874D0A /* SpeziBluetooth in Frameworks */,
+				A9C17DEA2B5F1EAA00976924 /* BluetoothServices in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -108,6 +113,7 @@
 		2F6D139428F5F384007C25D6 /* TestApp */ = {
 			isa = PBXGroup;
 			children = (
+				A9C17DEF2B5F566200976924 /* TestApp.entitlements */,
 				A92802BA2B5085BE00874D0A /* Info.plist */,
 				A92802B82B50823600874D0A /* BluetoothManagerView.swift */,
 				A95542B32B5E3E210066646D /* BluetoothModuleView.swift */,
@@ -116,6 +122,7 @@
 				2F6D139928F5F386007C25D6 /* Assets.xcassets */,
 				A95542B72B5E3F260066646D /* Utiltities */,
 				A95542BC2B5E40DF0066646D /* TestDevice.swift */,
+				A9C17DEB2B5F1ED500976924 /* HealthThermometerDevice.swift */,
 			);
 			path = TestApp;
 			sourceTree = "<group>";
@@ -165,6 +172,7 @@
 			name = TestApp;
 			packageProductDependencies = (
 				A92802B62B5081F200874D0A /* SpeziBluetooth */,
+				A9C17DE92B5F1EAA00976924 /* BluetoothServices */,
 			);
 			productName = Example;
 			productReference = 2F6D139228F5F384007C25D6 /* TestApp.app */;
@@ -261,6 +269,7 @@
 				A95542BD2B5E40DF0066646D /* TestDevice.swift in Sources */,
 				A92802BD2B51CBBE00874D0A /* DeviceRowView.swift in Sources */,
 				A92802B92B50823600874D0A /* BluetoothManagerView.swift in Sources */,
+				A9C17DEC2B5F1ED500976924 /* HealthThermometerDevice.swift in Sources */,
 				2F64EA882A86B36C006789D0 /* TestApp.swift in Sources */,
 				A95542B62B5E3EAC0066646D /* BluetoothStateSection.swift in Sources */,
 				A95542B42B5E3E210066646D /* BluetoothModuleView.swift in Sources */,
@@ -280,6 +289,7 @@
 /* Begin PBXTargetDependency section */
 		2F6D13AE28F5F386007C25D6 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
+			platformFilter = ios;
 			target = 2F6D139128F5F384007C25D6 /* TestApp */;
 			targetProxy = 2F6D13AD28F5F386007C25D6 /* PBXContainerItemProxy */;
 		};
@@ -408,6 +418,7 @@
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = TestApp/TestApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
@@ -431,8 +442,8 @@
 				PRODUCT_BUNDLE_IDENTIFIER = edu.stanford.spezi.bluetooth.testapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator xros xrsimulator";
-				SUPPORTS_MACCATALYST = NO;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SUPPORTS_MACCATALYST = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_STRICT_CONCURRENCY = complete;
@@ -447,6 +458,7 @@
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = TestApp/TestApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
@@ -470,8 +482,8 @@
 				PRODUCT_BUNDLE_IDENTIFIER = edu.stanford.spezi.bluetooth.testapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator xros xrsimulator";
-				SUPPORTS_MACCATALYST = NO;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SUPPORTS_MACCATALYST = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_STRICT_CONCURRENCY = complete;
@@ -494,7 +506,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MACCATALYST = YES;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -518,7 +530,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MACCATALYST = YES;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -595,6 +607,7 @@
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = TestApp/TestApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
@@ -618,8 +631,8 @@
 				PRODUCT_BUNDLE_IDENTIFIER = edu.stanford.spezi.bluetooth.testapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator xros xrsimulator";
-				SUPPORTS_MACCATALYST = NO;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SUPPORTS_MACCATALYST = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_STRICT_CONCURRENCY = complete;
@@ -642,7 +655,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MACCATALYST = YES;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -707,6 +720,10 @@
 		A92802B62B5081F200874D0A /* SpeziBluetooth */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = SpeziBluetooth;
+		};
+		A9C17DE92B5F1EAA00976924 /* BluetoothServices */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = BluetoothServices;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

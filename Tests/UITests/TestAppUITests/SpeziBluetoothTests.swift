@@ -39,8 +39,13 @@ final class SpeziBluetoothTests: XCTestCase {
     }
 
     private func assertMinimalSimulatorInformation(_ app: XCUIApplication) {
+        #if targetEnvironment(simulator)
         XCTAssert(app.staticTexts["Scanning, No"].exists)
         XCTAssert(app.staticTexts["State, unsupported"].exists)
         XCTAssert(app.staticTexts["Searching for nearby devices ..."].exists)
+        #else
+        XCTAssert(app.staticTexts["Scanning, Yes"].exists)
+        XCTAssert(app.staticTexts["State, poweredOn"].exists)
+        #endif
     }
 }

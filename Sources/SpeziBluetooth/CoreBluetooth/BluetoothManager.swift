@@ -490,7 +490,7 @@ extension BluetoothManager {
     /// Set of default values used within the Bluetooth Manager
     public enum Defaults {
         /// The default timeout after which stale advertisements are removed.
-        public static let defaultStaleTimeout: TimeInterval = 10
+        public static let defaultStaleTimeout: TimeInterval = 6
         /// The minimum rssi of a peripheral to consider it for discovery.
         public static let defaultMinimumRSSI = -80
         /// The default time in seconds after which we check for auto connectable devices after the initial advertisement.
@@ -566,13 +566,6 @@ extension BluetoothManager {
 
             // rssi of 127 is a magic value signifying unavailability of the value.
             guard rssi.intValue >= manager.minimumRSSI, rssi.intValue != 127 else { // ensure the signal strength is not too low
-                guard let device = manager.discoveredPeripherals[peripheral.identifier],
-                      device.state == .disconnected else {
-                    return
-                }
-
-                // device is now out of range, just clear it immediately.
-                manager.clearDiscoveredPeripheral(forKey: device.id)
                 return // logging this would just be to verbose, so we don't.
             }
 

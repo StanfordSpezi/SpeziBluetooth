@@ -16,7 +16,7 @@ struct UITestsApp: App {
     @UIApplicationDelegateAdaptor(TestAppDelegate.self)
     var appDelegate
     
-    
+
     var body: some Scene {
         WindowGroup {
             NavigationStack {

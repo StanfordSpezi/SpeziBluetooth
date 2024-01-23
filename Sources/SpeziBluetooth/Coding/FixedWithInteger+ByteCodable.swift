@@ -43,7 +43,7 @@ extension FixedWidthByteCodable {
     ///
     /// - Note: For reference, the basic types in Bluetooth are illustrated in
     ///     Bluetooth Core Specification, Volume 1, Part E, 3.9.1 Basic types.
-    /// - Parameter byteBuffer: The bytebuffer to decode from.
+    /// - Parameter byteBuffer: The bytebuffer to decode to.
     public func encode(to byteBuffer: inout ByteBuffer) {
         byteBuffer.writeInteger(self, endianness: .little)
     }

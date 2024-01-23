@@ -21,7 +21,7 @@ protocol SomePeripheral {
 }
 
 
-class TestDevice: BluetoothDevice, Identifiable, SomePeripheral {
+class TestDevice: BluetoothDevice, Identifiable, SomePeripheral { // TODO: Generic Device
     @DeviceState(\.id)
     var id
     @DeviceState(\.name)
