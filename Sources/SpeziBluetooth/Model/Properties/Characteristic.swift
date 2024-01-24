@@ -176,8 +176,8 @@ public class Characteristic<Value> {
 
 
     @MainActor
-    func inject(peripheral: BluetoothPeripheral, serviceId: CBUUID, service: CBService?) {
-        let characteristic = service?.characteristics?.first(where: { $0.uuid == information.id })
+    func inject(peripheral: BluetoothPeripheral, serviceId: CBUUID, service: GATTService?) {
+        let characteristic = service?.getCharacteristic(id: information.id)
 
         // Any potential onChange closure registration that happened within the initializer. Forward them to the association
         let notificationClosure = NotificationRegistrar.instance?.retrieve(for: information)

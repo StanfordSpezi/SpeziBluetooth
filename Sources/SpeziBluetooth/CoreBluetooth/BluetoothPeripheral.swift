@@ -93,7 +93,7 @@ public actor BluetoothPeripheral {
     /// The list of discovered services.
     ///
     /// Services are discovered automatically upon connection
-    public nonisolated var services: [CBService]? { // swiftlint:disable:this discouraged_optional_collection
+    public nonisolated var services: [GATTService]? { // swiftlint:disable:this discouraged_optional_collection
         stateContainer.services
     }
 
@@ -161,6 +161,16 @@ public actor BluetoothPeripheral {
         removeAllNotifications()
 
         manager.disconnect(peripheral: self)
+    }
+
+    public nonisolated func getService(id: CBUUID) -> GATTService? {
+        services?.first { service in
+            service.uuid == id
+        }
+    }
+
+    public nonisolated func getCharacteristic(id characteristicId: CBUUID, on serviceId: CBUUID) -> GATTCharacteristic? {
+        getService(id: serviceId)?.getCharacteristic(id: characteristicId)
     }
 
     func handleConnect() {
@@ -260,7 +270,7 @@ public actor BluetoothPeripheral {
     ///   - handler: The notification handler.
     /// - @Returns: Returns the ``CharacteristicNotification`` that can be used to cancel and deregister the notification handler.
     public func registerNotifications(
-        for characteristic: CBCharacteristic,
+        for characteristic: GATTCharacteristic,
         _ handler: @escaping BluetoothNotificationHandler
     ) throws -> CharacteristicNotification {
         guard let service = characteristic.service else {
@@ -313,10 +323,12 @@ public actor BluetoothPeripheral {
     }
 
     private func trySettingNotifyValue(_ notify: Bool, serviceId: CBUUID, characteristicId: CBUUID) {
-        if let service = services?.first(where: { $0.uuid == serviceId }),
-           let characteristic = service.characteristics?.first(where: { $0.uuid == characteristicId }),
-           characteristic.properties.contains(.notify) || characteristic.properties.contains(.indicate) {
-            peripheral.setNotifyValue(notify, for: characteristic)
+        guard let characteristic = getCharacteristic(id: characteristicId, on: serviceId) else {
+            return
+        }
+
+        if characteristic.properties.contains(.notify) || characteristic.properties.contains(.indicate) {
+            peripheral.setNotifyValue(notify, for: characteristic.underlyingCharacteristic)
         }
     }
 
@@ -348,7 +360,8 @@ public actor BluetoothPeripheral {
     ///   - characteristic: The characteristic to which the value is written.
     /// - Returns: The response from the device.
     /// - Throws: Throws an `CBError` or `CBATTError` if the write fails.
-    public func write(data: Data, for characteristic: CBCharacteristic) async throws {
+    public func write(data: Data, for characteristic: GATTCharacteristic) async throws {
+        let characteristic = characteristic.underlyingCharacteristic
         while ongoingAccesses[characteristic] != nil {
             await queueRWAccess(for: characteristic)
         }
@@ -370,13 +383,15 @@ public actor BluetoothPeripheral {
     /// - Parameters:
     ///   - data: The value to write.
     ///   - characteristic: The characteristic to which the value is written.
-    public func writeWithoutResponse(data: Data, for characteristic: CBCharacteristic) async {
+    public func writeWithoutResponse(data: Data, for characteristic: GATTCharacteristic) async {
         guard writeWithoutResponseAccess.isEmpty else {
             await withCheckedContinuation { continuation in
                 writeWithoutResponseAccess.append(continuation)
             }
             return
         }
+
+        let characteristic = characteristic.underlyingCharacteristic
 
         await withCheckedContinuation { continuation in
             writeWithoutResponseAccess.append(continuation)
@@ -391,7 +406,9 @@ public actor BluetoothPeripheral {
     /// - Parameter characteristic: The characteristic for which you want to read the value.
     /// - Returns: The value that the peripheral was returned.
     /// - Throws: Throws an `CBError` or `CBATTError` if the read fails.
-    public func read(characteristic: CBCharacteristic) async throws -> Data {
+    public func read(characteristic: GATTCharacteristic) async throws -> Data {
+        let characteristic = characteristic.underlyingCharacteristic
+
         // if there is already a read for this characteristic, we just piggy back onto it
         if case .read(var continuations, let queued) = ongoingAccesses[characteristic] {
             return try await withCheckedThrowingContinuation { continuation in
@@ -450,6 +467,15 @@ public actor BluetoothPeripheral {
                 ongoingAccesses.updateValue(.write(writeContinuation, queued: queued), forKey: characteristic)
             }
         }
+    }
+
+    private func propagateChanges(for characteristic: CBCharacteristic) {
+        guard let service = characteristic.service,
+              let gattCharacteristic = getCharacteristic(id: characteristic.uuid, on: service.uuid) else {
+            return
+        }
+
+        gattCharacteristic.update()
     }
 }
 
@@ -537,6 +563,9 @@ extension BluetoothPeripheral {
     }
 
     fileprivate func receivedUpdatedValue(for characteristic: CBCharacteristic, result: Result<Data, Error>) async {
+        // make sure value is propagated beforehand
+        propagateChanges(for: characteristic)
+
         if case let .read(continuations, queued) = ongoingAccesses[characteristic] {
             ongoingAccesses[characteristic] = nil
             
@@ -570,6 +599,8 @@ extension BluetoothPeripheral {
     }
 
     fileprivate func receivedWriteResponse(for characteristic: CBCharacteristic, result: Result<Void, Error>) {
+        propagateChanges(for: characteristic)
+
         guard case let .write(continuation, queued) = ongoingAccesses[characteristic] else {
             logger.warning("Received write response for \(characteristic.debugIdentifier) without an ongoing access. Discarding write ...")
             return
@@ -586,6 +617,13 @@ extension BluetoothPeripheral {
         for queue in queued {
             queue.resume()
         }
+    }
+}
+
+
+extension BluetoothPeripheral: CustomDebugStringConvertible {
+    public nonisolated var debugDescription: String {
+        cbPeripheral.debugIdentifier
     }
 }
 
@@ -643,7 +681,7 @@ extension BluetoothPeripheral {
             logger.debug("Services modified, invalidating \(serviceIds)")
 
             // update our local model
-            device.stateContainer.services?.removeAll(where: { invalidatedServices.contains($0) })
+            device.stateContainer.services?.removeAll(where: { invalidatedServices.contains($0.underlyingService) })
 
             peripheral.discoverServices(serviceIds)
         }
@@ -659,7 +697,9 @@ extension BluetoothPeripheral {
             }
 
             // update our local model for observability
-            device.stateContainer.services = services
+            device.stateContainer.services = services.map { service in
+                GATTService(service: service)
+            }
 
             logger.debug("Discovered \(services) services for peripheral \(peripheral.debugIdentifier)")
 
@@ -698,6 +738,9 @@ extension BluetoothPeripheral {
             }
 
             logger.debug("Discovered descriptors for characteristic \(characteristic.debugIdentifier): \(descriptors)")
+            Task {
+                await device.propagateChanges(for: characteristic)
+            }
         }
 
         func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
@@ -711,6 +754,8 @@ extension BluetoothPeripheral {
         }
 
         func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
+            print("Value after write is now \(characteristic.value?.hexString() ?? "nil")") // TODO: remove
+            // TODO: does this change the .value property (if not, we should?)
             Task {
                 if let error {
                     await device.receivedWriteResponse(for: characteristic, result: .failure(error))
@@ -722,7 +767,7 @@ extension BluetoothPeripheral {
 
         func peripheralIsReady(toSendWriteWithoutResponse peripheral: CBPeripheral) {
             Task {
-                await device.receivedReadyNotification()
+                await device.receivedReadyNotification() // TODO: for which characteristic?
             }
         }
 
@@ -730,6 +775,10 @@ extension BluetoothPeripheral {
             if let error = error {
                 logger.error("Error changing notification state: \(error.localizedDescription)")
                 return
+            }
+
+            Task {
+                await device.propagateChanges(for: characteristic)
             }
 
 

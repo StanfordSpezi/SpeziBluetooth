@@ -19,10 +19,3 @@ extension CBPeripheral {
         }
     }
 }
-
-
-extension BluetoothPeripheral: CustomDebugStringConvertible {
-    public nonisolated var debugDescription: String {
-        cbPeripheral.debugIdentifier
-    }
-}

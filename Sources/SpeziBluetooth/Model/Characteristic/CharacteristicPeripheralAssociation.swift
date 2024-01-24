@@ -30,7 +30,7 @@ actor CharacteristicPeripheralAssociation<Value> {
     let characteristicId: CBUUID
     let serviceId: CBUUID
 
-    private let characteristicBox: OptionalBox<CBCharacteristic>
+    private let characteristicBox: OptionalBox<GATTCharacteristic> // TODO store the characteristic weak!
     private let valueBox: OptionalBox<Value>
 
     /// This flag controls if we are supposed to be subscribed to characteristic notifications.
@@ -40,7 +40,7 @@ actor CharacteristicPeripheralAssociation<Value> {
     /// The user supplied notification closure we use to forward notifications.
     private let notificationClosure: OptionalBox<(Value) -> Void>
 
-    nonisolated var characteristic: CBCharacteristic? { // nil if device is not connected yet
+    nonisolated var characteristic: GATTCharacteristic? { // nil if device is not connected or characteristic not discovered yet
         characteristicBox.value
     }
 
@@ -53,7 +53,7 @@ actor CharacteristicPeripheralAssociation<Value> {
         peripheral: BluetoothPeripheral,
         serviceId: CBUUID,
         characteristicId: CBUUID,
-        characteristic: CBCharacteristic?,
+        characteristic: GATTCharacteristic?,
         notificationClosure: ((Value) -> Void)?
     ) {
         self.peripheral = peripheral
@@ -131,7 +131,7 @@ actor CharacteristicPeripheralAssociation<Value> {
 
     private nonisolated func trackServicesUpdates() {
         withObservationTracking {
-            _ = peripheral.services
+            _ = peripheral.getCharacteristic(id: characteristicId, on: serviceId)
         } onChange: { [weak self] in
             Task { [weak self] in
                 await self?.handleServicesChange()
@@ -141,8 +141,7 @@ actor CharacteristicPeripheralAssociation<Value> {
     }
 
     private func handleServicesChange() {
-        let service = peripheral.services?.first(where: { $0.uuid == serviceId })
-        let characteristic = service?.characteristics?.first(where: { $0.uuid == characteristicId })
+        let characteristic = peripheral.getCharacteristic(id: characteristicId, on: serviceId)
 
         characteristicBox.value = characteristic
 
@@ -166,7 +165,7 @@ extension CharacteristicPeripheralAssociation: DecodableCharacteristic where Val
         assertIsolated("\(#function) was called without actor isolation.")
         if let data {
             guard let value = Value(data: data) else {
-                Bluetooth.logger.error("Could decode updated value for characteristic \(self.characteristic?.debugIdentifier ?? self.characteristicId.uuidString). Invalid format!")
+                Bluetooth.logger.error("Could decode updated value for characteristic \(self.characteristic?.debugDescription ?? self.characteristicId.uuidString). Invalid format!")
                 return
             }
 
