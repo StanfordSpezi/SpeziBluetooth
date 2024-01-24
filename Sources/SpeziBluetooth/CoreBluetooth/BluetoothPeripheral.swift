@@ -469,6 +469,14 @@ public actor BluetoothPeripheral {
         }
     }
 
+    private func propagateChanges(for service: CBService) {
+        guard let gattService = getService(id: service.uuid) else {
+            return
+        }
+
+        gattService.updateCharacteristics()
+    }
+
     private func propagateChanges(for characteristic: CBCharacteristic) {
         guard let service = characteristic.service,
               let gattCharacteristic = getCharacteristic(id: characteristic.uuid, on: service.uuid) else {
@@ -524,6 +532,8 @@ extension BluetoothPeripheral {
     }
 
     fileprivate func discovered(characteristics: [CBCharacteristic], for service: CBService) {
+        propagateChanges(for: service)
+
         // automatically subscribe to discovered characteristics for which we have a handler subscribed!
         for characteristic in characteristics {
             // TODO: how about the encryption required stuff?
