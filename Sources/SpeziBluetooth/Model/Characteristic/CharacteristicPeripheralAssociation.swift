@@ -150,7 +150,6 @@ actor CharacteristicPeripheralAssociation<Value> {
         if characteristic == nil { // device disconnected, remove the value
             valueBox.value = nil
         } else {
-            handleNotification(char)
             // TODO: update value?
         }
     }
