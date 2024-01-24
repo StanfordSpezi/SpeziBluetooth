@@ -67,7 +67,7 @@ actor CharacteristicPeripheralAssociation<Value> {
     /// Setup the association. Must be called after initialization to set up all handlers and write the initial value.
     /// - Parameter defaultNotify: Flag indicating if notification handlers should be registered immediately.
     func setup(defaultNotify: Bool) async {
-        trackServicesUpdates() // enable observation tracking for peripheral.services
+        trackServicesUpdates() // enable observation tracking for peripheral.services and characteristic properties
 
         if let instance = self as? DecodableCharacteristic { // Value is ByteDecodable!
             // handle assigning the initial value!
@@ -130,6 +130,7 @@ actor CharacteristicPeripheralAssociation<Value> {
     }
 
     private nonisolated func trackServicesUpdates() {
+        print("Enabled characteristic tracking for \(characteristicId)") // TODO: remove
         withObservationTracking {
             _ = peripheral.getCharacteristic(id: characteristicId, on: serviceId)
         } onChange: { [weak self] in
@@ -143,10 +144,14 @@ actor CharacteristicPeripheralAssociation<Value> {
     private func handleServicesChange() {
         let characteristic = peripheral.getCharacteristic(id: characteristicId, on: serviceId)
 
+        print("Setting characteristic to \(characteristic)") // TODO: remove
         characteristicBox.value = characteristic
 
         if characteristic == nil { // device disconnected, remove the value
             valueBox.value = nil
+        } else {
+            handleNotification(char)
+            // TODO: update value?
         }
     }
 
