@@ -57,4 +57,14 @@ extension Data {
         }
         self.init(bytes)
     }
+
+    
+    /// Create hex string from Data.
+    /// - Returns: The hex formatted data string
+    @_spi(TestingSupport)
+    public func hexString() -> String {
+        map { character in
+            String(format: "%02hhx", character)
+        }.joined()
+    }
 }

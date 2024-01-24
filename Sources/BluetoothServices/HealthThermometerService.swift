@@ -41,10 +41,5 @@ public class HealthThermometerService: BluetoothService {
     public var measurementInterval: MeasurementInterval?
 
 
-    public init() {
-        $temperatureMeasurement.onChange { measurement in
-            self
-            // TODO: asdf
-        }
-    }
+    public init() {}
 }
