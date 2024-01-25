@@ -28,7 +28,7 @@ final class PeripheralStateContainer {
     var requestedCharacteristics: [CBUUID: Set<CharacteristicDescription>?]? // swiftlint:disable:this discouraged_optional_collection
 
     init(name: String?, rssi: Int, advertisementData: AdvertisementData, state: CBPeripheralState, lastActivity: Date = .now) {
-        self.name = name
+        self.name = advertisementData.localName ?? name
         self.advertisementData = advertisementData
         self.rssi = rssi
         self.state = .init(from: state)

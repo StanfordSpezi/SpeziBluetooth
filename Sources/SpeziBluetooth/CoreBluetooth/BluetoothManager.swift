@@ -503,7 +503,7 @@ extension BluetoothManager {
         /// The minimum rssi of a peripheral to consider it for discovery.
         public static let defaultMinimumRSSI = -80
         /// The default time in seconds after which we check for auto connectable devices after the initial advertisement.
-        public static let defaultAutoConnectDebounce: Int = 2
+        public static let defaultAutoConnectDebounce: Int = 1
     }
 }
 

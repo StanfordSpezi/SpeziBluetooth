@@ -260,8 +260,13 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
         self.stateContainer.lastActivity = .now // fine to be non-isolated. We always just write the latest data
 
         // this could be a problem to be non-isolated, however, we know this will always come from the Bluetooth queue that is serial.
+        if stateContainer.name != advertisementData.localName {
+            stateContainer.name = advertisementData.localName
+        }
         stateContainer.advertisementData = advertisement
-        stateContainer.rssi = rssi
+        if stateContainer.rssi != rssi {
+            stateContainer.rssi = rssi
+        }
     }
 
     /// Determines if the device is considered stale.
