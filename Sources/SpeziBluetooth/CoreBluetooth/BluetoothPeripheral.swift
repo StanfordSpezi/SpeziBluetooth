@@ -498,8 +498,6 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
     }
 
     private nonisolated func didDiscoverCharacteristics(for service: CBService) {
-        assert(manager?.isRunningWithinQueue ?? true, "\(#function) was run outside the bluetooth queue. This introduces data races.")
-
         guard let gattService = getService(id: service.uuid) else {
             return
         }
@@ -508,8 +506,6 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
     }
 
     private nonisolated func propagateChanges(for characteristic: CBCharacteristic) {
-        assert(manager?.isRunningWithinQueue ?? true, "\(#function) was run outside the bluetooth queue. This introduces data races.")
-
         guard let service = characteristic.service,
               let gattCharacteristic = getCharacteristic(id: characteristic.uuid, on: service.uuid) else {
             return

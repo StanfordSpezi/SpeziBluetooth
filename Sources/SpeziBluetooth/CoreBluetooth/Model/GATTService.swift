@@ -32,7 +32,6 @@ public class GATTService {
     init(service: CBService) {
         self.underlyingService = service
         self.characteristics = []
-        self.trackedCharacteristics = []
 
         didDiscoverCharacteristics()
     }

@@ -177,7 +177,7 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
 
     @_documentation(visibility: internal)
     public var hasConnectedDevices: Bool {
-        connectedDevicesModel.hasConnectedDevices
+        bluetoothManager.hasConnectedDevices // this might not be a `BluetoothDevice` though
     }
 
 

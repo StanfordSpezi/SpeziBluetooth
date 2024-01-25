@@ -111,16 +111,20 @@ public class BluetoothManager {
 
     /// Checks and determines the device candidate for auto-connect.
     ///
-    /// Checks if there is exactly one, disconnected peripheral that can be used for the auto-connect feature.
+    /// This will deliver a matching candidate with the lowest RSSI if we don't have a device already connected,
+    /// and there wasn't a device manually disconnected.
     private var autoConnectDeviceCandidate: BluetoothPeripheral? {
-        guard discoveredPeripherals.count == 1,
-              let firstDevice = discoveredPeripherals.values.first,
-              firstDevice.state == .disconnected,
-              firstDevice.id != lastManuallyDisconnectedDevice else {
+        guard lastManuallyDisconnectedDevice == nil && !hasConnectedDevices else {
             return nil
         }
 
-        return firstDevice
+        let sortedCandidates = discoveredPeripherals.values
+            .filter { $0.state == .disconnected }
+            .sorted { lhs, rhs in
+                lhs.rssi < rhs.rssi
+            }
+
+        return sortedCandidates.first
     }
 
     /// The list of nearby bluetooth devices.
@@ -334,7 +338,10 @@ public class BluetoothManager {
         logger.debug("Disconnecting peripheral \(peripheral.cbPeripheral.debugIdentifier) ...")
         // stale timer is handled in the delegate method
         centralManager.cancelPeripheralConnection(peripheral.cbPeripheral)
-        lastManuallyDisconnectedDevice = peripheral.id
+
+        dispatchQueue.async {
+            self.lastManuallyDisconnectedDevice = peripheral.id
+        }
     }
 
     func findDeviceDescription(for advertisementData: AdvertisementData) -> DeviceDescription? {
@@ -480,7 +487,9 @@ extension BluetoothManager: KVOReceiver {
 extension BluetoothManager: BluetoothScanner {
     @_documentation(visibility: internal)
     public var hasConnectedDevices: Bool {
-        !discoveredPeripherals.isEmpty
+        discoveredPeripherals.values.contains { peripheral in
+            peripheral.state != .disconnected
+        }
     }
 }
 
