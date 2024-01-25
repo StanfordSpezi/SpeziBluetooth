@@ -37,6 +37,9 @@ import Foundation
 /// If your characteristic supports notifications, you can automatically subscribe to characteristic notifications
 /// by supplying the `notify` initializer argument.
 ///
+/// - Tip: If you want to react to every change of the characteristic value, you can use
+///     ``CharacteristicAccessors/onChange(perform:)`` to set up your action.
+///
 /// The below code example uses the [Bluetooth Heart Rate Service](https://www.bluetooth.com/specifications/specs/heart-rate-service-1-0)
 /// to demonstrate the automatic notifications feature for the Heart Rate Measurement characteristic.
 ///
@@ -45,7 +48,16 @@ import Foundation
 ///     @Characteristic(id: "2A37", notify: true)
 ///     var heartRateMeasurement: HeartRateMeasurement?
 ///
-///     init() {}
+///     init() {
+///         $heartRateMeasurement.onChange(perform: processMeasurement)
+///     }
+///
+///     func processMeasurement(_ measurement: HeartRateMeasurement) {
+///         // make sure not to block the bluetooth task with heavy operations.
+///         Task {
+///             // process measurements ...
+///         }
+///     }
 /// }
 /// ```
 ///
@@ -128,73 +140,77 @@ import Foundation
 /// - ``wrappedValue``
 /// - ``projectedValue``
 /// - ``CharacteristicAccessors``
-@Observable
 @propertyWrapper
 public class Characteristic<Value> {
-    class Information {
+    class Configuration {
         let id: CBUUID
         let discoverDescriptors: Bool
 
-        var defaultValue: Value?
         var defaultNotify: Bool
 
-        init(id: CBUUID, discoverDescriptors: Bool, defaultValue: Value?, defaultNotify: Bool) {
+        init(id: CBUUID, discoverDescriptors: Bool, defaultNotify: Bool) {
             self.id = id
             self.discoverDescriptors = discoverDescriptors
-            self.defaultValue = defaultValue
             self.defaultNotify = defaultNotify
         }
     }
 
-    private let information: Information
+    @Observable
+    class ValueBox {
+        var value: Value?
+
+        init(_ value: Value?) {
+            self.value = value
+        }
+    }
+
+    private let configuration: Configuration
+    private let valueBox: ValueBox
+    private var association: CharacteristicPeripheralAssociation<Value>?
 
     var description: CharacteristicDescription {
-        CharacteristicDescription(id: information.id, discoverDescriptors: information.discoverDescriptors)
+        CharacteristicDescription(id: configuration.id, discoverDescriptors: configuration.discoverDescriptors)
     }
 
     /// Access the current characteristic value.
     ///
     /// This is either the last read value or the latest notified value.
     public var wrappedValue: Value? {
-        guard let association else {
-            return information.defaultValue
-        }
-        return association.value
+        valueBox.value
     }
 
     /// Retrieve a temporary accessors instance.
     public var projectedValue: CharacteristicAccessors<Value> {
-        CharacteristicAccessors(information: information, context: association)
+        CharacteristicAccessors(configuration: configuration, association: association)
     }
-
-    private var association: CharacteristicPeripheralAssociation<Value>?
 
     fileprivate init(wrappedValue: Value? = nil, characteristic: CBUUID, notify: Bool, discoverDescriptors: Bool = false) {
         // swiftlint:disable:previous function_default_parameter_at_end
-        self.information = .init(id: characteristic, discoverDescriptors: discoverDescriptors, defaultValue: wrappedValue, defaultNotify: notify)
+        self.configuration = .init(id: characteristic, discoverDescriptors: discoverDescriptors, defaultNotify: notify)
+        self.valueBox = ValueBox(wrappedValue)
     }
 
 
     @MainActor
     func inject(peripheral: BluetoothPeripheral, serviceId: CBUUID, service: GATTService?) {
-        let characteristic = service?.getCharacteristic(id: information.id)
+        let characteristic = service?.getCharacteristic(id: configuration.id)
 
         // Any potential onChange closure registration that happened within the initializer. Forward them to the association
-        let notificationClosure = NotificationRegistrar.instance?.retrieve(for: information)
+        let notificationClosure = NotificationRegistrar.instance?.retrieve(for: configuration)
 
-        let context = CharacteristicPeripheralAssociation<Value>(
+        let association = CharacteristicPeripheralAssociation<Value>(
             peripheral: peripheral,
             serviceId: serviceId,
-            characteristicId: information.id,
+            characteristicId: configuration.id,
+            valueBox: valueBox,
             characteristic: characteristic,
             notificationClosure: notificationClosure
         )
 
-        self.association = context
-        self.information.defaultValue = nil
+        self.association = association
 
         Task {
-            await context.setup(defaultNotify: information.defaultNotify)
+            await association.setup(defaultNotify: configuration.defaultNotify)
         }
     }
 

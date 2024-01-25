@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
+import BluetoothServices
 import Foundation
 import SpeziBluetooth
 
@@ -35,6 +36,9 @@ class TestDevice: BluetoothDevice, Identifiable, SomePeripheral { // TODO: Gener
     var connect
     @DeviceAction(\.disconnect)
     var disconnect
+
+    @Service(id: .deviceInformationService)
+    var deviceInformation = DeviceInformationService()
 
     required init() {}
 

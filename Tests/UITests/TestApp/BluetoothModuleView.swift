@@ -39,6 +39,20 @@ struct BluetoothModuleView: View {
                 Section {
                     Text("Device State: \(device.state.description)")
                     Text("RSSI: \(device.rssi)")
+                    if let serialNumber = device.deviceInformation.serialNumber {
+                        Text("Serial Number: \(serialNumber)")
+                    }
+                    Button("Query Device Info") {
+                        Task {
+                            print("Querying ...")
+                            do {
+                                let value = try await device.deviceInformation.$serialNumber.read()
+                                print("Serial number is \(value)")
+                            } catch {
+                                print("Failed with: \(error)")
+                            }
+                        }
+                    }
                 }
             }
         }

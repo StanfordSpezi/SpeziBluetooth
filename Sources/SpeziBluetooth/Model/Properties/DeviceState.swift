@@ -64,6 +64,9 @@ public class DeviceState<Value> {
     }
 
 
+    // TODO: support onChange handlers?
+
+
     /// Provide a `KeyPath` to the device state you want to access.
     /// - Parameter keyPath: The `KeyPath` to a property of the underlying ``BluetoothPeripheral`` instance.
     public init(_ keyPath: KeyPath<BluetoothPeripheral, Value>) {

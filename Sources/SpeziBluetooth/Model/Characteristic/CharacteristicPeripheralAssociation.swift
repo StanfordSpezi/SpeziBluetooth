@@ -9,43 +9,43 @@
 import CoreBluetooth
 
 
-/// Indirect storage box to support a write-only lock with eventual consistent reads.
-class OptionalBox<Value> {
-    fileprivate(set) var value: Value?
-
-    init(value: Value?) {
-        self.value = value
-    }
+private protocol DecodableCharacteristic {
+    func handleUpdateValueAssumingIsolation(_ data: Data?)
 }
 
 
-private protocol DecodableCharacteristic {
-    func handleUpdateValueAssumingIsolation(_ data: Data?)
+@Observable
+private class NonIsolatedState<Value> {
+    weak var characteristic: GATTCharacteristic?
+
+    /// The user supplied notification closure we use to forward notifications.
+    var notificationClosure: ((Value) -> Void)?
+    /// The registration object we received from the ``BluetoothPeripheral`` for our onChange handler.
+    var registration: OnChangeRegistration?
+
+
+    init(characteristic: GATTCharacteristic?, notificationClosure: ((Value) -> Void)?) {
+        self.characteristic = characteristic
+        self.notificationClosure = notificationClosure
+    }
 }
 
 
 /// Captures and synchronizes access to the state of a ``Characteristic`` property wrapper.
 actor CharacteristicPeripheralAssociation<Value> {
     let peripheral: BluetoothPeripheral
-    let characteristicId: CBUUID
     let serviceId: CBUUID
+    let characteristicId: CBUUID
+    let valueBox: Characteristic<Value>.ValueBox
 
-    private let characteristicBox: OptionalBox<GATTCharacteristic> // TODO store the characteristic weak!
-    private let valueBox: OptionalBox<Value>
+    private let state: NonIsolatedState<Value>
 
     /// This flag controls if we are supposed to be subscribed to characteristic notifications.
     private var notify = false
-    /// The registration object we received from the ``BluetoothPeripheral`` for our notification handler.
-    private var registration: CharacteristicNotification?
-    /// The user supplied notification closure we use to forward notifications.
-    private let notificationClosure: OptionalBox<(Value) -> Void>
 
-    nonisolated var characteristic: GATTCharacteristic? { // nil if device is not connected or characteristic not discovered yet
-        characteristicBox.value
-    }
-
-    nonisolated var value: Value? {
-        valueBox.value
+    /// `nil` if device is not connected or characteristic not discovered yet/
+    nonisolated var characteristic: GATTCharacteristic? {
+        state.characteristic
     }
 
 
@@ -53,15 +53,15 @@ actor CharacteristicPeripheralAssociation<Value> {
         peripheral: BluetoothPeripheral,
         serviceId: CBUUID,
         characteristicId: CBUUID,
+        valueBox: Characteristic<Value>.ValueBox,
         characteristic: GATTCharacteristic?,
         notificationClosure: ((Value) -> Void)?
     ) {
         self.peripheral = peripheral
         self.serviceId = serviceId
         self.characteristicId = characteristicId
-        self.characteristicBox = OptionalBox(value: characteristic)
-        self.valueBox = OptionalBox(value: nil)
-        self.notificationClosure = OptionalBox(value: notificationClosure)
+        self.valueBox = valueBox
+        self.state = NonIsolatedState(characteristic: characteristic, notificationClosure: notificationClosure)
     }
 
     /// Setup the association. Must be called after initialization to set up all handlers and write the initial value.
@@ -69,96 +69,86 @@ actor CharacteristicPeripheralAssociation<Value> {
     func setup(defaultNotify: Bool) async {
         trackServicesUpdates() // enable observation tracking for peripheral.services and characteristic properties
 
-        if let instance = self as? DecodableCharacteristic { // Value is ByteDecodable!
-            // handle assigning the initial value!
-            if let characteristic,
-               let value = characteristic.value {
-                instance.handleUpdateValueAssumingIsolation(value)
-            }
+        guard let instance = self as? DecodableCharacteristic else {
+            return
+        }
+        // value is readable!
 
-            if defaultNotify {
-                await enableNotifications()
+        // handle assigning the initial value!
+        if let characteristic,
+           let value = characteristic.value {
+            instance.handleUpdateValueAssumingIsolation(value)
+        }
+
+        // register onChange handler
+        self.state.registration = await peripheral.registerOnChangeHandler(service: serviceId, characteristic: characteristicId) { [weak self] data in
+            Task { [weak self] in
+                await self?.handleUpdatedValue(data)
             }
+        }
+
+        if defaultNotify {
+            await enableNotifications()
         }
     }
 
-    nonisolated func clearState() { // signal from the Bluetooth state to cleanup the device
-        self.notificationClosure.value = nil // might contain a self reference!
+    /// Signal from the Bluetooth state to cleanup the device
+    nonisolated func clearState() {
+        self.state.registration?.cancel()
+        self.state.registration = nil
+        self.state.notificationClosure = nil // might contain a self reference, so we need to clear that!
     }
 
     nonisolated func setNotificationClosure(_ closure: ((Value) -> Void)?) {
-        self.notificationClosure.value = closure
+        self.state.notificationClosure = closure
     }
 
-    /// Enable notifications (if not already) for the characteristic.
-    func enableNotifications() async {
-        guard !notify else {
+    /// Enable or disable notifications (if not already) for the characteristic.
+    /// - Parameter enabled: Flag indicating if notifications should be enabled.
+    func enableNotifications(_ enabled: Bool = true) async {
+        guard notify != enabled else {
             return
         }
 
-        self.notify = true
-
-        let registration = await peripheral
-            .registerNotifications(service: serviceId, characteristic: characteristicId) { [weak self] data in
-                Task { [weak self] in
-                    await self?.handleNotification(data)
-                }
-            }
-
-        // we have a suspension point above, so we need to double check that our `notify` property is still true to catch any race conditions
-
-        if notify {
-            self.registration = registration
-        } else {
-            // notifications were disabled in the meantime. Remove our registration again.
-            await registration.cancel()
-        }
-    }
-
-    /// Disable notifications (if not already) for the characteristic.
-    func disableNotifications() async {
-        guard notify else {
-            return
-        }
-
-        let registration = self.registration
-
-        self.notify = false
-        self.registration = nil
-
-        await registration?.cancel()
+        self.notify = enabled
+        await peripheral.enableNotifications(enabled, serviceId: serviceId, characteristicId: characteristicId)
     }
 
     private nonisolated func trackServicesUpdates() {
-        print("Enabled characteristic tracking for \(characteristicId)") // TODO: remove
         withObservationTracking {
             _ = peripheral.getCharacteristic(id: characteristicId, on: serviceId)
         } onChange: { [weak self] in
             Task { [weak self] in
+                // we need to wait before registering, such that we register `.characteristic` property once the service becomes present
+                self?.trackServicesUpdates()
                 await self?.handleServicesChange()
             }
-            self?.trackServicesUpdates()
         }
     }
 
     private func handleServicesChange() {
         let characteristic = peripheral.getCharacteristic(id: characteristicId, on: serviceId)
 
-        print("Setting characteristic to \(characteristic)") // TODO: remove
-        characteristicBox.value = characteristic
+        let associationChanged = (state.characteristic == nil) == (characteristic == nil)
+        state.characteristic = characteristic
 
-        if characteristic == nil { // device disconnected, remove the value
-            valueBox.value = nil
-        } else {
-            // TODO: update value?
+        if associationChanged {
+            if let characteristic {
+                // TODO: might also wanna update the value if the instance changed?
+                handleUpdatedValue(characteristic.value)
+            } else {
+                // we must make sure to not override the default value is one is present
+                valueBox.value = nil
+            }
         }
     }
 
-    private func handleNotification(_ data: Data?) {
+    private func handleUpdatedValue(_ data: Data?) {
         guard let decodable = self as? DecodableCharacteristic else {
             return
         }
 
+        // TODO: are we saving the written value?
         decodable.handleUpdateValueAssumingIsolation(data)
     }
 }
@@ -174,7 +164,7 @@ extension CharacteristicPeripheralAssociation: DecodableCharacteristic where Val
             }
 
             self.valueBox.value = value
-            if let handler = notificationClosure.value {
+            if let handler = state.notificationClosure {
                 handler(value)
             }
         } else {

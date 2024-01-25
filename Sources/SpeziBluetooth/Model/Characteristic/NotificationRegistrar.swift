@@ -19,16 +19,16 @@ final class NotificationRegistrar {
     @TaskLocal static var instance: NotificationRegistrar?
 
 
-    private var registrations: [ObjectIdentifier: Any] = [:] // TODO: figure out the type!
+    private var registrations: [ObjectIdentifier: Any] = [:]
 
     init() {}
 
-    func insert<Value>(for information: Characteristic<Value>.Information, closure: @escaping (Value) -> Void) {
-        registrations[information.objectId] = Entry(closure: closure)
+    func insert<Value>(for configuration: Characteristic<Value>.Configuration, closure: @escaping (Value) -> Void) {
+        registrations[configuration.objectId] = Entry(closure: closure)
     }
 
-    func retrieve<Value>(for information: Characteristic<Value>.Information) -> ((Value) -> Void)? {
-        guard let optionalEntry = registrations[information.objectId],
+    func retrieve<Value>(for configuration: Characteristic<Value>.Configuration) -> ((Value) -> Void)? {
+        guard let optionalEntry = registrations[configuration.objectId],
               let entry = optionalEntry as? Entry<Value> else {
             return nil
         }
@@ -37,7 +37,7 @@ final class NotificationRegistrar {
 }
 
 
-extension Characteristic.Information {
+extension Characteristic.Configuration {
     /// Memory address as an identifier for this Characteristic instance.
     fileprivate var objectId: ObjectIdentifier {
         ObjectIdentifier(self)

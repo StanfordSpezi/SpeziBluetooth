@@ -24,7 +24,11 @@ import OSLog
 /// - ``state``
 /// - ``rssi``
 /// - ``advertisementData``
+///
+/// ### Accessing Services
 /// - ``services``
+/// - ``getService(id:)``
+/// - ``getCharacteristic(id:on:)``
 ///
 /// ### Managing Connection
 /// - ``connect()``
@@ -37,15 +41,15 @@ import OSLog
 /// - ``write(data:for:)``
 /// - ``writeWithoutResponse(data:for:)``
 ///
-/// ### Notifications
-/// - ``registerNotifications(service:characteristic:_:)``
-/// - ``registerNotifications(for:_:)``
-/// - ``CharacteristicNotification``
-/// - ``BluetoothNotificationHandler``
+/// ### Notifications and handling changes
+/// - ``enableNotifications(_:serviceId:characteristicId:)``
+/// - ``registerOnChangeHandler(service:characteristic:_:)``
+/// - ``registerOnChangeHandler(for:_:)``
+/// - ``OnChangeRegistration``
 ///
 /// ### Retrieving the latest signal strength
 /// - ``readRSSI()``
-public actor BluetoothPeripheral {
+public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothDevice")
 
     private weak var manager: BluetoothManager?
@@ -61,7 +65,10 @@ public actor BluetoothPeripheral {
     /// Continuation for a currently ongoing rssi read access.
     private var rssiReadAccess: [CheckedContinuation<Int, Error>] = []
 
-    private var notificationHandlers: [CharacteristicLocator: [UUID: BluetoothNotificationHandler]] = [:]
+    /// On-change handler registrations for all characteristics.
+    private var onChangeHandlers: [CharacteristicLocator: [UUID: (Data) -> Void]] = [:]
+    /// The list of characteristics that are requested to enable notifications.
+    private var notifyRequested: Set<CharacteristicLocator> = []
 
     /// Observable state container for local state.
     private let stateContainer: PeripheralStateContainer
@@ -163,12 +170,20 @@ public actor BluetoothPeripheral {
         manager.disconnect(peripheral: self)
     }
 
+    /// Retrieve a service.
+    /// - Parameter id: The Bluetooth service id.
+    /// - Returns: The service instance if present.
     public nonisolated func getService(id: CBUUID) -> GATTService? {
         services?.first { service in
             service.uuid == id
         }
     }
 
+    /// Retrieve a characteristic.
+    /// - Parameters:
+    ///   - characteristicId: The Bluetooth characteristic id.
+    ///   - serviceId: The Bluetooth service id.
+    /// - Returns: The characteristic instance if present.
     public nonisolated func getCharacteristic(id characteristicId: CBUUID, on serviceId: CBUUID) -> GATTCharacteristic? {
         getService(id: serviceId)?.getCharacteristic(id: characteristicId)
     }
@@ -259,67 +274,80 @@ public actor BluetoothPeripheral {
         state == .disconnected && lastActivity.addingTimeInterval(interval) < .now
     }
 
-    /// Register a notification handler for a characteristic.
+    /// Register a on-change handler for a characteristic.
     ///
-    /// This method registers a notification handler for the provided characteristic.
+    /// This method registers a on-change handler for the provided characteristic.
     ///
     /// - Note: Make sure that you don't create a retain cycle if the provided closure captures `self`.
     ///
     /// - Parameters:
     ///   - characteristic: The characteristic to register notifications for.
-    ///   - handler: The notification handler.
-    /// - @Returns: Returns the ``CharacteristicNotification`` that can be used to cancel and deregister the notification handler.
-    public func registerNotifications(
+    ///   - onChange: The on-change handler.
+    /// - @Returns: Returns the ``OnChangeRegistration`` that can be used to cancel and deregister the on-change handler.
+    public func registerOnChangeHandler(
         for characteristic: GATTCharacteristic,
-        _ handler: @escaping BluetoothNotificationHandler
-    ) throws -> CharacteristicNotification {
+        _ onChange: @escaping (Data) -> Void
+    ) throws -> OnChangeRegistration {
         guard let service = characteristic.service else {
             throw BluetoothError.notPresent
         }
 
-        return registerNotifications(service: service.uuid, characteristic: characteristic.uuid, handler)
+        return registerOnChangeHandler(service: service.uuid, characteristic: characteristic.uuid, onChange)
     }
 
-    /// Register a notification handler for a characteristic.
+    /// Register a on-change handler for a characteristic.
     ///
-    /// This method registers a notification handler for the provide service and characteristic id.
-    ///
-    /// - Tip: It is not required that the device is connected. Notifications will be automatically enabled for the
-    /// respective characteristic upon device discovery.
+    /// This method registers a on-change handler for the provide service and characteristic id.
     ///
     /// - Note: Make sure that you don't create a retain cycle if the provided closure captures `self`.
     ///
     /// - Parameters:
     ///   - service: The service uuid.
     ///   - characteristic: The characteristic uuid.
-    ///   - handler: The notification handler.
-    /// - @Returns: Returns the ``CharacteristicNotification`` that can be used to cancel and deregister the notification handler.
-    public func registerNotifications(
+    ///   - onChange: The on-change handler.
+    /// - @Returns: Returns the ``OnChangeRegistration`` that can be used to cancel and deregister the on-change handler.
+    public func registerOnChangeHandler(
         service: CBUUID,
         characteristic: CBUUID,
-        _ handler: @escaping BluetoothNotificationHandler
-    ) -> CharacteristicNotification {
+        _ onChange: @escaping (Data) -> Void
+    ) -> OnChangeRegistration {
         let locator = CharacteristicLocator(serviceId: service, characteristicId: characteristic)
-        let id = UUID() // notification handler id, used internally
+        let id = UUID() // on-change handler id, used internally
 
-        notificationHandlers[locator, default: [:]]
-            .updateValue(handler, forKey: id)
+        onChangeHandlers[locator, default: [:]]
+            .updateValue(onChange, forKey: id)
 
+        return OnChangeRegistration(peripheral: self, locator: locator, handlerId: id)
+    }
+
+    /// Enable or disable notifications for a given characteristic.
+    ///
+    /// - Tip: It is not required that the device is connected. Notifications will be automatically enabled for the
+    /// respective characteristic upon device discovery.
+    ///
+    /// - Parameters:
+    ///   - enabled: Enable or disable notifications.
+    ///   - serviceId: The service the characteristic lives on.
+    ///   - characteristicId: The characteristic to notify about.
+    public func enableNotifications(_ enabled: Bool = true, serviceId: CBUUID, characteristicId: CBUUID) {
+        // swiftlint:disable:previous function_default_parameter_at_end
+        let id = CharacteristicLocator(serviceId: serviceId, characteristicId: characteristicId)
+        if enabled {
+            notifyRequested.insert(id)
+        } else {
+            notifyRequested.remove(id)
+        }
 
         // if setting notify doesn't work here, we do it upon discovery of the characteristics
-        trySettingNotifyValue(true, serviceId: service, characteristicId: characteristic)
-
-        return CharacteristicNotification(peripheral: self, locator: locator, handlerId: id)
+        trySettingNotifyValue(enabled, serviceId: serviceId, characteristicId: characteristicId)
     }
 
-    func deregisterNotification(_ notification: CharacteristicNotification) {
-        deregisterNotification(locator: notification.locator, handlerId: notification.handlerId)
+    func deregisterOnChange(_ registration: OnChangeRegistration) {
+        deregisterOnChange(locator: registration.locator, handlerId: registration.handlerId)
     }
 
-    func deregisterNotification(locator: CharacteristicLocator, handlerId: UUID) {
-        notificationHandlers[locator]?.removeValue(forKey: handlerId)
-
-        trySettingNotifyValue(false, serviceId: locator.serviceId, characteristicId: locator.characteristicId)
+    func deregisterOnChange(locator: CharacteristicLocator, handlerId: UUID) {
+        onChangeHandlers[locator]?.removeValue(forKey: handlerId)
     }
 
     private func trySettingNotifyValue(_ notify: Bool, serviceId: CBUUID, characteristicId: CBUUID) {
@@ -469,15 +497,19 @@ public actor BluetoothPeripheral {
         }
     }
 
-    private func propagateChanges(for service: CBService) {
+    private nonisolated func didDiscoverCharacteristics(for service: CBService) {
+        assert(manager?.isRunningWithinQueue ?? true, "\(#function) was run outside the bluetooth queue. This introduces data races.")
+
         guard let gattService = getService(id: service.uuid) else {
             return
         }
 
-        gattService.updateCharacteristics()
+        gattService.didDiscoverCharacteristics()
     }
 
-    private func propagateChanges(for characteristic: CBCharacteristic) {
+    private nonisolated func propagateChanges(for characteristic: CBCharacteristic) {
+        assert(manager?.isRunningWithinQueue ?? true, "\(#function) was run outside the bluetooth queue. This introduces data races.")
+
         guard let service = characteristic.service,
               let gattCharacteristic = getCharacteristic(id: characteristic.uuid, on: service.uuid) else {
             return
@@ -532,18 +564,15 @@ extension BluetoothPeripheral {
     }
 
     fileprivate func discovered(characteristics: [CBCharacteristic], for service: CBService) {
-        propagateChanges(for: service)
-
         // automatically subscribe to discovered characteristics for which we have a handler subscribed!
         for characteristic in characteristics {
-            // TODO: how about the encryption required stuff?
             guard characteristic.properties.contains(.notify) || characteristic.properties.contains(.indicate) else {
                 continue
             }
 
             let locator = CharacteristicLocator(serviceId: service.uuid, characteristicId: characteristic.uuid)
 
-            if notificationHandlers[locator] != nil {
+            if notifyRequested.contains(locator) {
                 peripheral.setNotifyValue(true, for: characteristic)
             }
         }
@@ -573,9 +602,6 @@ extension BluetoothPeripheral {
     }
 
     fileprivate func receivedUpdatedValue(for characteristic: CBCharacteristic, result: Result<Data, Error>) async {
-        // make sure value is propagated beforehand
-        propagateChanges(for: characteristic)
-
         if case let .read(continuations, queued) = ongoingAccesses[characteristic] {
             ongoingAccesses[characteristic] = nil
             
@@ -600,8 +626,8 @@ extension BluetoothPeripheral {
 
             let locator = CharacteristicLocator(serviceId: service.uuid, characteristicId: characteristic.uuid)
 
-            for handler in notificationHandlers[locator, default: [:]].values {
-                await handler(data)
+            for handler in onChangeHandlers[locator, default: [:]].values {
+                handler(data)
             }
         case let .failure(error):
             logger.debug("Received unsolicited value update error for \(characteristic.debugIdentifier): \(error)")
@@ -737,6 +763,8 @@ extension BluetoothPeripheral {
 
             logger.debug("Discovered \(characteristics.count) characteristic(s) for service \(service.uuid)")
 
+            device.didDiscoverCharacteristics(for: service)
+
             Task {
                 await device.discovered(characteristics: characteristics, for: service)
             }
@@ -748,12 +776,13 @@ extension BluetoothPeripheral {
             }
 
             logger.debug("Discovered descriptors for characteristic \(characteristic.debugIdentifier): \(descriptors)")
-            Task {
-                await device.propagateChanges(for: characteristic)
-            }
+            device.propagateChanges(for: characteristic)
         }
 
         func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
+            // make sure value is propagated beforehand
+            device.propagateChanges(for: characteristic)
+
             Task {
                 if let error {
                     await device.receivedUpdatedValue(for: characteristic, result: .failure(error))
@@ -777,7 +806,7 @@ extension BluetoothPeripheral {
 
         func peripheralIsReady(toSendWriteWithoutResponse peripheral: CBPeripheral) {
             Task {
-                await device.receivedReadyNotification() // TODO: for which characteristic?
+                await device.receivedReadyNotification() // TODO: again, does this change the .value property
             }
         }
 
@@ -787,9 +816,7 @@ extension BluetoothPeripheral {
                 return
             }
 
-            Task {
-                await device.propagateChanges(for: characteristic)
-            }
+            device.propagateChanges(for: characteristic)
 
 
             if characteristic.isNotifying {

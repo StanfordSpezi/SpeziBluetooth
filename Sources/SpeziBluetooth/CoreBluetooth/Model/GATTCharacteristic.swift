@@ -10,11 +10,12 @@ import CoreBluetooth
 import Foundation
 
 
+/// A Bluetooth characteristic of a service.
 @Observable
 public class GATTCharacteristic {
-    // TODO: service back pointer?
     let underlyingCharacteristic: CBCharacteristic
 
+    /// The associated service if still available.
     public private(set) weak var service: GATTService?
 
     /// Whether the characteristic is currently notifying or not.
@@ -22,12 +23,14 @@ public class GATTCharacteristic {
     /// The value of the characteristic.
     public private(set) var value: Data?
     /// A list of the descriptors that have so far been discovered in this characteristic.
-    public private(set) var descriptors: [CBDescriptor]? // TODO: map this to a type!
+    public private(set) var descriptors: [CBDescriptor]? // swiftlint:disable:this discouraged_optional_collection
 
+    /// The Bluetooth UUID of the characteristic.
     public var uuid: CBUUID {
         underlyingCharacteristic.uuid
     }
 
+    /// The properties of the characteristic.
     public var properties: CBCharacteristicProperties {
         underlyingCharacteristic.properties
     }
@@ -48,7 +51,9 @@ public class GATTCharacteristic {
         if underlyingCharacteristic.value != value {
             value = underlyingCharacteristic.value
         }
-        // TODO: think about descriptors
+        if underlyingCharacteristic.descriptors != descriptors {
+            descriptors = underlyingCharacteristic.descriptors
+        }
     }
 }
 
@@ -56,5 +61,16 @@ public class GATTCharacteristic {
 extension GATTCharacteristic: CustomDebugStringConvertible {
     public var debugDescription: String {
         underlyingCharacteristic.debugIdentifier
+    }
+}
+
+
+extension GATTCharacteristic: Hashable {
+    public static func == (lhs: GATTCharacteristic, rhs: GATTCharacteristic) -> Bool {
+        lhs.underlyingCharacteristic == rhs.underlyingCharacteristic
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(underlyingCharacteristic)
     }
 }

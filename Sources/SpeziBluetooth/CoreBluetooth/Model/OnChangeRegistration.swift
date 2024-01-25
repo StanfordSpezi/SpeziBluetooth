@@ -9,13 +9,13 @@
 import Foundation
 
 
-/// An active registration of a notification handler.
+/// An active registration of a on-change handler.
 ///
-/// This object represents an active registration of an notification handler. Primarily, this can be used to keep
-/// track of a notification handler and cancel the registration at a later point.
+/// This object represents an active registration of an on-change handler. Primarily, this can be used to keep
+/// track of a on-change handler and cancel the registration at a later point.
 ///
-/// - Tip: The notification handler will be automatically unregistered when this object is deallocated.
-public class CharacteristicNotification {
+/// - Tip: The on-change handler will be automatically unregistered when this object is deallocated.
+public class OnChangeRegistration {
     private weak var peripheral: BluetoothPeripheral?
     let locator: CharacteristicLocator
     let handlerId: UUID
@@ -28,9 +28,11 @@ public class CharacteristicNotification {
     }
 
 
-    /// Cancel the notification handler registration.
-    public func cancel() async {
-        await peripheral?.deregisterNotification(self)
+    /// Cancel the on-change handler registration.
+    public func cancel() {
+        Task {
+            await peripheral?.deregisterOnChange(self)
+        }
     }
 
 
@@ -41,7 +43,7 @@ public class CharacteristicNotification {
         let handlerId = handlerId
 
         Task {
-            await peripheral?.deregisterNotification(locator: locator, handlerId: handlerId)
+            await peripheral?.deregisterOnChange(locator: locator, handlerId: handlerId)
         }
     }
 }

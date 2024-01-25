@@ -148,7 +148,7 @@ public class BluetoothManager {
         return discoveryIds.isEmpty ? nil : discoveryIds
     }
 
-    private var isRunningWithinQueue: Bool {
+    var isRunningWithinQueue: Bool {
         DispatchQueue.getSpecific(key: isRunningBluetoothQueueKey) != nil
     }
 
