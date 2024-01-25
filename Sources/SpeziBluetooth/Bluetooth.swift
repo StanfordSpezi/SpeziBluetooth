@@ -275,7 +275,7 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
             }
 
 
-            NotificationRegistrar.$instance.withValue(NotificationRegistrar()) {
+            ClosureRegistrar.$instance.withValue(ClosureRegistrar()) {
                 let device = configuration.anyDeviceType.init()
                 device.inject(peripheral: peripheral)
                 nearbyDevices[uuid] = device

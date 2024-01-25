@@ -46,8 +46,8 @@ struct BluetoothModuleView: View {
                         Task {
                             print("Querying ...")
                             do {
-                                let value = try await device.deviceInformation.$serialNumber.read()
-                                print("Serial number is \(value)")
+                                try await device.deviceInformation.retrieveDeviceInformation()
+                                print("Successfully retrieved")
                             } catch {
                                 print("Failed with: \(error)")
                             }

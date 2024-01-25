@@ -11,4 +11,6 @@ builder:
   configs:
     - platform: ios
       documentation_targets:
+      - BluetoothServices
       - SpeziBluetooth
+      - XCTBluetooth

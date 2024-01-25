@@ -14,7 +14,6 @@ import CoreBluetooth
 /// This type allows you to interact with a Characteristic you previously declared using the ``Characteristic`` property wrapper.
 ///
 /// ## Topics
-/// // TODO: docs update
 ///
 /// ### Characteristic properties
 /// - ``isPresent``
@@ -31,14 +30,17 @@ import CoreBluetooth
 /// ### Controlling notifications
 /// - ``isNotifying``
 /// - ``enableNotifications(_:)``
+///
+/// ### Get notified about changes
+/// - ``onChange(perform:)``
 public struct CharacteristicAccessors<Value> {
     private let configuration: Characteristic<Value>.Configuration
-    private let association: CharacteristicPeripheralAssociation<Value>?
+    private let injection: CharacteristicPeripheralInjection<Value>?
 
 
-    init(configuration: Characteristic<Value>.Configuration, association: CharacteristicPeripheralAssociation<Value>?) {
+    init(configuration: Characteristic<Value>.Configuration, injection: CharacteristicPeripheralInjection<Value>?) {
         self.configuration = configuration
-        self.association = association
+        self.injection = injection
     }
 }
 
@@ -49,21 +51,21 @@ extension CharacteristicAccessors {
     /// Returns true if the characteristic is available for the current device.
     /// It is true if (a) the device is connected and (b) the device exposes the requested characteristic.
     public var isPresent: Bool {
-        association?.characteristic != nil
+        injection?.characteristic != nil
     }
 
     /// Properties of the characteristic.
     ///
     /// Nil if device is not connected.
     public var properties: CBCharacteristicProperties? {
-        association?.characteristic?.properties
+        injection?.characteristic?.properties
     }
 
     /// Descriptors of the characteristic.
     ///
     /// Nil if device is not connected or descriptors are not yet discovered.
     public var descriptors: [CBDescriptor]? { // swiftlint:disable:this discouraged_optional_collection
-        association?.characteristic?.descriptors
+        injection?.characteristic?.descriptors
     }
 }
 
@@ -73,35 +75,38 @@ extension CharacteristicAccessors where Value: ByteDecodable {
     ///
     /// This is also false if device is not connected.
     public var isNotifying: Bool {
-        association?.characteristic?.isNotifying ?? false
+        injection?.characteristic?.isNotifying ?? false
     }
 
 
     /// Perform action whenever the characteristic value changes.
+    ///
+    /// - Note: It is perfectly fine if you capture strongly self within your closure. The framework will
+    ///     resolve any reference cycles for you.
     /// - Parameter perform: The change handler to register.
     public func onChange(perform: @escaping (Value) -> Void) {
-        guard let association else {
+        guard let injection else {
             // We save the instance in the global registrar if its available.
-            // It will be available if w  e are instantiated through the Bluetooth module.
+            // It will be available if we are instantiated through the Bluetooth module.
             // This indirection is required to support self referencing closures without encountering a strong reference cycle.
-            NotificationRegistrar.instance?.insert(for: configuration, closure: perform)
+            ClosureRegistrar.instance?.insert(for: configuration.objectId, closure: perform)
             return
         }
 
-        association.setNotificationClosure(perform)
+        injection.setOnChangeClosure(perform)
     }
 
 
     /// Enable or disable characteristic notifications.
     /// - Parameter enabled: Flag indicating if notifications should be enabled.
     public func enableNotifications(_ enabled: Bool = true) async {
-        guard let association else {
-            // this will value will be populated to the association once it is set up
+        guard let injection else {
+            // this will value will be populated to the injection once it is set up
             configuration.defaultNotify = enabled
             return
         }
 
-        await association.enableNotifications(enabled)
+        await injection.enableNotifications(enabled)
     }
 
     /// Read the current characteristic value from the remote peripheral.
@@ -110,12 +115,12 @@ extension CharacteristicAccessors where Value: ByteDecodable {
     ///     It might also throw a ``BluetoothError/notPresent`` or ``BluetoothError/incompatibleDataFormat`` error.
     @discardableResult
     public func read() async throws -> Value {
-        guard let association,
-            let characteristic = association.characteristic else {
+        guard let injection,
+            let characteristic = injection.characteristic else {
             throw BluetoothError.notPresent
         }
 
-        let data = try await association.peripheral.read(characteristic: characteristic)
+        let data = try await injection.peripheral.read(characteristic: characteristic)
         guard let value = Value(data: data) else {
             throw BluetoothError.incompatibleDataFormat
         }
@@ -136,13 +141,13 @@ extension CharacteristicAccessors where Value: ByteEncodable {
     /// - Throws: Throws an `CBError` or `CBATTError` if the write fails.
     ///     It might also throw a ``BluetoothError/notPresent`` error.
     public func write(_ value: Value) async throws {
-        guard let association,
-              let characteristic = association.characteristic else {
+        guard let injection,
+              let characteristic = injection.characteristic else {
             throw BluetoothError.notPresent
         }
 
         let requestData = value.encode()
-        try await association.peripheral.write(data: requestData, for: characteristic)
+        try await injection.peripheral.write(data: requestData, for: characteristic)
     }
 
     /// Write the value of a characteristic without expecting a confirmation.
@@ -155,12 +160,12 @@ extension CharacteristicAccessors where Value: ByteEncodable {
     /// - Throws: Throws an `CBError` or `CBATTError` if the write fails.
     ///     It might also throw a ``BluetoothError/notPresent`` error.
     public func writeWithoutResponse(_ value: Value) async throws {
-        guard let association,
-                let characteristic = association.characteristic else {
+        guard let injection,
+                let characteristic = injection.characteristic else {
             throw BluetoothError.notPresent
         }
 
         let data = value.encode()
-        await association.peripheral.writeWithoutResponse(data: data, for: characteristic)
+        await injection.peripheral.writeWithoutResponse(data: data, for: characteristic)
     }
 }

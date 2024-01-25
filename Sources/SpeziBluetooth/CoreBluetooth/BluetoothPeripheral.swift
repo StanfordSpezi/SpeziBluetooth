@@ -83,6 +83,9 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
     }
 
     /// The current signal strength.
+    ///
+    /// This value is automatically updated when the device is advertising.
+    /// Once the device establishes a connection this has to be manually updated.
     public nonisolated var rssi: Int {
         stateContainer.rssi
     }
@@ -260,8 +263,9 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
         self.stateContainer.lastActivity = .now // fine to be non-isolated. We always just write the latest data
 
         // this could be a problem to be non-isolated, however, we know this will always come from the Bluetooth queue that is serial.
-        if stateContainer.name != advertisementData.localName {
-            stateContainer.name = advertisementData.localName
+        if let localName = advertisementData.localName,
+           stateContainer.name != localName {
+            stateContainer.name = localName
         }
         stateContainer.advertisementData = advertisement
         if stateContainer.rssi != rssi {
@@ -794,8 +798,8 @@ extension BluetoothPeripheral {
         }
 
         func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
-            print("Value after write is now \(characteristic.value?.hexString() ?? "nil")") // TODO: remove
             // TODO: does this change the .value property (if not, we should?)
+            print("Value after write is now \(characteristic.value?.hexString() ?? "nil")")
             Task {
                 if let error {
                     await device.receivedWriteResponse(for: characteristic, result: .failure(error))

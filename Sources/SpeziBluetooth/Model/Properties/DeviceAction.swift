@@ -15,7 +15,7 @@
 /// Below is a short code example that demonstrates the usage of the `DeviceAction` property wrapper to
 /// execute the connect and disconnect actions of a device.
 ///
-/// - Note: The `@DeviceAction` property wrapper can only be accessed after the initializer returned. Accessing within the initializer will result in a runtime crash.
+/// - Important: The `@DeviceAction` property wrapper can only be accessed after the initializer returned. Accessing within the initializer will result in a runtime crash.
 ///
 /// ```swift
 /// class ExampleDevice: BluetoothDevice {
@@ -39,13 +39,13 @@
 ///
 /// ## Topics
 ///
+/// ### Declaring a device action
+/// - ``init(_:)``
+///
 /// ### Available Device Actions
 /// - ``DeviceActions/connect``
 /// - ``DeviceActions/disconnect``
 /// - ``DeviceActions/readRSSI``
-///
-/// ### Declaring a device action
-/// - ``init(_:)``
 ///
 /// ### Property wrapper access
 /// - ``wrappedValue``

@@ -11,6 +11,16 @@ import Foundation
 
 
 /// A Bluetooth characteristic of a service.
+///
+/// ## Topics
+///
+/// ### Instance Properties
+/// - ``uuid``
+/// - ``value``
+/// - ``isNotifying``
+/// - ``properties``
+/// - ``descriptors``
+/// - ``service``
 @Observable
 public class GATTCharacteristic {
     let underlyingCharacteristic: CBCharacteristic

@@ -10,36 +10,28 @@ import Foundation
 
 
 /// Tracking notification closure registrations for ``Characteristic`` when peripheral is not available yet.
-final class NotificationRegistrar {
+final class ClosureRegistrar {
     struct Entry<Value> {
         let closure: (Value) -> Void
     }
 
     // task local value ensures nobody is interfering here and resolves thread safety
-    @TaskLocal static var instance: NotificationRegistrar?
+    @TaskLocal static var instance: ClosureRegistrar?
 
 
     private var registrations: [ObjectIdentifier: Any] = [:]
 
     init() {}
 
-    func insert<Value>(for configuration: Characteristic<Value>.Configuration, closure: @escaping (Value) -> Void) {
-        registrations[configuration.objectId] = Entry(closure: closure)
+    func insert<Value>(for object: ObjectIdentifier, closure: @escaping (Value) -> Void) {
+        registrations[object] = Entry(closure: closure)
     }
 
-    func retrieve<Value>(for configuration: Characteristic<Value>.Configuration) -> ((Value) -> Void)? {
-        guard let optionalEntry = registrations[configuration.objectId],
+    func retrieve<Value>(for object: ObjectIdentifier, value: Value.Type = Value.self) -> ((Value) -> Void)? {
+        guard let optionalEntry = registrations[object],
               let entry = optionalEntry as? Entry<Value> else {
             return nil
         }
         return entry.closure
-    }
-}
-
-
-extension Characteristic.Configuration {
-    /// Memory address as an identifier for this Characteristic instance.
-    fileprivate var objectId: ObjectIdentifier {
-        ObjectIdentifier(self)
     }
 }

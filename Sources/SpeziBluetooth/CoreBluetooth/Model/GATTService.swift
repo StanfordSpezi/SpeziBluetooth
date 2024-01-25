@@ -11,6 +11,13 @@ import Foundation
 
 
 /// A Bluetooth service of a device.
+///
+/// ## Topics
+///
+/// ### Instance Properties
+/// - ``uuid``
+/// - ``isPrimary``
+/// - ``characteristics``
 @Observable
 public class GATTService {
     let underlyingService: CBService

@@ -13,6 +13,10 @@ private struct ClearStateServiceVisitor: ServiceVisitor {
     func visit<Value>(_ characteristic: Characteristic<Value>) {
         characteristic.clearState()
     }
+
+    func visit<Value>(_ state: DeviceState<Value>) {
+        state.clearState()
+    }
 }
 
 
@@ -20,6 +24,10 @@ private struct ClearStateDeviceVisitor: DeviceVisitor {
     func visit<S: BluetoothService>(_ service: Service<S>) {
         var visitor = ClearStateServiceVisitor()
         service.wrappedValue.accept(&visitor)
+    }
+
+    func visit<Value>(_ state: DeviceState<Value>) {
+        state.clearState()
     }
 }
 

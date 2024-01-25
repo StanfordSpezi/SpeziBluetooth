@@ -298,6 +298,10 @@ public class BluetoothManager {
 
         discoveredPeripherals.removeValue(forKey: id)
 
+        if lastManuallyDisconnectedDevice == id {
+            lastManuallyDisconnectedDevice = nil
+        }
+
         checkForCentralDeinit()
     }
 

@@ -11,9 +11,13 @@ import NIO
 import SpeziBluetooth
 
 
+/// A temperature measurement.
 public struct TemperatureMeasurement {
+    /// The temperature value encoded as `medfloat32`.
     public enum Value {
+        /// The temperature value in celsius.
         case celsius(_ medfloat32: Data)
+        /// The temperature value in fahrenheit.
         case fahrenheit(_ medfloat32: Data)
 
         var data: Data {
@@ -26,11 +30,19 @@ public struct TemperatureMeasurement {
         }
     }
 
+    /// The temperature value encoded as a `medfloat32`.
     public let value: Value
+    /// The timestamp of the recording.
     public let timeStamp: DateTime?
+    /// The location of the temperature measurement.
     public let temperatureType: TemperatureType?
 
 
+    /// Create a new temperature measurement.
+    /// - Parameters:
+    ///   - value: The measurement value.
+    ///   - timeStamp: The timestamp of the measurement.
+    ///   - temperatureType: The type of the measurement.
     public init(value: Value, timeStamp: DateTime? = nil, temperatureType: TemperatureType? = nil) {
         self.value = value
         self.timeStamp = timeStamp

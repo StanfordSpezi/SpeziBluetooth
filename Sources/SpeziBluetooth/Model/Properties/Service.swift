@@ -18,7 +18,7 @@ import CoreBluetooth
 /// Below is a short code example on how you would declare your [Bluetooth Heart Rate Service](https://www.bluetooth.com/specifications/specs/heart-rate-service-1-0)
 /// implementation within your Bluetooth device.
 /// 
-/// ``swift
+/// ```swift
 /// class MyDevice: BluetoothDevice {
 ///     @Service(id: "180D")
 ///     var heartRate = HeartRateService()
@@ -31,15 +31,26 @@ import CoreBluetooth
 /// - ``init(wrappedValue:id:)-2mo8b``
 /// - ``init(wrappedValue:id:)-1if8d``
 ///
+/// ### Inspecting a Service
+/// - ``ServiceAccessor/isPresent``
+/// - ``ServiceAccessor/isPrimary``
+///
 /// ### Property wrapper access
 /// - ``wrappedValue``
+/// - ``projectedValue``
+/// - ``ServiceAccessor``
 @propertyWrapper
 public class Service<S: BluetoothService> {
     let id: CBUUID
+    private var injection: ServicePeripheralInjection?
 
     /// Access the service instance.
     public let wrappedValue: S
 
+    /// Retrieve a temporary accessors instance.
+    public var projectedValue: ServiceAccessor {
+        ServiceAccessor(id: id, injection: injection)
+    }
 
     /// Declare a service.
     /// - Parameters:
@@ -56,6 +67,14 @@ public class Service<S: BluetoothService> {
     public init(wrappedValue: S, id: CBUUID) {
         self.wrappedValue = wrappedValue
         self.id = id
+    }
+
+    @MainActor
+    func inject(peripheral: BluetoothPeripheral, service: GATTService?) {
+        let injection = ServicePeripheralInjection(peripheral: peripheral, serviceId: id, service: service)
+        self.injection = injection
+
+        injection.setup()
     }
 }
 

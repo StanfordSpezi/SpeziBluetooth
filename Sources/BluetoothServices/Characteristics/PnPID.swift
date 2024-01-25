@@ -10,6 +10,7 @@ import NIO
 import SpeziBluetooth
 
 
+/// Bluetooth Vendor ID Source.
 public enum VendorIDSource {
     /// Assigned Company Identifier value from the Bluetooth SIG Assigned Numbers.
     case bluetoothSIGAssigned
@@ -20,6 +21,7 @@ public enum VendorIDSource {
 }
 
 
+/// THe Plug and Play (PnP) Vendor ID and Product ID.
 public struct PnPID {
     /// The vendor id source.
     public let vendorIdSource: VendorIDSource
@@ -31,6 +33,12 @@ public struct PnPID {
     public let productVersion: UInt16
 
 
+    /// Create a new PnP ID.
+    /// - Parameters:
+    ///   - vendorIdSource: The vendor id source.
+    ///   - vendorId: The vendor id.
+    ///   - productId: The product id.
+    ///   - productVersion: The product version.
     public init(vendorIdSource: VendorIDSource, vendorId: UInt16, productId: UInt16, productVersion: UInt16) {
         self.vendorIdSource = vendorIdSource
         self.vendorId = vendorId

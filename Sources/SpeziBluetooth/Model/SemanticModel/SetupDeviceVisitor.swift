@@ -46,8 +46,11 @@ private struct SetupDeviceVisitor: DeviceVisitor {
     }
 
 
+    @MainActor
     func visit<S: BluetoothService>(_ service: Service<S>) {
         let blService = peripheral.getService(id: service.id)
+
+        service.inject(peripheral: peripheral, service: blService)
 
         var visitor = SetupServiceVisitor(peripheral: peripheral, serviceId: service.id, service: blService)
         service.wrappedValue.accept(&visitor)

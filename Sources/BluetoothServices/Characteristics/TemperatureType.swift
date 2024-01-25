@@ -10,16 +10,27 @@ import NIO
 import SpeziBluetooth
 
 
+/// The location of a temperature measurement.
 public enum TemperatureType: UInt8 {
+    /// Reserved for future use.
     case reserved
+    /// Armpit.
     case armpit
+    /// Body (general).
     case body
+    /// Ear (usually earlobe).
     case ear
+    /// Finger.
     case finger
+    /// Gastrointestinal Tract.
     case gastrointestinalTract
+    /// Mouth.
     case mouth
+    /// Rectum.
     case rectum
+    /// Toe.
     case toe
+    /// Tympanum (ear drum).
     case tympanum
 }
 

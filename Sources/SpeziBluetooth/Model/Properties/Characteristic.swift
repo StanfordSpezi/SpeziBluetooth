@@ -9,8 +9,6 @@
 import CoreBluetooth
 import Foundation
 
-// TODO: change docs about init access!
-
 
 /// Declare a characteristic within a Bluetooth service.
 ///
@@ -128,13 +126,16 @@ import Foundation
 /// ### Reading a value
 /// - ``CharacteristicAccessors/read()``
 ///
+/// ### Writing a value
+/// - ``CharacteristicAccessors/write(_:)``
+/// - ``CharacteristicAccessors/writeWithoutResponse(_:)``
+///
 /// ### Controlling notifications
 /// - ``CharacteristicAccessors/isNotifying``
 /// - ``CharacteristicAccessors/enableNotifications(_:)``
 ///
-/// ### Writing a value
-/// - ``CharacteristicAccessors/write(_:)``
-/// - ``CharacteristicAccessors/writeWithoutResponse(_:)``
+/// ### Get notified about changes
+/// - ``CharacteristicAccessors/onChange(perform:)``
 ///
 /// ### Property wrapper access
 /// - ``wrappedValue``
@@ -147,6 +148,11 @@ public class Characteristic<Value> {
         let discoverDescriptors: Bool
 
         var defaultNotify: Bool
+
+        /// Memory address as an identifier for this Characteristic instance.
+        var objectId: ObjectIdentifier {
+            ObjectIdentifier(self)
+        }
 
         init(id: CBUUID, discoverDescriptors: Bool, defaultNotify: Bool) {
             self.id = id
@@ -166,7 +172,7 @@ public class Characteristic<Value> {
 
     private let configuration: Configuration
     private let valueBox: ValueBox
-    private var association: CharacteristicPeripheralAssociation<Value>?
+    private var injection: CharacteristicPeripheralInjection<Value>?
 
     var description: CharacteristicDescription {
         CharacteristicDescription(id: configuration.id, discoverDescriptors: configuration.discoverDescriptors)
@@ -181,7 +187,7 @@ public class Characteristic<Value> {
 
     /// Retrieve a temporary accessors instance.
     public var projectedValue: CharacteristicAccessors<Value> {
-        CharacteristicAccessors(configuration: configuration, association: association)
+        CharacteristicAccessors(configuration: configuration, injection: injection)
     }
 
     fileprivate init(wrappedValue: Value? = nil, characteristic: CBUUID, notify: Bool, discoverDescriptors: Bool = false) {
@@ -195,27 +201,27 @@ public class Characteristic<Value> {
     func inject(peripheral: BluetoothPeripheral, serviceId: CBUUID, service: GATTService?) {
         let characteristic = service?.getCharacteristic(id: configuration.id)
 
-        // Any potential onChange closure registration that happened within the initializer. Forward them to the association
-        let notificationClosure = NotificationRegistrar.instance?.retrieve(for: configuration)
+        // Any potential onChange closure registration that happened within the initializer. Forward them to the injection.
+        let onChangeClosure = ClosureRegistrar.instance?.retrieve(for: configuration.objectId, value: Value.self)
 
-        let association = CharacteristicPeripheralAssociation<Value>(
+        let injection = CharacteristicPeripheralInjection<Value>(
             peripheral: peripheral,
             serviceId: serviceId,
             characteristicId: configuration.id,
             valueBox: valueBox,
             characteristic: characteristic,
-            notificationClosure: notificationClosure
+            onChangeClosure: onChangeClosure
         )
 
-        self.association = association
+        self.injection = injection
 
         Task {
-            await association.setup(defaultNotify: configuration.defaultNotify)
+            await injection.setup(defaultNotify: configuration.defaultNotify)
         }
     }
 
     func clearState() {
-        association?.clearState()
+        injection?.clearState()
     }
 }
 

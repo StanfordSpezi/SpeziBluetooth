@@ -18,21 +18,21 @@ private protocol DecodableCharacteristic {
 private class NonIsolatedState<Value> {
     weak var characteristic: GATTCharacteristic?
 
-    /// The user supplied notification closure we use to forward notifications.
-    var notificationClosure: ((Value) -> Void)?
+    /// The user supplied onChange closure we use to forward notifications.
+    @ObservationIgnored var onChangeClosure: ((Value) -> Void)?
     /// The registration object we received from the ``BluetoothPeripheral`` for our onChange handler.
-    var registration: OnChangeRegistration?
+    @ObservationIgnored var registration: OnChangeRegistration?
 
 
-    init(characteristic: GATTCharacteristic?, notificationClosure: ((Value) -> Void)?) {
+    init(characteristic: GATTCharacteristic?, onChangeClosure: ((Value) -> Void)?) {
         self.characteristic = characteristic
-        self.notificationClosure = notificationClosure
+        self.onChangeClosure = onChangeClosure
     }
 }
 
 
 /// Captures and synchronizes access to the state of a ``Characteristic`` property wrapper.
-actor CharacteristicPeripheralAssociation<Value> {
+actor CharacteristicPeripheralInjection<Value> {
     let peripheral: BluetoothPeripheral
     let serviceId: CBUUID
     let characteristicId: CBUUID
@@ -55,16 +55,16 @@ actor CharacteristicPeripheralAssociation<Value> {
         characteristicId: CBUUID,
         valueBox: Characteristic<Value>.ValueBox,
         characteristic: GATTCharacteristic?,
-        notificationClosure: ((Value) -> Void)?
+        onChangeClosure: ((Value) -> Void)?
     ) {
         self.peripheral = peripheral
         self.serviceId = serviceId
         self.characteristicId = characteristicId
         self.valueBox = valueBox
-        self.state = NonIsolatedState(characteristic: characteristic, notificationClosure: notificationClosure)
+        self.state = NonIsolatedState(characteristic: characteristic, onChangeClosure: onChangeClosure)
     }
 
-    /// Setup the association. Must be called after initialization to set up all handlers and write the initial value.
+    /// Setup the injection. Must be called after initialization to set up all handlers and write the initial value.
     /// - Parameter defaultNotify: Flag indicating if notification handlers should be registered immediately.
     func setup(defaultNotify: Bool) async {
         trackServicesUpdates() // enable observation tracking for peripheral.services and characteristic properties
@@ -96,11 +96,11 @@ actor CharacteristicPeripheralAssociation<Value> {
     nonisolated func clearState() {
         self.state.registration?.cancel()
         self.state.registration = nil
-        self.state.notificationClosure = nil // might contain a self reference, so we need to clear that!
+        self.state.onChangeClosure = nil // might contain a self reference, so we need to clear that!
     }
 
-    nonisolated func setNotificationClosure(_ closure: ((Value) -> Void)?) {
-        self.state.notificationClosure = closure
+    nonisolated func setOnChangeClosure(_ closure: ((Value) -> Void)?) {
+        self.state.onChangeClosure = closure
     }
 
     /// Enable or disable notifications (if not already) for the characteristic.
@@ -129,12 +129,13 @@ actor CharacteristicPeripheralAssociation<Value> {
     private func handleServicesChange() {
         let characteristic = peripheral.getCharacteristic(id: characteristicId, on: serviceId)
 
-        let associationChanged = (state.characteristic == nil) == (characteristic == nil)
+        let instanceChanged = state.characteristic?.underlyingCharacteristic !== characteristic?.underlyingCharacteristic
         state.characteristic = characteristic
 
-        if associationChanged {
+        if instanceChanged {
             if let characteristic {
-                // TODO: might also wanna update the value if the instance changed?
+                // TODO: this seems to be flacky?
+                print("We are writing a default value \(characteristic.value) for \(characteristicId)")
                 handleUpdatedValue(characteristic.value)
             } else {
                 // we must make sure to not override the default value is one is present
@@ -154,7 +155,7 @@ actor CharacteristicPeripheralAssociation<Value> {
 }
 
 
-extension CharacteristicPeripheralAssociation: DecodableCharacteristic where Value: ByteDecodable {
+extension CharacteristicPeripheralInjection: DecodableCharacteristic where Value: ByteDecodable {
     nonisolated func handleUpdateValueAssumingIsolation(_ data: Data?) {
         assertIsolated("\(#function) was called without actor isolation.")
         if let data {
@@ -164,7 +165,7 @@ extension CharacteristicPeripheralAssociation: DecodableCharacteristic where Val
             }
 
             self.valueBox.value = value
-            if let handler = state.notificationClosure {
+            if let handler = state.onChangeClosure {
                 handler(value)
             }
         } else {

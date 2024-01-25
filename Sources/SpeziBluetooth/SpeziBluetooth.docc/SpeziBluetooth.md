@@ -218,6 +218,8 @@ struct MyView: View {
 
 - ``BluetoothManager``
 - ``BluetoothPeripheral``
+- ``GATTService``
+- ``GATTCharacteristic``
 - ``BluetoothState``
 - ``PeripheralState``
 - ``BluetoothError``

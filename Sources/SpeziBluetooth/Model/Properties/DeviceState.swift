@@ -6,6 +6,8 @@
 // SPDX-License-Identifier: MIT
 //
 
+import Observation
+
 
 /// Retrieve state of a Bluetooth peripheral.
 ///
@@ -15,7 +17,7 @@
 /// Below is a short code example that demonstrate the usage of the `DeviceState` property wrapper to retrieve the name and current ``BluetoothState``
 /// of a device.
 ///
-/// - Note: The `@DeviceState` property wrapper can only be accessed after the initializer returned. Accessing within the initializer will result in a runtime crash.
+/// - Important: The `@DeviceState` property wrapper can only be accessed after the initializer returned. Accessing within the initializer will result in a runtime crash.
 ///
 /// ```swift
 /// class ExampleDevice: BluetoothDevice {
@@ -31,7 +33,33 @@
 /// }
 /// ```
 ///
+/// ### Handling changes
+///
+/// While the `DeviceState` property wrapper is fully compatible with Apples Observation framework, it might be
+/// useful to explicitly handle updates to the a device state.
+/// You can register a change handler via the accessor type obtained through the projected value.
+///
+/// The below code examples demonstrates this approach:
+///
+/// ```swift
+/// class MyDevice: BluetoothDevice {
+///     @DeviceState(\.state)
+///     var state: PeripheralState
+///
+///     init() {
+///         $state.onChange(perform: handleStateChange)
+///     }
+///
+///     handleStateChange(_ state: PeripheralState) {
+///         // ...
+///     }
+/// }
+/// ```
+///
 /// ## Topics
+///
+/// ### Declaring device state
+/// - ``init(_:)``
 ///
 /// ### Available Device States
 /// - ``BluetoothPeripheral/id``
@@ -40,19 +68,26 @@
 /// - ``BluetoothPeripheral/rssi``
 /// - ``BluetoothPeripheral/advertisementData``
 ///
-/// ### Declaring device state
-/// - ``init(_:)``
+/// ### Get notified about changes
+/// - ``DeviceStateAccessor/onChange(perform:)``
 ///
 /// ### Property wrapper access
 /// - ``wrappedValue``
+/// - ``projectedValue``
+/// - ``DeviceStateAccessor``
+@Observable
 @propertyWrapper
 public class DeviceState<Value> {
     private let keyPath: KeyPath<BluetoothPeripheral, Value>
-    private var peripheral: BluetoothPeripheral?
+    private var injection: DeviceStatePeripheralInjection<Value>?
+
+    private var objectId: ObjectIdentifier {
+        ObjectIdentifier(self)
+    }
 
     /// Access the device state.
     public var wrappedValue: Value {
-        guard let peripheral else {
+        guard let injection else {
             preconditionFailure(
                 """
                 Failed to access bluetooth device state. Make sure your @DeviceState is only declared within your bluetooth device class \
@@ -60,11 +95,14 @@ public class DeviceState<Value> {
                 """
             )
         }
-        return peripheral[keyPath: keyPath]
+        return injection.peripheral[keyPath: keyPath]
     }
 
 
-    // TODO: support onChange handlers?
+    /// Retrieve a temporary accessors instance.
+    public var projectedValue: DeviceStateAccessor<Value> {
+        DeviceStateAccessor(id: objectId, injection: injection)
+    }
 
 
     /// Provide a `KeyPath` to the device state you want to access.
@@ -75,7 +113,16 @@ public class DeviceState<Value> {
 
 
     func inject(peripheral: BluetoothPeripheral) {
-        self.peripheral = peripheral
+        let changeClosure = ClosureRegistrar.instance?.retrieve(for: objectId, value: Value.self)
+
+        let injection = DeviceStatePeripheralInjection(peripheral: peripheral, keyPath: keyPath, onChangeClosure: changeClosure)
+        self.injection = injection
+
+        injection.setup()
+    }
+
+    func clearState() {
+        injection?.clearState()
     }
 }
 

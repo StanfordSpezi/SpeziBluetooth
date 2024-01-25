@@ -15,18 +15,31 @@ import SpeziBluetooth
 /// Refer to GATT Specification Supplement, 3.70 Date Time
 public struct DateTime {
     public enum Month: UInt8 {
+        /// Unknown month.
         case unknown
+        /// The month January.
         case january
+        /// The month February.
         case february
+        /// The month March.
         case march
+        /// The month April.
         case april
+        /// The month Mai.
         case mai
+        /// The month June.
         case june
+        /// The month July.
         case july
+        /// The month August.
         case august
+        /// The month September.
         case september
+        /// The month October.
         case october
+        /// The month November.
         case november
+        /// The month December.
         case december
     }
 
@@ -59,7 +72,16 @@ public struct DateTime {
     public let seconds: UInt8
 
 
-    public init(year: UInt16, month: Month, day: UInt8, hours: UInt8, minutes: UInt8, seconds: UInt8) {
+    /// Create a new Date Time.
+    /// - Parameters:
+    ///   - year: The year.
+    ///   - month: The month.
+    ///   - day: The day.
+    ///   - hours: The hours.
+    ///   - minutes: The minutes.
+    ///   - seconds: The seconds.
+    public init(year: UInt16 = 0, month: Month = .unknown, day: UInt8 = 0, hours: UInt8, minutes: UInt8, seconds: UInt8) {
+        // swiftlint:disable:previous function_default_parameter_at_end
         self.year = year
         self.month = month
         self.day = day
