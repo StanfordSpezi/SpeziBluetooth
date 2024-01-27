@@ -19,7 +19,22 @@ struct BluetoothModuleView: View {
 
     var body: some View {
         List {
-            BluetoothStateSection(scanner: bluetooth)
+            Section("State") {
+                HStack {
+                    Text("Scanning")
+                    Spacer()
+                    Text(bluetooth.isScanning ? "Yes" : "No")
+                        .foregroundColor(.secondary)
+                }
+                .accessibilityElement(children: .combine)
+                HStack {
+                    Text("State")
+                    Spacer()
+                    Text(bluetooth.state.description)
+                        .foregroundColor(.secondary)
+                }
+                .accessibilityElement(children: .combine)
+            }
 
             let nearbyDevices = bluetooth.nearbyDevices(for: TestDevice.self)
 

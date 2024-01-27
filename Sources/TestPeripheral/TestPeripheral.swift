@@ -10,6 +10,8 @@ import BluetoothServices
 import CoreBluetooth
 import SpeziBluetooth
 
+// TODO: add a service providing a log of all things that happened on the device?
+
 
 @main
 class TestPeripheral: NSObject, CBPeripheralManagerDelegate {

@@ -47,6 +47,7 @@ private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifie
     @MainActor
     private func onBackground() {
         Task {
+            // TODO: this might stop a scan which is still enabled from an outside modifier?
             await scanner.stopScanning()
         }
     }

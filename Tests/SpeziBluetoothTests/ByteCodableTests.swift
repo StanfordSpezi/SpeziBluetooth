@@ -11,6 +11,7 @@ import NIO
 import XCTBluetooth
 import XCTest
 
+// TODO: add codable tests for default models we provide!
 
 final class ByteCodableTests: XCTestCase {
     func testData() throws {

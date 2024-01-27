@@ -118,7 +118,7 @@ actor CharacteristicPeripheralInjection<Value> {
         withObservationTracking {
             _ = peripheral.getCharacteristic(id: characteristicId, on: serviceId)
         } onChange: { [weak self] in
-            Task { [weak self] in
+            Task { @MainActor [weak self] in // TODO: custom global actors (everywhere)
                 // we need to wait before registering, such that we register `.characteristic` property once the service becomes present
                 self?.trackServicesUpdates()
                 await self?.handleServicesChange()

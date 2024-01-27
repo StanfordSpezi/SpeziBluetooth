@@ -47,6 +47,12 @@ let package = Package(
             ]
         ),
         .target(
+            name: "BluetoothViews",
+            dependencies: [
+                .target(name: "SpeziBluetooth")
+            ]
+        ),
+        .target(
             name: "XCTBluetooth",
             dependencies: [
                 .target(name: "SpeziBluetooth")

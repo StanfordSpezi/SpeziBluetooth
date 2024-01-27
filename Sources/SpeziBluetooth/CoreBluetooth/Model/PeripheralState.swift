@@ -14,7 +14,7 @@ public enum PeripheralState: UInt8 {
     /// The peripheral is disconnected.
     case disconnected
     /// The peripheral is currently establishing a connection.
-    case connecting
+    case connecting // TODO: make this the state when we are still discovering services and characteristics and descriptors?
     /// The peripheral is connected.
     case connected
     /// The peripheral is currently disconnecting.
