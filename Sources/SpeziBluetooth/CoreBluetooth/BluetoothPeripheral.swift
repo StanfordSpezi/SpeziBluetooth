@@ -211,7 +211,7 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
             stateContainer.requestedCharacteristics = nil
         }
 
-        self.stateContainer.state = .init(from: peripheral.state) // ensure that it is updated instantly.
+        self.stateContainer.update(state: peripheral.state) // ensure that it is updated instantly.
 
         logger.debug("Discovering services for \(self.peripheral.debugIdentifier) ...")
         peripheral.discoverServices(stateContainer.requestedCharacteristics.map { Array($0.keys) })
@@ -219,7 +219,7 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
 
     /// Handles a disconnect or failed connection attempt.
     nonisolated func handleDisconnect(disconnectActivityInterval: TimeInterval = 0) {
-        self.stateContainer.state = .init(from: peripheral.state) // ensure that it is updated instantly.
+        self.stateContainer.update(state: peripheral.state) // ensure that it is updated instantly.
         self.stateContainer.lastActivity = Date.now - disconnectActivityInterval
 
         Task {
@@ -263,14 +263,9 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
         self.stateContainer.lastActivity = .now // fine to be non-isolated. We always just write the latest data
 
         // this could be a problem to be non-isolated, however, we know this will always come from the Bluetooth queue that is serial.
-        if let localName = advertisementData.localName,
-           stateContainer.name != localName {
-            stateContainer.name = localName
-        }
-        stateContainer.advertisementData = advertisement
-        if stateContainer.rssi != rssi {
-            stateContainer.rssi = rssi
-        }
+        stateContainer.update(localName: advertisementData.localName)
+        stateContainer.update(advertisementData: advertisement)
+        stateContainer.update(rssi: rssi)
     }
 
     /// Determines if the device is considered stale.
@@ -421,11 +416,10 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
     ///   - data: The value to write.
     ///   - characteristic: The characteristic to which the value is written.
     public func writeWithoutResponse(data: Data, for characteristic: GATTCharacteristic) async {
-        guard writeWithoutResponseAccess.isEmpty else {
+        while !writeWithoutResponseAccess.isEmpty {
             await withCheckedContinuation { continuation in
                 writeWithoutResponseAccess.append(continuation)
             }
-            return
         }
 
         let characteristic = characteristic.underlyingCharacteristic
@@ -474,6 +468,7 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
     /// - Throws: Throws an `CBError` or `CBATTError` if the read fails.
     public func readRSSI() async throws -> Int {
         guard rssiReadAccess.isEmpty else {
+            // just return the same value as the current ongoing read
             return try await withCheckedThrowingContinuation { continuation in
                 rssiReadAccess.append(continuation)
             }
@@ -537,7 +532,7 @@ extension BluetoothPeripheral: KVOReceiver {
         switch keyPath {
         case \CBPeripheral.state:
             // force cast is okay as we implicitly verify the type using the KeyPath in the case statement.
-            self.stateContainer.state = .init(from: value as! CBPeripheralState) // swiftlint:disable:this force_cast
+            self.stateContainer.update(state: value as! CBPeripheralState) // swiftlint:disable:this force_cast
         default:
             break
         }
@@ -548,11 +543,11 @@ extension BluetoothPeripheral: KVOReceiver {
 // MARK: Delegate Accessors
 extension BluetoothPeripheral {
     fileprivate func update(name: String?) {
-        self.stateContainer.name = name
+        stateContainer.update(peripheralName: name)
     }
 
     fileprivate func update(rssi: Int, error: Error?) {
-        stateContainer.rssi = rssi
+        stateContainer.update(rssi: rssi)
 
         let result: Result<Int, Error>
         if let error {
@@ -600,10 +595,12 @@ extension BluetoothPeripheral {
     }
 
     fileprivate func receivedReadyNotification() {
-        for continuation in writeWithoutResponseAccess {
-            continuation.resume()
+        guard let first = writeWithoutResponseAccess.first else {
+            return
         }
-        writeWithoutResponseAccess.removeAll()
+
+        writeWithoutResponseAccess.removeFirst()
+        first.resume()
     }
 
     fileprivate func receivedUpdatedValue(for characteristic: CBCharacteristic, result: Result<Data, Error>) async {
