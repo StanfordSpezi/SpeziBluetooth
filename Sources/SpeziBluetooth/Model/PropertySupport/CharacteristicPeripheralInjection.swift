@@ -125,12 +125,12 @@ class CharacteristicPeripheralInjection<Value> {
     private func handleServicesChange() {
         let characteristic = peripheral.getCharacteristic(id: characteristicId, on: serviceId)
 
-        let instanceChanged = characteristic?.underlyingCharacteristic !== characteristic?.underlyingCharacteristic
+        let instanceChanged = self.characteristic?.underlyingCharacteristic !== characteristic?.underlyingCharacteristic
         update(characteristic: characteristic)
 
         if instanceChanged {
             if let characteristic {
-                // TODO: this seems to be flacky?
+                // TODO: this seems to be flaky?
                 print("We are writing a default value \(characteristic.value) for \(characteristicId)")
                 handleUpdatedValue(characteristic.value)
             } else {

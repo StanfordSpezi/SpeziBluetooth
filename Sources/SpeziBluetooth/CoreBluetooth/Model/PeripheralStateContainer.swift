@@ -71,7 +71,7 @@ final class PeripheralStateContainer {
         let state = PeripheralState(from: cbState)
         if self.state != state {
             if self.state == .connecting && state == .connected {
-                return
+                return // we set connected on our own!
             }
             self.state = state
         }

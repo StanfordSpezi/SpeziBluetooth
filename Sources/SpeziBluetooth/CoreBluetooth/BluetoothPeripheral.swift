@@ -75,6 +75,8 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
     private let stateContainer: PeripheralStateContainer
     /// The list of requested characteristic uuids indexed by service uuids.
     private var requestedCharacteristics: [CBUUID: Set<CharacteristicDescription>?]? // swiftlint:disable:this discouraged_optional_collection
+    /// A set of service ids we are currently awaiting characteristics discovery for
+    private var servicesAwaitingCharacteristicsDiscovery: Set<CBUUID> = []
 
     nonisolated var cbPeripheral: CBPeripheral {
         peripheral
@@ -184,11 +186,9 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
             return
         }
 
-        // TODO: either avoid setting disconnecting or set manual here?
         removeAllNotifications()
 
         manager.disconnect(peripheral: self)
-        // TODO: does this change something?
         await self.stateContainer.update(state: peripheral.state) // ensure that it is updated instantly.
     }
 
@@ -236,11 +236,10 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
         let services = requestedCharacteristics.map { Array($0.keys) }
         
         if let services, services.isEmpty {
-            // TODO: would the delegate return?
             await stateContainer.signalFullyDiscovered()
+        } else {
+            peripheral.discoverServices(requestedCharacteristics.map { Array($0.keys) })
         }
-
-        peripheral.discoverServices(requestedCharacteristics.map { Array($0.keys) })
     }
 
     nonisolated func markLastActivity(_ lastActivity: Date = .now) {
@@ -533,7 +532,6 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
         }
 
         gattService.didDiscoverCharacteristics()
-        stateContainer.signalFullyDiscovered() // TODO: this only happens for the first discovery!
     }
 
     @MainActor
@@ -570,11 +568,11 @@ extension BluetoothPeripheral: KVOReceiver {
 
 // MARK: Delegate Accessors
 extension BluetoothPeripheral {
-    fileprivate func update(name: String?) async {
+    private func update(name: String?) async {
         await stateContainer.update(peripheralName: name)
     }
 
-    fileprivate func update(rssi: Int, error: Error?) async {
+    private func update(rssi: Int, error: Error?) async {
         await stateContainer.update(rssi: rssi)
 
         let result: Result<Int, Error>
@@ -591,7 +589,7 @@ extension BluetoothPeripheral {
         self.rssiReadAccess.removeAll()
     }
 
-    fileprivate func discovered(services: [CBService]) {
+    private func discovered(services: [CBService]) async {
         logger.debug("Discovered \(services) services for peripheral \(self.peripheral.debugIdentifier)")
 
         for service in services {
@@ -601,12 +599,27 @@ extension BluetoothPeripheral {
 
             let requestedCharacteristics = requestedCharacteristicsDescriptions?.map { $0.characteristicId }
 
-            // see peripheral(_:didDiscoverCharacteristicsFor:error:)
+            if let requestedCharacteristics, requestedCharacteristics.isEmpty {
+                continue
+            }
+
+            servicesAwaitingCharacteristicsDiscovery.insert(service.uuid)
             peripheral.discoverCharacteristics(requestedCharacteristics, for: service)
+        }
+
+        if servicesAwaitingCharacteristicsDiscovery.isEmpty {
+            await stateContainer.signalFullyDiscovered()
         }
     }
 
-    fileprivate func invalidatedServices(_ invalidatedServices: [CBService]) async {
+    private func completeServiceDiscovery(for service: CBService) async {
+        servicesAwaitingCharacteristicsDiscovery.remove(service.uuid)
+        if servicesAwaitingCharacteristicsDiscovery.isEmpty {
+            await stateContainer.signalFullyDiscovered()
+        }
+    }
+
+    private func invalidatedServices(_ invalidatedServices: [CBService]) async {
         // this is called if ...
         // 1) The peripheral removes a service from its database.
         // 2) The peripheral adds a new service to its database.
@@ -623,7 +636,9 @@ extension BluetoothPeripheral {
         peripheral.discoverServices(serviceIds)
     }
 
-    fileprivate func discovered(characteristics: [CBCharacteristic], for service: CBService) {
+    private func discovered(characteristics: [CBCharacteristic], for service: CBService) async {
+        await completeServiceDiscovery(for: service)
+
         // automatically subscribe to discovered characteristics for which we have a handler subscribed!
         for characteristic in characteristics {
             guard characteristic.properties.contains(.notify) || characteristic.properties.contains(.indicate) else {
@@ -656,7 +671,7 @@ extension BluetoothPeripheral {
         }
     }
 
-    fileprivate func receivedReadyNotification() {
+    private func receivedReadyNotification() {
         guard let first = writeWithoutResponseAccess.first else {
             return
         }
@@ -665,7 +680,7 @@ extension BluetoothPeripheral {
         first.resume()
     }
 
-    fileprivate func receivedUpdatedValue(for characteristic: CBCharacteristic, result: Result<Data, Error>) {
+    private func receivedUpdatedValue(for characteristic: CBCharacteristic, result: Result<Data, Error>) {
         if case let .read(continuations, queued) = ongoingAccesses[characteristic] {
             ongoingAccesses[characteristic] = nil
             
@@ -699,7 +714,7 @@ extension BluetoothPeripheral {
         }
     }
 
-    fileprivate func receivedWriteResponse(for characteristic: CBCharacteristic, result: Result<Void, Error>) {
+    private func receivedWriteResponse(for characteristic: CBCharacteristic, result: Result<Void, Error>) {
         guard case let .write(continuation, queued) = ongoingAccesses[characteristic] else {
             logger.warning("Received write response for \(characteristic.debugIdentifier) without an ongoing access. Discarding write ...")
             return
@@ -718,15 +733,15 @@ extension BluetoothPeripheral {
         }
     }
 
-    fileprivate func receiveUpdatedNotificationState(for characteristic: CBCharacteristic) {
+    private func receiveUpdatedNotificationState(for characteristic: CBCharacteristic) {
         if characteristic.isNotifying {
-            logger.log("Notification began on \(characteristic.uuid.uuidString)")
+            logger.log("Notification began on \(characteristic.debugIdentifier)")
 
             if characteristic.properties.contains(.read) { // read the initial value
                 peripheral.readValue(for: characteristic)
             }
         } else {
-            logger.log("Notification stopped on \(characteristic.uuid.uuidString).")
+            logger.log("Notification stopped on \(characteristic.debugIdentifier).")
         }
     }
 }
@@ -809,10 +824,17 @@ extension BluetoothPeripheral {
         func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
             if let error = error {
                 logger.error("Error discovering characteristics: \(error.localizedDescription)")
+                Task { // TODO: this is weird!
+                    await device.completeServiceDiscovery(for: service)
+                }
                 return
             }
 
             guard let characteristics = service.characteristics else {
+                logger.warning("Characteristic discovery for service \(service.uuid) resulted in an empty list.")
+                Task { // TODO: this is weird!
+                    await device.completeServiceDiscovery(for: service)
+                }
                 return
             }
 
