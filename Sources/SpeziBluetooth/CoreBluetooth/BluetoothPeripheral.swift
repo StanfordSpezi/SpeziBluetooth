@@ -299,7 +299,7 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
     /// - Returns: True if the device is considered stale given the above criteria.
     nonisolated func isConsideredStale(interval: TimeInterval) -> Bool {
         assert(isRunningWithinBluetoothQueue, "\(#function) was run outside the bluetooth queue. This introduces data races.")
-        peripheral.state == .disconnected && lastActivity.addingTimeInterval(interval) < .now
+        return peripheral.state == .disconnected && lastActivity.addingTimeInterval(interval) < .now
     }
 
     /// Register a on-change handler for a characteristic.
