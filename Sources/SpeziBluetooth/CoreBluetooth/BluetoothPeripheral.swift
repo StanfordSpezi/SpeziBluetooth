@@ -276,17 +276,10 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
         }
     }
 
-    nonisolated func update(advertisement: AdvertisementData, rssi: Int) {
-        assert(isRunningWithinBluetoothQueue, "\(#function) was run outside the bluetooth queue. This introduces data races.")
-        self.markLastActivity()
-
-        // this could be a problem to be non-isolated, however, we know this will always come from the Bluetooth queue that is serial.
-        Task {
-            self.assertIsolated("Access was not isolated to the BluetoothPeripheral actor!")
-            stateContainer.update(localName: advertisementData.localName)
-            stateContainer.update(advertisementData: advertisement)
-            stateContainer.update(rssi: rssi)
-        }
+    func update(advertisement: AdvertisementData, rssi: Int) {
+        stateContainer.update(localName: advertisementData.localName)
+        stateContainer.update(advertisementData: advertisement)
+        stateContainer.update(rssi: rssi)
     }
 
     /// Determines if the device is considered stale.
@@ -553,11 +546,9 @@ extension BluetoothPeripheral: KVOReceiver {
     func observeChange<K, V>(of keyPath: KeyPath<K, V>, value: V) async {
         switch keyPath {
         case \CBPeripheral.state:
-            Task {
-                self.assertIsolated("Access was not isolated to the BluetoothPeripheral actor!")
-                // force cast is okay as we implicitly verify the type using the KeyPath in the case statement.
-                self.stateContainer.update(state: value as! CBPeripheralState) // swiftlint:disable:this force_cast
-            }
+            self.assertIsolated("Access was not isolated to the BluetoothPeripheral actor!")
+            // force cast is okay as we implicitly verify the type using the KeyPath in the case statement.
+            self.stateContainer.update(state: value as! CBPeripheralState) // swiftlint:disable:this force_cast
         default:
             break
         }

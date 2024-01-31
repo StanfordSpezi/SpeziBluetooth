@@ -589,7 +589,10 @@ extension BluetoothManager {
 
             // check if we already seen this device!
             if let device = manager.discoveredPeripherals[peripheral.identifier] {
-                device.update(advertisement: data, rssi: rssi.intValue)
+                device.markLastActivity()
+                Task {
+                    await device.update(advertisement: data, rssi: rssi.intValue)
+                }
 
                 if manager.cancelStaleTask(for: device) {
                     // current device was earliest to go stale, schedule timeout for next oldest device
