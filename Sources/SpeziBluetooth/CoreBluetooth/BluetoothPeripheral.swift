@@ -113,7 +113,7 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
     }
 
     nonisolated var lastActivity: Date {
-        if case .disconnected = state {
+        if case .disconnected = peripheral.state {
             stateContainer.lastActivity
         } else {
             // we are currently connected or connecting/disconnecting, therefore last activity is defined as "now"
@@ -298,7 +298,8 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
     /// - Parameter interval: The time interval after which the device is considered stale.
     /// - Returns: True if the device is considered stale given the above criteria.
     nonisolated func isConsideredStale(interval: TimeInterval) -> Bool {
-        state == .disconnected && lastActivity.addingTimeInterval(interval) < .now
+        assert(isRunningWithinBluetoothQueue, "\(#function) was run outside the bluetooth queue. This introduces data races.")
+        peripheral.state == .disconnected && lastActivity.addingTimeInterval(interval) < .now
     }
 
     /// Register a on-change handler for a characteristic.

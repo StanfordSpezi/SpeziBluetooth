@@ -120,7 +120,7 @@ public class BluetoothManager { // swiftlint:disable:this type_body_length
         }
 
         let sortedCandidates = discoveredPeripherals.values
-            .filter { $0.state == .disconnected }
+            .filter { $0.cbPeripheral.state == .disconnected }
             .sorted { lhs, rhs in
                 lhs.rssi < rhs.rssi
             }
@@ -297,7 +297,7 @@ public class BluetoothManager { // swiftlint:disable:this type_body_length
         self.autoConnect = false
 
         let devices = nearbyPeripheralsView.filter { device in
-            device.state == .disconnected
+            device.cbPeripheral.state == .disconnected
         }
 
         for device in devices {
@@ -446,7 +446,8 @@ public class BluetoothManager { // swiftlint:disable:this type_body_length
 
         // when we are just interested in the min device, this operation is a bit cheaper then sorting the whole list
         return nearbyPeripheralsView
-            .filter { $0.state == .disconnected && $0.id != device?.id }
+            // it's important to access the underlying state here
+            .filter { $0.cbPeripheral.state == .disconnected && $0.id != device?.id }
             .min { lhs, rhs in
                 lhs.lastActivity < rhs.lastActivity
             }
