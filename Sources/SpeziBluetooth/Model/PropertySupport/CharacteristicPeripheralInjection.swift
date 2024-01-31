@@ -171,7 +171,6 @@ actor CharacteristicPeripheralInjection<Value> { // TODO: revise actor design he
 extension CharacteristicPeripheralInjection: DecodableCharacteristic where Value: ByteDecodable {
     @MainActor
     func handleUpdateValueAssumingIsolation(_ data: Data?) {
-        assertIsolated("\(#function) was called without actor isolation.")
         if let data {
             guard let value = Value(data: data) else {
                 Bluetooth.logger.error("Could decode updated value for characteristic \(self.characteristic?.debugDescription ?? self.characteristicId.uuidString). Invalid format!")

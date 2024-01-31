@@ -162,7 +162,7 @@ public class Characteristic<Value> {
     }
 
     @Observable
-    class ValueBox { // TODO: make that @MainActor update?
+    class ValueBox {
         private(set) var value: Value?
 
         init(_ value: Value?) {
