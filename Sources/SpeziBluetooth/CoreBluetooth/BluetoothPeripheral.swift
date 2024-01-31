@@ -504,6 +504,7 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
 
     private nonisolated func didDiscoverCharacteristics(for service: CBService) {
         guard let gattService = getService(id: service.uuid) else {
+            logger.error("Failed to retrieve service \(service.uuid) of discovered characteristics!")
             return
         }
 
@@ -574,6 +575,7 @@ extension BluetoothPeripheral {
             let locator = CharacteristicLocator(serviceId: service.uuid, characteristicId: characteristic.uuid)
 
             if notifyRequested.contains(locator) {
+                logger.debug("Automatically subscribing to discovered characteristic \(locator)...")
                 peripheral.setNotifyValue(true, for: characteristic)
             }
         }
@@ -590,6 +592,7 @@ extension BluetoothPeripheral {
             }
 
             if description.discoverDescriptors {
+                logger.debug("Discovering descriptors for \(characteristic.debugIdentifier)...")
                 peripheral.discoverDescriptors(for: characteristic)
             }
         }
@@ -624,6 +627,7 @@ extension BluetoothPeripheral {
         switch result {
         case let .success(data):
             guard let service = characteristic.service else {
+                logger.warning("Received updated value for characteristic \(characteristic.debugIdentifier) without associated service!")
                 break
             }
 

@@ -147,6 +147,7 @@ extension CharacteristicAccessors where Value: ByteEncodable {
         }
 
         let requestData = value.encode()
+        // TODO: update the written value in the injection! (after that)
         try await injection.peripheral.write(data: requestData, for: characteristic)
     }
 
@@ -166,6 +167,7 @@ extension CharacteristicAccessors where Value: ByteEncodable {
         }
 
         let data = value.encode()
+        // TODO: update the written value in the injection! (after that)
         await injection.peripheral.writeWithoutResponse(data: data, for: characteristic)
     }
 }

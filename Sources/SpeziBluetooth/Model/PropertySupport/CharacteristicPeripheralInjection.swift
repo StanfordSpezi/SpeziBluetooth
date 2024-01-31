@@ -115,6 +115,7 @@ actor CharacteristicPeripheralInjection<Value> {
     }
 
     private nonisolated func trackServicesUpdates() {
+        // TODO: go with event handlers!
         withObservationTracking {
             _ = peripheral.getCharacteristic(id: characteristicId, on: serviceId)
         } onChange: { [weak self] in
@@ -166,7 +167,11 @@ extension CharacteristicPeripheralInjection: DecodableCharacteristic where Value
 
             self.valueBox.value = value
             if let handler = state.onChangeClosure {
-                handler(value)
+                Task { @MainActor in // TODO: global actor?
+                    // TODO: could be async now?
+                    handler(value) // TODO: dispatch this on the main thread?
+                    // TODO: similar for the state handlers!
+                }
             }
         } else {
             self.valueBox.value = nil

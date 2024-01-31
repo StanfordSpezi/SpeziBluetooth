@@ -9,7 +9,16 @@
 import CoreBluetooth
 
 
-struct CharacteristicLocator: Hashable {
+struct CharacteristicLocator {
     let serviceId: CBUUID
     let characteristicId: CBUUID
+}
+
+
+extension CharacteristicLocator: Hashable {}
+
+extension CharacteristicLocator: CustomStringConvertible {
+    public var description: String {
+        "\(characteristicId)@\(serviceId)"
+    }
 }
