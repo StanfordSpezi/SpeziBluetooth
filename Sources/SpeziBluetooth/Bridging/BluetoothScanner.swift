@@ -8,7 +8,7 @@
 
 
 /// Any kind of Bluetooth Scanner.
-public protocol BluetoothScanner {
+public protocol BluetoothScanner: Identifiable where ID: Hashable {
     /// Indicates if there is at least one connected peripheral.
     var hasConnectedDevices: Bool { get }
 
@@ -28,4 +28,11 @@ public protocol BluetoothScanner {
 
     /// Stop scanning for nearby bluetooth devices.
     func stopScanning() async
+}
+
+
+extension BluetoothScanner where Self: AnyObject {
+    public var id: ObjectIdentifier {
+        ObjectIdentifier(self)
+    }
 }

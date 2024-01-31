@@ -10,12 +10,31 @@ import Spezi
 import SwiftUI
 
 
-@Observable
-private class ScanModifierState {
-    var enabled: Bool
+private struct ScanModifierStates: EnvironmentKey {
+    static let defaultValue = ScanModifierStates()
 
-    init(enabled: Bool) {
-        self.enabled = enabled
+    private var registeredModifiers: [AnyHashable: Bool] = [:]
+
+    func parentScanning<Scanner: BluetoothScanner>(with scanner: Scanner) -> Bool {
+        registeredModifiers[AnyHashable(scanner.id), default: false]
+    }
+
+    func appending<Scanner: BluetoothScanner>(_ scanner: Scanner, enabled: Bool) -> ScanModifierStates {
+        var registeredModifiers = registeredModifiers
+        registeredModifiers[AnyHashable(scanner.id)] = enabled
+        return ScanModifierStates(registeredModifiers: registeredModifiers)
+    }
+}
+
+extension EnvironmentValues {
+    // TODO: naming and moving!
+    fileprivate var scanModifierStates: ScanModifierStates {
+        get {
+            self[ScanModifierStates.self]
+        }
+        set {
+            self[ScanModifierStates.self] = newValue
+        }
     }
 }
 
@@ -25,16 +44,13 @@ private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifie
     private let scanner: Scanner
     private let autoConnect: Bool
 
-    @Environment(ScanModifierState.self)
-    private var parentState: ScanModifierState?
-
-    @State private var state: ScanModifierState
+    @Environment(\.scanModifierStates)
+    private var modifierStates
 
     init(enabled: Bool, scanner: Scanner, autoConnect: Bool) {
         self.enabled = enabled
         self.scanner = scanner
         self.autoConnect = autoConnect
-        self._state = State(wrappedValue: ScanModifierState(enabled: enabled))
     }
 
 
@@ -49,7 +65,6 @@ private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifie
                 onBackground() // onDisappear is coupled with view rendering only and won't get fired when putting app into the background
             }
             .onChange(of: enabled, initial: false) {
-                state.enabled = enabled
                 if enabled {
                     onForeground()
                 } else {
@@ -61,7 +76,7 @@ private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifie
                     await scanner.setAutoConnect(autoConnect)
                 }
             }
-            .environment(state)
+            .environment(\.scanModifierStates, modifierStates.appending(scanner, enabled: enabled))
     }
 
     @MainActor
@@ -75,7 +90,7 @@ private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifie
 
     @MainActor
     private func onBackground() {
-        if let parentState, parentState.enabled {
+        if modifierStates.parentScanning(with: scanner) {
             return // don't stop scanning if a parent modifier is expecting a scan to continue
         }
 
