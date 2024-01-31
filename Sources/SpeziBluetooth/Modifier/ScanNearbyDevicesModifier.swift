@@ -10,16 +10,31 @@ import Spezi
 import SwiftUI
 
 
+@Observable
+private class ScanModifierState {
+    var enabled: Bool
+
+    init(enabled: Bool) {
+        self.enabled = enabled
+    }
+}
+
+
 private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifier {
     private let enabled: Bool
     private let scanner: Scanner
     private let autoConnect: Bool
 
+    @Environment(ScanModifierState.self)
+    private var parentState: ScanModifierState?
+
+    @State private var state: ScanModifierState
 
     init(enabled: Bool, scanner: Scanner, autoConnect: Bool) {
         self.enabled = enabled
         self.scanner = scanner
         self.autoConnect = autoConnect
+        self._state = State(wrappedValue: ScanModifierState(enabled: enabled))
     }
 
 
@@ -33,6 +48,20 @@ private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifie
             .onReceive(NotificationCenter.default.publisher(for: UIScene.didEnterBackgroundNotification)) { _ in
                 onBackground() // onDisappear is coupled with view rendering only and won't get fired when putting app into the background
             }
+            .onChange(of: enabled, initial: false) {
+                state.enabled = enabled
+                if enabled {
+                    onForeground()
+                } else {
+                    onBackground()
+                }
+            }
+            .onChange(of: autoConnect, initial: false) {
+                Task {
+                    await scanner.setAutoConnect(autoConnect)
+                }
+            }
+            .environment(state)
     }
 
     @MainActor
@@ -46,8 +75,11 @@ private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifie
 
     @MainActor
     private func onBackground() {
+        if let parentState, parentState.enabled {
+            return // don't stop scanning if a parent modifier is expecting a scan to continue
+        }
+
         Task {
-            // TODO: this might stop a scan which is still enabled from an outside modifier?
             await scanner.stopScanning()
         }
     }

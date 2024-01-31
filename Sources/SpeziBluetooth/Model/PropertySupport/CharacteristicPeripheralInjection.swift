@@ -15,46 +15,21 @@ private protocol DecodableCharacteristic {
 }
 
 
+/// Captures and synchronizes access to the state of a ``Characteristic`` property wrapper.
 @Observable
-private class NonIsolatedState<Value> {
+class CharacteristicPeripheralInjection<Value> {
+    let peripheral: BluetoothPeripheral
+    let serviceId: CBUUID
+    let characteristicId: CBUUID
+    let valueBox: Characteristic<Value>.ValueBox
+
+    // Updates must only happen through update(characteristic:)
     private(set) weak var characteristic: GATTCharacteristic?
 
     /// The user supplied onChange closure we use to forward notifications.
     @ObservationIgnored var onChangeClosure: ((Value) -> Void)?
     /// The registration object we received from the ``BluetoothPeripheral`` for our onChange handler.
     @ObservationIgnored var registration: OnChangeRegistration?
-
-
-    init(characteristic: GATTCharacteristic?, onChangeClosure: ((Value) -> Void)?) {
-        self.characteristic = characteristic
-        self.onChangeClosure = onChangeClosure
-    }
-
-    @MainActor
-    func update(characteristic: GATTCharacteristic?) {
-        if self.characteristic != characteristic {
-            self.characteristic = characteristic
-        }
-    }
-}
-
-
-/// Captures and synchronizes access to the state of a ``Characteristic`` property wrapper.
-actor CharacteristicPeripheralInjection<Value> { // TODO: revise actor design here!
-    let peripheral: BluetoothPeripheral
-    let serviceId: CBUUID
-    let characteristicId: CBUUID
-    let valueBox: Characteristic<Value>.ValueBox
-
-    private let state: NonIsolatedState<Value>
-
-    /// This flag controls if we are supposed to be subscribed to characteristic notifications.
-    private var notify = false
-
-    /// `nil` if device is not connected or characteristic not discovered yet/
-    nonisolated var characteristic: GATTCharacteristic? {
-        state.characteristic
-    }
 
 
     init(
@@ -69,7 +44,8 @@ actor CharacteristicPeripheralInjection<Value> { // TODO: revise actor design he
         self.serviceId = serviceId
         self.characteristicId = characteristicId
         self.valueBox = valueBox
-        self.state = NonIsolatedState(characteristic: characteristic, onChangeClosure: onChangeClosure)
+        self.characteristic = characteristic
+        self.onChangeClosure = onChangeClosure
     }
 
     /// Setup the injection. Must be called after initialization to set up all handlers and write the initial value.
@@ -90,7 +66,7 @@ actor CharacteristicPeripheralInjection<Value> { // TODO: revise actor design he
         }
 
         // register onChange handler
-        self.state.registration = await peripheral.registerOnChangeHandler(service: serviceId, characteristic: characteristicId) { [weak self] data in
+        self.registration = await peripheral.registerOnChangeHandler(service: serviceId, characteristic: characteristicId) { [weak self] data in
             Task { @MainActor [weak self] in
                 self?.handleUpdatedValue(data)
             }
@@ -102,34 +78,42 @@ actor CharacteristicPeripheralInjection<Value> { // TODO: revise actor design he
     }
 
     /// Signal from the Bluetooth state to cleanup the device
-    nonisolated func clearState() {
-        self.state.registration?.cancel()
-        self.state.registration = nil
-        self.state.onChangeClosure = nil // might contain a self reference, so we need to clear that!
+    @MainActor
+    func clearState() {
+        self.registration?.cancel()
+        self.registration = nil
+        self.onChangeClosure = nil // might contain a self reference, so we need to clear that!
+    }
+
+    @MainActor
+    private func update(characteristic: GATTCharacteristic?) {
+        if self.characteristic != characteristic {
+            self.characteristic = characteristic
+        }
     }
 
     nonisolated func setOnChangeClosure(_ closure: ((Value) -> Void)?) {
-        self.state.onChangeClosure = closure
+        self.onChangeClosure = closure
     }
 
-    /// Enable or disable notifications (if not already) for the characteristic.
+    /// Enable or disable notifications for the characteristic.
     /// - Parameter enabled: Flag indicating if notifications should be enabled.
     func enableNotifications(_ enabled: Bool = true) async {
-        guard notify != enabled else {
-            return
-        }
-
-        self.notify = enabled
         await peripheral.enableNotifications(enabled, serviceId: serviceId, characteristicId: characteristicId)
+    }
+
+    /// Observes a write to the characteristics and saves the written value to the local storage.
+    func observeWrite(of value: Value, action: () async throws -> Void) async rethrows {
+        try await action()
+        await valueBox.update(value: value) // if write was successful, we save it in the property
     }
 
     @MainActor
     private func trackServicesUpdates() {
-        // TODO: go with event handlers!
         withObservationTracking {
             _ = peripheral.getCharacteristic(id: characteristicId, on: serviceId)
         } onChange: { [weak self] in
-            Task { @MainActor [weak self] in // TODO: custom global actors (everywhere)
+            Task { @MainActor [weak self] in
                 // we need to wait before registering, such that we register `.characteristic` property once the service becomes present
                 self?.trackServicesUpdates()
                 self?.handleServicesChange()
@@ -141,8 +125,8 @@ actor CharacteristicPeripheralInjection<Value> { // TODO: revise actor design he
     private func handleServicesChange() {
         let characteristic = peripheral.getCharacteristic(id: characteristicId, on: serviceId)
 
-        let instanceChanged = state.characteristic?.underlyingCharacteristic !== characteristic?.underlyingCharacteristic
-        state.update(characteristic: characteristic)
+        let instanceChanged = characteristic?.underlyingCharacteristic !== characteristic?.underlyingCharacteristic
+        update(characteristic: characteristic)
 
         if instanceChanged {
             if let characteristic {
@@ -162,7 +146,6 @@ actor CharacteristicPeripheralInjection<Value> { // TODO: revise actor design he
             return
         }
 
-        // TODO: are we saving the written value?
         decodable.handleUpdateValueAssumingIsolation(data)
     }
 }
@@ -178,12 +161,10 @@ extension CharacteristicPeripheralInjection: DecodableCharacteristic where Value
             }
 
             self.valueBox.update(value: value)
-            if let handler = state.onChangeClosure {
-                Task { @MainActor in // TODO: global actor?
-                    // TODO: could be async now?
-                    handler(value) // TODO: dispatch this on the main thread?
-                    // TODO: similar for the state handlers!
-                }
+            if let handler = onChangeClosure {
+                // We specifically create a dedicated Task for every updated value, so we can stay on the same task
+                // without blocking anything for the onChange handler.
+                handler(value)
             }
         } else {
             self.valueBox.update(value: nil)

@@ -31,6 +31,7 @@ private struct SetupServiceVisitor: ServiceVisitor {
         action.inject(peripheral: peripheral)
     }
 
+    @MainActor
     func visit<Value>(_ state: DeviceState<Value>) {
         state.inject(peripheral: peripheral)
     }
@@ -60,6 +61,7 @@ private struct SetupDeviceVisitor: DeviceVisitor {
         action.inject(peripheral: peripheral)
     }
 
+    @MainActor
     func visit<Value>(_ state: DeviceState<Value>) {
         state.inject(peripheral: peripheral)
     }

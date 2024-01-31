@@ -41,7 +41,7 @@ extension View {
     ///   - enabled: Flag indicating if nearby device scanning is enabled.
     ///   - scanner: The Bluetooth Manager to use for scanning.
     /// - Returns: THe modified view.
-    public func autoConnect<Scanner: BluetoothScanner>(enabled: Bool = false, with scanner: Scanner) -> some View { // TODO: timeout??
+    public func autoConnect<Scanner: BluetoothScanner>(enabled: Bool = false, with scanner: Scanner) -> some View {
         // swiftlint:disable:previous function_default_parameter_at_end
         modifier(DeviceAutoConnectModifier(enabled: enabled, scanner: scanner))
     }

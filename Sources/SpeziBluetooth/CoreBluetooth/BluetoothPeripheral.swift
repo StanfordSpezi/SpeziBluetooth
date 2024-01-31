@@ -184,9 +184,12 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
             return
         }
 
+        // TODO: either avoid setting disconnecting or set manual here?
         removeAllNotifications()
 
         manager.disconnect(peripheral: self)
+        // TODO: does this change something?
+        await self.stateContainer.update(state: peripheral.state) // ensure that it is updated instantly.
     }
 
     /// Retrieve a service.
@@ -230,6 +233,13 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
         await self.stateContainer.update(state: peripheral.state) // ensure that it is updated instantly.
 
         logger.debug("Discovering services for \(self.peripheral.debugIdentifier) ...")
+        let services = requestedCharacteristics.map { Array($0.keys) }
+        
+        if let services, services.isEmpty {
+            // TODO: would the delegate return?
+            await stateContainer.signalFullyDiscovered()
+        }
+
         peripheral.discoverServices(requestedCharacteristics.map { Array($0.keys) })
     }
 
@@ -249,7 +259,6 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
         }
         writeWithoutResponseAccess.removeAll()
 
-        // TODO: really just cancel?
         for continuation in rssiReadAccess {
             continuation.resume(throwing: CancellationError())
         }
@@ -524,6 +533,7 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
         }
 
         gattService.didDiscoverCharacteristics()
+        stateContainer.signalFullyDiscovered() // TODO: this only happens for the first discovery!
     }
 
     @MainActor
@@ -581,12 +591,7 @@ extension BluetoothPeripheral {
         self.rssiReadAccess.removeAll()
     }
 
-    fileprivate func discovered(services: [CBService]) async {
-        // update our local model for observability
-        await stateContainer.assign(services: services.map { service in
-            GATTService(service: service)
-        })
-
+    fileprivate func discovered(services: [CBService]) {
         logger.debug("Discovered \(services) services for peripheral \(self.peripheral.debugIdentifier)")
 
         for service in services {
@@ -618,9 +623,7 @@ extension BluetoothPeripheral {
         peripheral.discoverServices(serviceIds)
     }
 
-    fileprivate func discovered(characteristics: [CBCharacteristic], for service: CBService) async {
-        await didDiscoverCharacteristics(for: service)
-
+    fileprivate func discovered(characteristics: [CBCharacteristic], for service: CBService) {
         // automatically subscribe to discovered characteristics for which we have a handler subscribed!
         for characteristic in characteristics {
             guard characteristic.properties.contains(.notify) || characteristic.properties.contains(.indicate) else {
@@ -662,10 +665,7 @@ extension BluetoothPeripheral {
         first.resume()
     }
 
-    fileprivate func receivedUpdatedValue(for characteristic: CBCharacteristic, result: Result<Data, Error>) async {
-        // make sure value is propagated beforehand
-        await propagateChanges(for: characteristic)
-
+    fileprivate func receivedUpdatedValue(for characteristic: CBCharacteristic, result: Result<Data, Error>) {
         if case let .read(continuations, queued) = ongoingAccesses[characteristic] {
             ongoingAccesses[characteristic] = nil
             
@@ -699,9 +699,7 @@ extension BluetoothPeripheral {
         }
     }
 
-    fileprivate func receivedWriteResponse(for characteristic: CBCharacteristic, result: Result<Void, Error>) async {
-        await propagateChanges(for: characteristic)
-
+    fileprivate func receivedWriteResponse(for characteristic: CBCharacteristic, result: Result<Void, Error>) {
         guard case let .write(continuation, queued) = ongoingAccesses[characteristic] else {
             logger.warning("Received write response for \(characteristic.debugIdentifier) without an ongoing access. Discarding write ...")
             return
@@ -720,10 +718,7 @@ extension BluetoothPeripheral {
         }
     }
 
-    fileprivate func receiveUpdatedNotificationState(for characteristic: CBCharacteristic) async {
-        await propagateChanges(for: characteristic)
-
-
+    fileprivate func receiveUpdatedNotificationState(for characteristic: CBCharacteristic) {
         if characteristic.isNotifying {
             logger.log("Notification began on \(characteristic.uuid.uuidString)")
 
@@ -802,7 +797,11 @@ extension BluetoothPeripheral {
                 return
             }
 
-            Task {
+            Task { @MainActor in
+                // update our local model for observability
+                device.stateContainer.assign(services: services.map { service in
+                    GATTService(service: service)
+                })
                 await device.discovered(services: services)
             }
         }
@@ -819,7 +818,8 @@ extension BluetoothPeripheral {
 
             logger.debug("Discovered \(characteristics.count) characteristic(s) for service \(service.uuid): \(characteristics)")
 
-            Task {
+            Task { @MainActor in
+                device.didDiscoverCharacteristics(for: service)
                 await device.discovered(characteristics: characteristics, for: service)
             }
         }
@@ -830,13 +830,16 @@ extension BluetoothPeripheral {
             }
 
             logger.debug("Discovered descriptors for characteristic \(characteristic.debugIdentifier): \(descriptors)")
-            Task {
-                await device.propagateChanges(for: characteristic)
+            Task { @MainActor in
+                device.propagateChanges(for: characteristic)
             }
         }
 
         func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
-            Task {
+            Task { @MainActor in
+                // make sure value is propagated beforehand
+                device.propagateChanges(for: characteristic)
+
                 if let error {
                     await device.receivedUpdatedValue(for: characteristic, result: .failure(error))
                 } else if let value = characteristic.value {
@@ -846,9 +849,9 @@ extension BluetoothPeripheral {
         }
 
         func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
-            // TODO: does this change the .value property (if not, we should?)
-            print("Value after write is now \(characteristic.value?.hexString() ?? "nil")")
-            Task {
+            Task { @MainActor in
+                device.propagateChanges(for: characteristic)
+
                 if let error {
                     await device.receivedWriteResponse(for: characteristic, result: .failure(error))
                 } else {
@@ -859,18 +862,18 @@ extension BluetoothPeripheral {
 
         func peripheralIsReady(toSendWriteWithoutResponse peripheral: CBPeripheral) {
             Task {
-                await device.receivedReadyNotification() // TODO: again, does this change the .value property
+                await device.receivedReadyNotification()
             }
         }
 
         func peripheral(_ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic, error: Error?) {
             if let error = error {
-                // TODO: this happens sometimes with: The attribute could not be found. (for default notify true!)
                 logger.error("Error changing notification state for \(characteristic.uuid): \(error)")
                 return
             }
 
-            Task {
+            Task { @MainActor in
+                device.propagateChanges(for: characteristic)
                 await device.receiveUpdatedNotificationState(for: characteristic)
             }
         }

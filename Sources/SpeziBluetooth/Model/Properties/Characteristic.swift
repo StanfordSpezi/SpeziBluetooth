@@ -225,6 +225,7 @@ public class Characteristic<Value> {
         }
     }
 
+    @MainActor
     func clearState() {
         injection?.clearState()
     }

@@ -15,7 +15,7 @@ import Foundation
 /// Main motivation is to have `BluetoothPeripheral` be implemented as an actor and moving state
 /// into a separate state container that is `@Observable`.
 @Observable
-final class PeripheralStateContainer { // TODO: everything observable must the mainactor!
+final class PeripheralStateContainer {
     // SYNCED TO MAIN ACTOR
     private(set) var peripheralName: String?
     private(set) var localName: String?
@@ -70,7 +70,17 @@ final class PeripheralStateContainer { // TODO: everything observable must the m
     func update(state cbState: CBPeripheralState) {
         let state = PeripheralState(from: cbState)
         if self.state != state {
+            if self.state == .connecting && state == .connected {
+                return
+            }
             self.state = state
+        }
+    }
+
+    @MainActor
+    func signalFullyDiscovered() {
+        if state == .connecting {
+            state = .connected
         }
     }
 

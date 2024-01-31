@@ -20,6 +20,12 @@ public protocol BluetoothScanner {
     ///     the nearby device if only one is found for a given time threshold.
     func scanNearbyDevices(autoConnect: Bool) async
 
+    /// Updates the auto-connect capability if currently scanning.
+    ///
+    /// Does nothing if not currently scanning.
+    /// - Parameter autoConnect: Flag if auto-connect should be enabled.
+    func setAutoConnect(_ autoConnect: Bool) async
+
     /// Stop scanning for nearby bluetooth devices.
     func stopScanning() async
 }

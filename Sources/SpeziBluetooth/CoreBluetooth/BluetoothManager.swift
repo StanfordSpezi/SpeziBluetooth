@@ -75,7 +75,7 @@ struct IsRunningBluetoothQueue {
 /// - ``scanNearbyDevices(autoConnect:)``
 /// - ``stopScanning()``
 @Observable
-public class BluetoothManager { // TODO: Observable = MainActor?
+public class BluetoothManager { // swiftlint:disable:this type_body_length
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothManager")
     /// The dispatch queue for all Bluetooth related functionality. This is serial (not `.concurrent`) to ensure synchronization.
     private let dispatchQueue = DispatchQueue(label: "edu.stanford.spezi.bluetooth", qos: .userInitiated)
@@ -99,11 +99,12 @@ public class BluetoothManager { // TODO: Observable = MainActor?
     /// The list of discovered and connected bluetooth devices indexed by their identifier UUID.
     /// The state is isolated to our `dispatchQueue`.
     private(set) var discoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> = [:]
+
     /// Track if we should be scanning. This is important to check which resources should stay allocated.
-    private var shouldBeScanning = false
+    @ObservationIgnored private var shouldBeScanning = false
     /// The identifier of the last manually disconnected device.
     /// This is to avoid automatically reconnecting to a device that was manually disconnected.
-    private var lastManuallyDisconnectedDevice: UUID?
+    @ObservationIgnored private var lastManuallyDisconnectedDevice: UUID?
 
     @ObservationIgnored private var autoConnect = false
     @ObservationIgnored private var autoConnectItem: DispatchWorkItem?
@@ -219,6 +220,19 @@ public class BluetoothManager { // TODO: Observable = MainActor?
         await withCheckedContinuation { continuation in
             dispatchQueue.async {
                 self._scanNearbyDevices(autoConnect: autoConnect)
+                continuation.resume()
+            }
+        }
+    }
+
+    /// If scanning, toggle the auto-connect feature.
+    /// - Parameter autoConnect: Flag to turn on or off auto-connect
+    public func setAutoConnect(_ autoConnect: Bool) async {
+        await withCheckedContinuation { continuation in
+            dispatchQueue.async {
+                if self.shouldBeScanning {
+                    self.autoConnect = autoConnect
+                }
                 continuation.resume()
             }
         }
@@ -477,7 +491,7 @@ extension BluetoothManager: KVOReceiver {
     func observeChange<K, V>(of keyPath: KeyPath<K, V>, value: V) async {
         switch keyPath {
         case \CBCentralManager.isScanning:
-            dispatchQueue.async { // TODO: thanks!
+            dispatchQueue.async {
                 self.isScanning = value as! Bool // swiftlint:disable:this force_cast
                 if !self.isScanning {
                     self.handleStoppedScanning()

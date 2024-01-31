@@ -338,6 +338,12 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
         await bluetoothManager.scanNearbyDevices(autoConnect: autoConnect)
     }
 
+    /// If scanning, toggle the auto-connect feature.
+    /// - Parameter autoConnect: Flag to turn on or off auto-connect
+    public func setAutoConnect(_ autoConnect: Bool) async {
+        await bluetoothManager.setAutoConnect(autoConnect)
+    }
+
     /// Stop scanning for nearby bluetooth devices.
     public func stopScanning() async {
         await bluetoothManager.stopScanning()
