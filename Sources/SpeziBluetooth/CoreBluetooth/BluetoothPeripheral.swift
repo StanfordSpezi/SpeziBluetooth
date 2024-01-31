@@ -764,7 +764,7 @@ extension BluetoothPeripheral {
                 return
             }
 
-            logger.debug("Discovered \(characteristics.count) characteristic(s) for service \(service.uuid)")
+            logger.debug("Discovered \(characteristics.count) characteristic(s) for service \(service.uuid): \(characteristics)")
 
             device.didDiscoverCharacteristics(for: service)
 
@@ -816,7 +816,7 @@ extension BluetoothPeripheral {
         func peripheral(_ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic, error: Error?) {
             if let error = error {
                 // TODO: this happens sometimes with: The attribute could not be found. (for default notify true!)
-                logger.error("Error changing notification state: \(error.localizedDescription)")
+                logger.error("Error changing notification state for \(characteristic.uuid): \(error.localizedDescription)")
                 return
             }
 
