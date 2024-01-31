@@ -14,7 +14,7 @@ class ServicePeripheralInjection {
     private let peripheral: BluetoothPeripheral
     private let serviceId: CBUUID
 
-    weak var service: GATTService?
+    private(set) weak var service: GATTService?
 
 
     init(peripheral: BluetoothPeripheral, serviceId: CBUUID, service: GATTService?) {
@@ -38,6 +38,7 @@ class ServicePeripheralInjection {
         }
     }
 
+    @MainActor
     private func handleServicesChange() {
         service = peripheral.getService(id: serviceId)
     }

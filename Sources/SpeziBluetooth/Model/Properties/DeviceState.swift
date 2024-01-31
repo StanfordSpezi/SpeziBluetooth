@@ -79,7 +79,7 @@ import Observation
 @propertyWrapper
 public class DeviceState<Value> {
     private let keyPath: KeyPath<BluetoothPeripheral, Value>
-    private var injection: DeviceStatePeripheralInjection<Value>?
+    private var injection: DeviceStatePeripheralInjection<Value>? // TODO: explicit MainActor access?
 
     private var objectId: ObjectIdentifier {
         ObjectIdentifier(self)

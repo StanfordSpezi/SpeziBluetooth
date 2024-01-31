@@ -162,10 +162,15 @@ public class Characteristic<Value> {
     }
 
     @Observable
-    class ValueBox {
-        var value: Value?
+    class ValueBox { // TODO: make that @MainActor update?
+        private(set) var value: Value?
 
         init(_ value: Value?) {
+            self.value = value
+        }
+
+        @MainActor
+        func update(value: Value?) {
             self.value = value
         }
     }

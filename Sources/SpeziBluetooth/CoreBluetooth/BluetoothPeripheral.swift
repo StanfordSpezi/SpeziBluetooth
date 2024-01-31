@@ -207,7 +207,7 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
         getService(id: serviceId)?.getCharacteristic(id: characteristicId)
     }
 
-    func handleConnect() {
+    func handleConnect() async {
         guard let manager else {
             logger.warning("Tried handling connection attempt for an orphaned bluetooth peripheral!")
             return
@@ -227,7 +227,7 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
             requestedCharacteristics = nil
         }
 
-        self.stateContainer.update(state: peripheral.state) // ensure that it is updated instantly.
+        await self.stateContainer.update(state: peripheral.state) // ensure that it is updated instantly.
 
         logger.debug("Discovering services for \(self.peripheral.debugIdentifier) ...")
         peripheral.discoverServices(requestedCharacteristics.map { Array($0.keys) })
@@ -239,8 +239,8 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
     }
 
     /// Handles a disconnect or failed connection attempt.
-    func handleDisconnect() {
-        self.stateContainer.update(state: peripheral.state) // ensure that it is updated instantly.
+    func handleDisconnect() async {
+        await self.stateContainer.update(state: peripheral.state) // ensure that it is updated instantly.
 
         // clear all the ongoing access
 
@@ -276,6 +276,7 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
         }
     }
 
+    @MainActor
     func update(advertisement: AdvertisementData, rssi: Int) {
         stateContainer.update(localName: advertisementData.localName)
         stateContainer.update(advertisementData: advertisement)
@@ -515,6 +516,7 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
         }
     }
 
+    @MainActor
     private func didDiscoverCharacteristics(for service: CBService) {
         guard let gattService = getService(id: service.uuid) else {
             logger.error("Failed to retrieve service \(service.uuid) of discovered characteristics!")
@@ -524,6 +526,7 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
         gattService.didDiscoverCharacteristics()
     }
 
+    @MainActor
     private func propagateChanges(for characteristic: CBCharacteristic) {
         guard let service = characteristic.service,
               let gattCharacteristic = getCharacteristic(id: characteristic.uuid, on: service.uuid) else {
@@ -546,9 +549,8 @@ extension BluetoothPeripheral: KVOReceiver {
     func observeChange<K, V>(of keyPath: KeyPath<K, V>, value: V) async {
         switch keyPath {
         case \CBPeripheral.state:
-            self.assertIsolated("Access was not isolated to the BluetoothPeripheral actor!")
             // force cast is okay as we implicitly verify the type using the KeyPath in the case statement.
-            self.stateContainer.update(state: value as! CBPeripheralState) // swiftlint:disable:this force_cast
+            await self.stateContainer.update(state: value as! CBPeripheralState) // swiftlint:disable:this force_cast
         default:
             break
         }
@@ -558,12 +560,12 @@ extension BluetoothPeripheral: KVOReceiver {
 
 // MARK: Delegate Accessors
 extension BluetoothPeripheral {
-    fileprivate func update(name: String?) {
-        stateContainer.update(peripheralName: name)
+    fileprivate func update(name: String?) async {
+        await stateContainer.update(peripheralName: name)
     }
 
-    fileprivate func update(rssi: Int, error: Error?) {
-        stateContainer.update(rssi: rssi)
+    fileprivate func update(rssi: Int, error: Error?) async {
+        await stateContainer.update(rssi: rssi)
 
         let result: Result<Int, Error>
         if let error {
@@ -579,9 +581,9 @@ extension BluetoothPeripheral {
         self.rssiReadAccess.removeAll()
     }
 
-    fileprivate func discovered(services: [CBService]) {
+    fileprivate func discovered(services: [CBService]) async {
         // update our local model for observability
-        stateContainer.assign(services: services.map { service in
+        await stateContainer.assign(services: services.map { service in
             GATTService(service: service)
         })
 
@@ -599,7 +601,7 @@ extension BluetoothPeripheral {
         }
     }
 
-    fileprivate func invalidatedServices(_ invalidatedServices: [CBService]) {
+    fileprivate func invalidatedServices(_ invalidatedServices: [CBService]) async {
         // this is called if ...
         // 1) The peripheral removes a service from its database.
         // 2) The peripheral adds a new service to its database.
@@ -611,13 +613,13 @@ extension BluetoothPeripheral {
         logger.debug("Services modified, invalidating \(serviceIds)")
 
         // update our local model
-        stateContainer.invalidateServices(serviceIds)
+        await stateContainer.invalidateServices(serviceIds)
 
         peripheral.discoverServices(serviceIds)
     }
 
-    fileprivate func discovered(characteristics: [CBCharacteristic], for service: CBService) {
-        didDiscoverCharacteristics(for: service)
+    fileprivate func discovered(characteristics: [CBCharacteristic], for service: CBService) async {
+        await didDiscoverCharacteristics(for: service)
 
         // automatically subscribe to discovered characteristics for which we have a handler subscribed!
         for characteristic in characteristics {
@@ -662,7 +664,7 @@ extension BluetoothPeripheral {
 
     fileprivate func receivedUpdatedValue(for characteristic: CBCharacteristic, result: Result<Data, Error>) async {
         // make sure value is propagated beforehand
-        propagateChanges(for: characteristic)
+        await propagateChanges(for: characteristic)
 
         if case let .read(continuations, queued) = ongoingAccesses[characteristic] {
             ongoingAccesses[characteristic] = nil
@@ -697,8 +699,8 @@ extension BluetoothPeripheral {
         }
     }
 
-    fileprivate func receivedWriteResponse(for characteristic: CBCharacteristic, result: Result<Void, Error>) {
-        propagateChanges(for: characteristic)
+    fileprivate func receivedWriteResponse(for characteristic: CBCharacteristic, result: Result<Void, Error>) async {
+        await propagateChanges(for: characteristic)
 
         guard case let .write(continuation, queued) = ongoingAccesses[characteristic] else {
             logger.warning("Received write response for \(characteristic.debugIdentifier) without an ongoing access. Discarding write ...")
@@ -718,8 +720,8 @@ extension BluetoothPeripheral {
         }
     }
 
-    fileprivate func receiveUpdatedNotificationState(for characteristic: CBCharacteristic) {
-        propagateChanges(for: characteristic)
+    fileprivate func receiveUpdatedNotificationState(for characteristic: CBCharacteristic) async {
+        await propagateChanges(for: characteristic)
 
 
         if characteristic.isNotifying {

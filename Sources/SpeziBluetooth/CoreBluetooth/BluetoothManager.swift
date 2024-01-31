@@ -75,7 +75,7 @@ struct IsRunningBluetoothQueue {
 /// - ``scanNearbyDevices(autoConnect:)``
 /// - ``stopScanning()``
 @Observable
-public class BluetoothManager {
+public class BluetoothManager { // TODO: Observable = MainActor?
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothManager")
     /// The dispatch queue for all Bluetooth related functionality. This is serial (not `.concurrent`) to ensure synchronization.
     private let dispatchQueue = DispatchQueue(label: "edu.stanford.spezi.bluetooth", qos: .userInitiated)

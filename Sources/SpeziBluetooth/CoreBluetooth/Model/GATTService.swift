@@ -39,8 +39,9 @@ public class GATTService {
     init(service: CBService) {
         self.underlyingService = service
         self.characteristics = []
-
-        didDiscoverCharacteristics()
+        self.characteristics = service.characteristics?.map { characteristic in
+            GATTCharacteristic(characteristic: characteristic, service: self)
+        } ?? []
     }
 
 
@@ -53,6 +54,7 @@ public class GATTService {
         }
     }
 
+    @MainActor
     func didDiscoverCharacteristics() {
         guard let serviceCharacteristics = underlyingService.characteristics else {
             characteristics.removeAll()

@@ -10,13 +10,14 @@ import CoreBluetooth
 
 
 private protocol DecodableCharacteristic {
+    @MainActor
     func handleUpdateValueAssumingIsolation(_ data: Data?)
 }
 
 
 @Observable
 private class NonIsolatedState<Value> {
-    weak var characteristic: GATTCharacteristic?
+    private(set) weak var characteristic: GATTCharacteristic?
 
     /// The user supplied onChange closure we use to forward notifications.
     @ObservationIgnored var onChangeClosure: ((Value) -> Void)?
@@ -28,11 +29,18 @@ private class NonIsolatedState<Value> {
         self.characteristic = characteristic
         self.onChangeClosure = onChangeClosure
     }
+
+    @MainActor
+    func update(characteristic: GATTCharacteristic?) {
+        if self.characteristic != characteristic {
+            self.characteristic = characteristic
+        }
+    }
 }
 
 
 /// Captures and synchronizes access to the state of a ``Characteristic`` property wrapper.
-actor CharacteristicPeripheralInjection<Value> {
+actor CharacteristicPeripheralInjection<Value> { // TODO: revise actor design here!
     let peripheral: BluetoothPeripheral
     let serviceId: CBUUID
     let characteristicId: CBUUID
@@ -66,6 +74,7 @@ actor CharacteristicPeripheralInjection<Value> {
 
     /// Setup the injection. Must be called after initialization to set up all handlers and write the initial value.
     /// - Parameter defaultNotify: Flag indicating if notification handlers should be registered immediately.
+    @MainActor
     func setup(defaultNotify: Bool) async {
         trackServicesUpdates() // enable observation tracking for peripheral.services and characteristic properties
 
@@ -82,8 +91,8 @@ actor CharacteristicPeripheralInjection<Value> {
 
         // register onChange handler
         self.state.registration = await peripheral.registerOnChangeHandler(service: serviceId, characteristic: characteristicId) { [weak self] data in
-            Task { [weak self] in
-                await self?.handleUpdatedValue(data)
+            Task { @MainActor [weak self] in
+                self?.handleUpdatedValue(data)
             }
         }
 
@@ -114,7 +123,8 @@ actor CharacteristicPeripheralInjection<Value> {
         await peripheral.enableNotifications(enabled, serviceId: serviceId, characteristicId: characteristicId)
     }
 
-    private nonisolated func trackServicesUpdates() {
+    @MainActor
+    private func trackServicesUpdates() {
         // TODO: go with event handlers!
         withObservationTracking {
             _ = peripheral.getCharacteristic(id: characteristicId, on: serviceId)
@@ -122,16 +132,17 @@ actor CharacteristicPeripheralInjection<Value> {
             Task { @MainActor [weak self] in // TODO: custom global actors (everywhere)
                 // we need to wait before registering, such that we register `.characteristic` property once the service becomes present
                 self?.trackServicesUpdates()
-                await self?.handleServicesChange()
+                self?.handleServicesChange()
             }
         }
     }
 
+    @MainActor
     private func handleServicesChange() {
         let characteristic = peripheral.getCharacteristic(id: characteristicId, on: serviceId)
 
         let instanceChanged = state.characteristic?.underlyingCharacteristic !== characteristic?.underlyingCharacteristic
-        state.characteristic = characteristic
+        state.update(characteristic: characteristic)
 
         if instanceChanged {
             if let characteristic {
@@ -140,11 +151,12 @@ actor CharacteristicPeripheralInjection<Value> {
                 handleUpdatedValue(characteristic.value)
             } else {
                 // we must make sure to not override the default value is one is present
-                valueBox.value = nil
+                valueBox.update(value: nil)
             }
         }
     }
 
+    @MainActor
     private func handleUpdatedValue(_ data: Data?) {
         guard let decodable = self as? DecodableCharacteristic else {
             return
@@ -157,7 +169,8 @@ actor CharacteristicPeripheralInjection<Value> {
 
 
 extension CharacteristicPeripheralInjection: DecodableCharacteristic where Value: ByteDecodable {
-    nonisolated func handleUpdateValueAssumingIsolation(_ data: Data?) {
+    @MainActor
+    func handleUpdateValueAssumingIsolation(_ data: Data?) {
         assertIsolated("\(#function) was called without actor isolation.")
         if let data {
             guard let value = Value(data: data) else {
@@ -165,7 +178,7 @@ extension CharacteristicPeripheralInjection: DecodableCharacteristic where Value
                 return
             }
 
-            self.valueBox.value = value
+            self.valueBox.update(value: value)
             if let handler = state.onChangeClosure {
                 Task { @MainActor in // TODO: global actor?
                     // TODO: could be async now?
@@ -174,7 +187,7 @@ extension CharacteristicPeripheralInjection: DecodableCharacteristic where Value
                 }
             }
         } else {
-            self.valueBox.value = nil
+            self.valueBox.update(value: nil)
         }
     }
 }
