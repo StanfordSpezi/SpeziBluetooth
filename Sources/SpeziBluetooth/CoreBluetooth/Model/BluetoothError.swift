@@ -6,16 +6,17 @@
 // SPDX-License-Identifier: MIT
 //
 
+import CoreBluetooth
 import Foundation
 
 
 /// Represents errors that can occur during Bluetooth operations.
-public enum BluetoothError: String, Error, CustomStringConvertible, LocalizedError {
+public enum BluetoothError: Error, CustomStringConvertible, LocalizedError {
     /// Could not decode the ByteBuffer into the provided ByteDecodable.
     case incompatibleDataFormat
     /// Thrown when accessing a ``Characteristic`` that was not present.
     /// Either because the device wasn't connected or the characteristic is not present on the connected device.
-    case notPresent
+    case notPresent(service: CBUUID?, characteristic: CBUUID)
 
     
     /// Provides a human-readable description of the error.
@@ -39,8 +40,8 @@ public enum BluetoothError: String, Error, CustomStringConvertible, LocalizedErr
         switch self {
         case .incompatibleDataFormat:
             String(localized: "Could not decode byte representation into provided format.", bundle: .module)
-        case .notPresent:
-            String(localized: "The request characteristic was not present on the device.", bundle: .module)
+        case let .notPresent(service, characteristic):
+            String(localized: "The requested characteristic \(characteristic) on \(service?.uuidString ?? "?") was not present on the device.", bundle: .module)
         }
     }
 }

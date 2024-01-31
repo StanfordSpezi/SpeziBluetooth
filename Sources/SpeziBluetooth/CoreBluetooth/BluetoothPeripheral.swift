@@ -233,8 +233,9 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
         }
         writeWithoutResponseAccess.removeAll()
 
+        // TODO: really just cancel?
         for continuation in rssiReadAccess {
-            continuation.resume(throwing: BluetoothError.notPresent)
+            continuation.resume(throwing: CancellationError())
         }
         rssiReadAccess.removeAll()
 
@@ -245,13 +246,13 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
             switch access {
             case let .read(continuations, queued):
                 for continuation in continuations {
-                    continuation.resume(throwing: BluetoothError.notPresent)
+                    continuation.resume(throwing: CancellationError())
                 }
                 for queue in queued {
                     queue.resume()
                 }
             case let .write(continuation, queued):
-                continuation.resume(throwing: BluetoothError.notPresent)
+                continuation.resume(throwing: CancellationError())
                 for queue in queued {
                     queue.resume()
                 }
@@ -293,7 +294,7 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
         _ onChange: @escaping (Data) -> Void
     ) throws -> OnChangeRegistration {
         guard let service = characteristic.service else {
-            throw BluetoothError.notPresent
+            throw BluetoothError.notPresent(service: nil, characteristic: characteristic.uuid)
         }
 
         return registerOnChangeHandler(service: service.uuid, characteristic: characteristic.uuid, onChange)

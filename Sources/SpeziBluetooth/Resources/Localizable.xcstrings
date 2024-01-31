@@ -32,11 +32,22 @@
       }
     },
     "The request characteristic was not present on the device." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The request characteristic was not present on the device."
+          }
+        }
+      }
+    },
+    "The requested characteristic %@ on %@ was not present on the device." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The requested characteristic %1$@ on %2$@ was not present on the device."
           }
         }
       }

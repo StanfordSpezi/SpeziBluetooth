@@ -117,7 +117,7 @@ extension CharacteristicAccessors where Value: ByteDecodable {
     public func read() async throws -> Value {
         guard let injection,
             let characteristic = injection.characteristic else {
-            throw BluetoothError.notPresent
+            throw BluetoothError.notPresent(service: injection?.serviceId, characteristic: configuration.id)
         }
 
         let data = try await injection.peripheral.read(characteristic: characteristic)
@@ -143,7 +143,7 @@ extension CharacteristicAccessors where Value: ByteEncodable {
     public func write(_ value: Value) async throws {
         guard let injection,
               let characteristic = injection.characteristic else {
-            throw BluetoothError.notPresent
+            throw BluetoothError.notPresent(service: injection?.serviceId, characteristic: configuration.id)
         }
 
         let requestData = value.encode()
@@ -162,7 +162,7 @@ extension CharacteristicAccessors where Value: ByteEncodable {
     public func writeWithoutResponse(_ value: Value) async throws {
         guard let injection,
                 let characteristic = injection.characteristic else {
-            throw BluetoothError.notPresent
+            throw BluetoothError.notPresent(service: injection?.serviceId, characteristic: configuration.id)
         }
 
         let data = value.encode()
