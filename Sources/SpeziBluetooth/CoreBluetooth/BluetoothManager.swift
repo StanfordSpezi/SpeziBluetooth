@@ -13,7 +13,7 @@ import OrderedCollections
 import OSLog
 
 
-private struct IsRunningBluetoothQueue {
+struct IsRunningBluetoothQueue {
     init() {}
 }
 
@@ -79,7 +79,7 @@ public class BluetoothManager {
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothManager")
     /// The dispatch queue for all Bluetooth related functionality. This is serial (not `.concurrent`) to ensure synchronization.
     private let dispatchQueue = DispatchQueue(label: "edu.stanford.spezi.bluetooth", qos: .userInitiated)
-    private let isRunningBluetoothQueueKey = DispatchSpecificKey<IsRunningBluetoothQueue>()
+    private let isRunningBluetoothQueueKey: DispatchSpecificKey<IsRunningBluetoothQueue>
 
     /// The device descriptions describing how nearby devices are discovered.
     private let configuredDevices: Set<DeviceDescription>
@@ -152,7 +152,7 @@ public class BluetoothManager {
         return discoveryIds.isEmpty ? nil : discoveryIds
     }
 
-    var isRunningWithinQueue: Bool {
+    private var isRunningWithinQueue: Bool {
         DispatchQueue.getSpecific(key: isRunningBluetoothQueueKey) != nil
     }
 
@@ -168,6 +168,8 @@ public class BluetoothManager {
         minimumRSSI: Int = Defaults.defaultMinimumRSSI,
         advertisementStaleInterval: TimeInterval = Defaults.defaultStaleTimeout
     ) {
+        self.isRunningBluetoothQueueKey = DispatchSpecificKey<IsRunningBluetoothQueue>()
+
         self.configuredDevices = devices
         self.minimumRSSI = minimumRSSI
         self.advertisementStaleInterval = max(1, advertisementStaleInterval)
@@ -475,7 +477,7 @@ extension BluetoothManager: KVOReceiver {
     func observeChange<K, V>(of keyPath: KeyPath<K, V>, value: V) async {
         switch keyPath {
         case \CBCentralManager.isScanning:
-            dispatchQueue.async {
+            dispatchQueue.async { // TODO: thanks!
                 self.isScanning = value as! Bool // swiftlint:disable:this force_cast
                 if !self.isScanning {
                     self.handleStoppedScanning()
@@ -600,7 +602,13 @@ extension BluetoothManager {
 
             logger.debug("Discovered peripheral \(peripheral.debugIdentifier) at \(rssi.intValue) dB (data: \(advertisementData))")
 
-            let device = BluetoothPeripheral(manager: manager, peripheral: peripheral, advertisementData: data, rssi: rssi.intValue)
+            let device = BluetoothPeripheral(
+                manager: manager,
+                schedulerKey: manager.isRunningBluetoothQueueKey,
+                peripheral: peripheral,
+                advertisementData: data,
+                rssi: rssi.intValue
+            )
             manager.discoveredPeripherals[peripheral.identifier] = device // save local-copy, such CB doesn't deallocate it
 
 
@@ -684,12 +692,18 @@ extension BluetoothManager {
             assert(manager.isRunningWithinQueue, "\(#function) was run outside the bluetooth queue. This introduces data races.")
 
             if !manager.isScanning {
-                device.handleDisconnect()
+                device.markLastActivity()
+                Task {
+                    await device.handleDisconnect()
+                }
                 manager.clearDiscoveredPeripheral(forKey: device.id)
             } else {
                 // we will keep discarded devices for 500ms before the stale timer kicks off
                 let interval = max(0, manager.advertisementStaleInterval - 0.5)
-                device.handleDisconnect(disconnectActivityInterval: interval)
+                device.markLastActivity(.now - interval)
+                Task {
+                    await device.handleDisconnect()
+                }
 
                 // We just schedule the new timer if there is a device to schedule one for.
                 manager.scheduleStaleTaskForOldestActivityDevice()

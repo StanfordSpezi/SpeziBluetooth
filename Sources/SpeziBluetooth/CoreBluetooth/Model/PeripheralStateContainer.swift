@@ -16,17 +16,16 @@ import Foundation
 /// into a separate state container that is `@Observable`.
 @Observable
 final class PeripheralStateContainer {
+    // SYNCED TO PERIPHERAL ACTOR
     private(set) var peripheralName: String?
     private(set) var localName: String?
     private(set) var rssi: Int
     private(set) var advertisementData: AdvertisementData
     private(set) var state: PeripheralState
-    var lastActivity: Date
+    private(set) var services: [GATTService]? // swiftlint:disable:this discouraged_optional_collection
 
-    var services: [GATTService]? // swiftlint:disable:this discouraged_optional_collection
-
-    /// The list of requested characteristic uuids indexed by service uuids.
-    var requestedCharacteristics: [CBUUID: Set<CharacteristicDescription>?]? // swiftlint:disable:this discouraged_optional_collection
+    /// SYNCED TO THE BLUETOOTH MANAGER DISPATCH QUEUE
+    private(set) var lastActivity: Date
 
     var name: String? {
         localName ?? peripheralName
@@ -67,6 +66,24 @@ final class PeripheralStateContainer {
         let state = PeripheralState(from: cbState)
         if self.state != state {
             self.state = state
+        }
+    }
+
+    func update(lastActivity: Date = .now) {
+        self.lastActivity = lastActivity
+    }
+
+    func assign(services: [GATTService]) {
+        self.services = services
+    }
+
+    func invalidateServices(_ ids: [CBUUID]) {
+        for id in ids {
+            guard let index = services?.firstIndex(where: { $0.uuid == id }) else {
+                continue
+            }
+
+            services?.remove(at: index)
         }
     }
 }
