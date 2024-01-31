@@ -10,10 +10,12 @@ import Foundation
 
 
 private struct ClearStateServiceVisitor: ServiceVisitor {
+    @MainActor
     func visit<Value>(_ characteristic: Characteristic<Value>) {
         characteristic.clearState()
     }
 
+    @MainActor
     func visit<Value>(_ state: DeviceState<Value>) {
         state.clearState()
     }
@@ -26,6 +28,7 @@ private struct ClearStateDeviceVisitor: DeviceVisitor {
         service.wrappedValue.accept(&visitor)
     }
 
+    @MainActor
     func visit<Value>(_ state: DeviceState<Value>) {
         state.clearState()
     }

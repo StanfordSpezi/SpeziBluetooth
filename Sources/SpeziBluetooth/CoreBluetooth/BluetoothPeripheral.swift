@@ -178,7 +178,7 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
     /// Disconnect the ongoing connection to the peripheral.
     ///
     /// Cancels an active or pending connection to a peripheral.
-    public func disconnect() {
+    public func disconnect() async {
         guard let manager else {
             logger.warning("Tried to disconnect an orphaned bluetooth peripheral!")
             return
