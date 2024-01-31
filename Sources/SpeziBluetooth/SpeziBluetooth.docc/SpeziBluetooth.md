@@ -74,6 +74,8 @@ Note that the value types needs to be optional and conform to ``ByteEncodable``,
 
 ```swift
 class DeviceInformationService: BluetoothService {
+    static let id = CBUUID(string: "180A")
+
     @Characteristic(id: "2A29")
     var manufacturer: String?
     @Characteristic(id: "2A26")

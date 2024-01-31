@@ -12,7 +12,7 @@ import Foundation
 /// Tracking notification closure registrations for ``Characteristic`` when peripheral is not available yet.
 final class ClosureRegistrar {
     struct Entry<Value> {
-        let closure: (Value) -> Void
+        let closure: (Value) async -> Void
     }
 
     // task local value ensures nobody is interfering here and resolves thread safety
@@ -23,11 +23,11 @@ final class ClosureRegistrar {
 
     init() {}
 
-    func insert<Value>(for object: ObjectIdentifier, closure: @escaping (Value) -> Void) {
+    func insert<Value>(for object: ObjectIdentifier, closure: @escaping (Value) async -> Void) {
         registrations[object] = Entry(closure: closure)
     }
 
-    func retrieve<Value>(for object: ObjectIdentifier, value: Value.Type = Value.self) -> ((Value) -> Void)? {
+    func retrieve<Value>(for object: ObjectIdentifier, value: Value.Type = Value.self) -> ((Value) async -> Void)? {
         guard let optionalEntry = registrations[object],
               let entry = optionalEntry as? Entry<Value> else {
             return nil

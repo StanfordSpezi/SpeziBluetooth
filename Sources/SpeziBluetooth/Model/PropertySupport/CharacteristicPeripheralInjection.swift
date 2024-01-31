@@ -11,7 +11,7 @@ import CoreBluetooth
 
 private protocol DecodableCharacteristic {
     @MainActor
-    func handleUpdateValueAssumingIsolation(_ data: Data?)
+    func handleUpdateValueAssumingIsolation(_ data: Data?) async
 }
 
 
@@ -27,7 +27,7 @@ class CharacteristicPeripheralInjection<Value> {
     private(set) weak var characteristic: GATTCharacteristic?
 
     /// The user supplied onChange closure we use to forward notifications.
-    @ObservationIgnored var onChangeClosure: ((Value) -> Void)?
+    @ObservationIgnored var onChangeClosure: ((Value) async -> Void)?
     /// The registration object we received from the ``BluetoothPeripheral`` for our onChange handler.
     @ObservationIgnored var registration: OnChangeRegistration?
 
@@ -38,7 +38,7 @@ class CharacteristicPeripheralInjection<Value> {
         characteristicId: CBUUID,
         valueBox: Characteristic<Value>.ValueBox,
         characteristic: GATTCharacteristic?,
-        onChangeClosure: ((Value) -> Void)?
+        onChangeClosure: ((Value) async -> Void)?
     ) {
         self.peripheral = peripheral
         self.serviceId = serviceId
@@ -62,13 +62,13 @@ class CharacteristicPeripheralInjection<Value> {
         // handle assigning the initial value!
         if let characteristic,
            let value = characteristic.value {
-            instance.handleUpdateValueAssumingIsolation(value)
+            await instance.handleUpdateValueAssumingIsolation(value)
         }
 
         // register onChange handler
         self.registration = await peripheral.registerOnChangeHandler(service: serviceId, characteristic: characteristicId) { [weak self] data in
             Task { @MainActor [weak self] in
-                self?.handleUpdatedValue(data)
+                await self?.handleUpdatedValue(data)
             }
         }
 
@@ -116,13 +116,13 @@ class CharacteristicPeripheralInjection<Value> {
             Task { @MainActor [weak self] in
                 // we need to wait before registering, such that we register `.characteristic` property once the service becomes present
                 self?.trackServicesUpdates()
-                self?.handleServicesChange()
+                await self?.handleServicesChange()
             }
         }
     }
 
     @MainActor
-    private func handleServicesChange() {
+    private func handleServicesChange() async {
         let characteristic = peripheral.getCharacteristic(id: characteristicId, on: serviceId)
 
         let instanceChanged = self.characteristic?.underlyingCharacteristic !== characteristic?.underlyingCharacteristic
@@ -130,9 +130,7 @@ class CharacteristicPeripheralInjection<Value> {
 
         if instanceChanged {
             if let characteristic {
-                // TODO: this seems to be flaky?
-                print("We are writing a default value \(characteristic.value) for \(characteristicId)")
-                handleUpdatedValue(characteristic.value)
+                await handleUpdatedValue(characteristic.value)
             } else {
                 // we must make sure to not override the default value is one is present
                 valueBox.update(value: nil)
@@ -141,19 +139,19 @@ class CharacteristicPeripheralInjection<Value> {
     }
 
     @MainActor
-    private func handleUpdatedValue(_ data: Data?) {
+    private func handleUpdatedValue(_ data: Data?) async {
         guard let decodable = self as? DecodableCharacteristic else {
             return
         }
 
-        decodable.handleUpdateValueAssumingIsolation(data)
+        await decodable.handleUpdateValueAssumingIsolation(data)
     }
 }
 
 
 extension CharacteristicPeripheralInjection: DecodableCharacteristic where Value: ByteDecodable {
     @MainActor
-    func handleUpdateValueAssumingIsolation(_ data: Data?) {
+    func handleUpdateValueAssumingIsolation(_ data: Data?) async {
         if let data {
             guard let value = Value(data: data) else {
                 Bluetooth.logger.error("Could decode updated value for characteristic \(self.characteristic?.debugDescription ?? self.characteristicId.uuidString). Invalid format!")
@@ -164,7 +162,7 @@ extension CharacteristicPeripheralInjection: DecodableCharacteristic where Value
             if let handler = onChangeClosure {
                 // We specifically create a dedicated Task for every updated value, so we can stay on the same task
                 // without blocking anything for the onChange handler.
-                handler(value)
+                await handler(value)
             }
         } else {
             self.valueBox.update(value: nil)

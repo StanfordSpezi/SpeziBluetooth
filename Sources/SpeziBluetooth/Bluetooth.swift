@@ -29,6 +29,8 @@ import Spezi
 ///
 /// ```swift
 /// class DeviceInformationService: BluetoothService {
+///    static let id = CBUUID(string: "180A")
+///
 ///     @Characteristic(id: "2A29")
 ///     var manufacturer: String?
 ///     @Characteristic(id: "2A26")
@@ -50,7 +52,7 @@ import Spezi
 ///     @DeviceState(\.state)
 ///     var state: PeripheralState
 ///
-///     @Service(id: "180A")
+///     @Service
 ///     var deviceInformation = DeviceInformationService()
 ///
 ///     @DeviceAction(\.connect)

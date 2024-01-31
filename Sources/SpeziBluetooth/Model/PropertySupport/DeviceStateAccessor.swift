@@ -31,7 +31,7 @@ public struct DeviceStateAccessor<Value> {
     /// - Note: It is perfectly fine if you capture strongly self within your closure. The framework will
     ///     resolve any reference cycles for you.
     /// - Parameter perform: The change handler to register.
-    public func onChange(perform: @escaping (Value) -> Void) {
+    public func onChange(perform: @escaping (Value) async -> Void) {
         guard let injection else {
             // Similar to CharacteristicAccessor/onChange(perform:), we save it in a global registrar
             // to avoid reference cycles we can't control.

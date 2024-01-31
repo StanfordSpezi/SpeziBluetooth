@@ -20,7 +20,7 @@ import CoreBluetooth
 /// 
 /// ```swift
 /// class MyDevice: BluetoothDevice {
-///     @Service(id: "180D")
+///     @Service
 ///     var heartRate = HeartRateService()
 /// }
 /// ```
@@ -28,8 +28,7 @@ import CoreBluetooth
 /// ## Topics
 ///
 /// ### Declaring a Service
-/// - ``init(wrappedValue:id:)-2mo8b``
-/// - ``init(wrappedValue:id:)-1if8d``
+/// - ``init(wrappedValue:)``
 ///
 /// ### Inspecting a Service
 /// - ``ServiceAccessor/isPresent``
@@ -41,7 +40,9 @@ import CoreBluetooth
 /// - ``ServiceAccessor``
 @propertyWrapper
 public class Service<S: BluetoothService> {
-    let id: CBUUID
+    var id: CBUUID {
+        S.id
+    }
     private var injection: ServicePeripheralInjection?
 
     /// Access the service instance.
@@ -55,18 +56,8 @@ public class Service<S: BluetoothService> {
     /// Declare a service.
     /// - Parameters:
     ///   - wrappedValue: The service instance.
-    ///   - id: The service id.
-    public convenience init(wrappedValue: S, id: String) {
-        self.init(wrappedValue: wrappedValue, id: CBUUID(string: id))
-    }
-
-    /// Declare a service.
-    /// - Parameters:
-    ///   - wrappedValue: The service instance.
-    ///   - id: The service id.
-    public init(wrappedValue: S, id: CBUUID) {
+    public init(wrappedValue: S) {
         self.wrappedValue = wrappedValue
-        self.id = id
     }
 
     @MainActor

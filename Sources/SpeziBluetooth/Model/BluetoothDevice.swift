@@ -22,9 +22,9 @@ import Spezi
 ///
 /// ```swift
 /// class MyDevice: BluetoothDevice {
-///     @Service(id: "180A")
+///     @Service
 ///     var deviceInformation = DeviceInformationService()
-///     @Service(id: "180D")
+///     @Service
 ///     var heartRate = HeartRateService()
 ///
 ///     init() {}

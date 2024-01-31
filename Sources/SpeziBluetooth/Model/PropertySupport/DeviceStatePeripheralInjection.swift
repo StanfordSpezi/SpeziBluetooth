@@ -13,10 +13,10 @@ class DeviceStatePeripheralInjection<Value> {
     let peripheral: BluetoothPeripheral
     private let keyPath: KeyPath<BluetoothPeripheral, Value>
 
-    private var onChangeClosure: ((Value) -> Void)?
+    private var onChangeClosure: ((Value) async -> Void)?
 
 
-    init(peripheral: BluetoothPeripheral, keyPath: KeyPath<BluetoothPeripheral, Value>, onChangeClosure: ((Value) -> Void)?) {
+    init(peripheral: BluetoothPeripheral, keyPath: KeyPath<BluetoothPeripheral, Value>, onChangeClosure: ((Value) async -> Void)?) {
         self.peripheral = peripheral
         self.keyPath = keyPath
         self.onChangeClosure = onChangeClosure
@@ -31,26 +31,26 @@ class DeviceStatePeripheralInjection<Value> {
             _ = peripheral[keyPath: keyPath]
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
-                self?.executeChangeHandler()
+                await self?.executeChangeHandler()
             }
             self?.trackStateUpdate()
         }
     }
 
-    private func executeChangeHandler() {
+    private func executeChangeHandler() async {
         guard let onChangeClosure else {
             return
         }
 
         let value = peripheral[keyPath: keyPath]
-        onChangeClosure(value)
+        await onChangeClosure(value)
     }
 
     func clearState() {
         onChangeClosure = nil
     }
 
-    nonisolated func setOnChangeClosure(_ closure: ((Value) -> Void)?) {
+    nonisolated func setOnChangeClosure(_ closure: ((Value) async -> Void)?) {
         self.onChangeClosure = closure
     }
 }

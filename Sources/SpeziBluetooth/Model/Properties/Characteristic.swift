@@ -10,6 +10,7 @@ import CoreBluetooth
 import Foundation
 
 
+
 /// Declare a characteristic within a Bluetooth service.
 ///
 /// This property wrapper can be used to declare a Bluetooth characteristic within a ``BluetoothService``.
@@ -25,6 +26,8 @@ import Foundation
 ///
 /// ```swift
 /// class DeviceInformationService: BluetoothService {
+///    static let id = CBUUID(string: "180A")
+///
 ///     @Characteristic(id: "2A26")
 ///     var firmwareRevision: String?
 /// }
@@ -43,6 +46,8 @@ import Foundation
 ///
 /// ```swift
 /// class HeartRateService: BluetoothService {
+///    static let id = CBUUID(string: "180D")
+///
 ///     @Characteristic(id: "2A37", notify: true)
 ///     var heartRateMeasurement: HeartRateMeasurement?
 ///
@@ -71,6 +76,8 @@ import Foundation
 ///
 /// ```swift
 /// class HeartRateService: BluetoothService {
+///    static let id = CBUUID(string: "180D")
+///
 ///     @Characteristic(id: "2A37", notify: true)
 ///     var heartRateMeasurement: HeartRateMeasurement?
 ///     @Characteristic(id: "2A38")

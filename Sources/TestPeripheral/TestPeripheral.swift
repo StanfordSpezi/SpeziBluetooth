@@ -11,6 +11,7 @@ import CoreBluetooth
 import SpeziBluetooth
 
 // TODO: add a service providing a log of all things that happened on the device?
+// TODO: how to we test remote disconnects?
 
 
 @main
@@ -26,7 +27,7 @@ class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
     }
 
     static func main() {
-        let peripheral = TestPeripheral()
+        _ = TestPeripheral()
         while true {}
     }
 

@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
+import class CoreBluetooth.CBUUID
 import Foundation
 import SpeziBluetooth
 
@@ -17,6 +18,8 @@ import SpeziBluetooth
 /// It is possible that none are implemented at all.
 /// For more information refer to the specification.
 public class DeviceInformationService: BluetoothService {
+    public static let id: CBUUID = .deviceInformationService
+
     /// The manufacturer name string.
     @Characteristic(id: .manufacturerNameStringCharacteristic)
     public var manufacturerName: String?

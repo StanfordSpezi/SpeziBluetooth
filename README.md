@@ -105,7 +105,7 @@ class MyDevice: BluetoothDevice {
     @DeviceState(\.state)
     var state: PeripheralState
 
-    @Service(id: "180A")
+    @Service
     var deviceInformation = DeviceInformationService()
 
     @DeviceAction(\.connect)

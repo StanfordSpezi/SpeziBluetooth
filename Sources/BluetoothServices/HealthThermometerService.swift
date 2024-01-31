@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
+import class CoreBluetooth.CBUUID
 import SpeziBluetooth
 
 
@@ -13,6 +14,8 @@ import SpeziBluetooth
 ///
 /// This class implements the Bluetooth [Health Thermometer Service 1.0](https://www.bluetooth.com/specifications/specs/health-thermometer-service-1-0).
 public class HealthThermometerService: BluetoothService {
+    public static let id: CBUUID = .healthThermometerService // TODO: reverse the extension stuff?
+
     /// Receive temperature measurements.
     ///
     /// - Note: This is characteristic required and indicate-only.
