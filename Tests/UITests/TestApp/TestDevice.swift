@@ -37,8 +37,7 @@ class TestDevice: BluetoothDevice, Identifiable, SomePeripheral {
     @DeviceAction(\.disconnect)
     var disconnect
 
-    @Service
-    var deviceInformation = DeviceInformationService()
+    @Service var deviceInformation = DeviceInformationService()
 
     required init() {}
 

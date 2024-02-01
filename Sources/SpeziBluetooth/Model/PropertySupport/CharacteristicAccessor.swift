@@ -112,7 +112,7 @@ extension CharacteristicAccessors where Value: ByteDecodable {
     /// Read the current characteristic value from the remote peripheral.
     /// - Returns: The value that was read.
     /// - Throws: Throws an `CBError` or `CBATTError` if the read fails.
-    ///     It might also throw a ``BluetoothError/notPresent`` or ``BluetoothError/incompatibleDataFormat`` error.
+    ///     It might also throw a ``BluetoothError/notPresent(service:characteristic:)`` or ``BluetoothError/incompatibleDataFormat`` error.
     @discardableResult
     public func read() async throws -> Value {
         guard let injection,
@@ -139,7 +139,7 @@ extension CharacteristicAccessors where Value: ByteEncodable {
     ///
     /// - Parameter value: The value you want to write.
     /// - Throws: Throws an `CBError` or `CBATTError` if the write fails.
-    ///     It might also throw a ``BluetoothError/notPresent`` error.
+    ///     It might also throw a ``BluetoothError/notPresent(service:characteristic:)`` error.
     public func write(_ value: Value) async throws {
         guard let injection,
               let characteristic = injection.characteristic else {
@@ -160,7 +160,7 @@ extension CharacteristicAccessors where Value: ByteEncodable {
     ///     Part G, 4.9.1 Write Without Response.
     /// - Parameter value: The value you want to write.
     /// - Throws: Throws an `CBError` or `CBATTError` if the write fails.
-    ///     It might also throw a ``BluetoothError/notPresent`` error.
+    ///     It might also throw a ``BluetoothError/notPresent(service:characteristic:)`` error.
     public func writeWithoutResponse(_ value: Value) async throws {
         guard let injection,
                 let characteristic = injection.characteristic else {

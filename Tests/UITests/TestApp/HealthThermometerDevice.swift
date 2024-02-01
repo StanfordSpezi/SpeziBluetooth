@@ -11,10 +11,8 @@ import SpeziBluetooth
 
 
 class HealthThermometerDevice: BluetoothDevice { // TODO: remove?
-    @Service
-    var deviceInformation = DeviceInformationService()
-    @Service
-    var healthThermometer = HealthThermometerService()
+    @Service var deviceInformation = DeviceInformationService()
+    @Service var healthThermometer = HealthThermometerService()
 
     
     required init() {}

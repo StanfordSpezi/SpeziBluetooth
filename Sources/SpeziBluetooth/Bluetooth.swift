@@ -52,8 +52,7 @@ import Spezi
 ///     @DeviceState(\.state)
 ///     var state: PeripheralState
 ///
-///     @Service
-///     var deviceInformation = DeviceInformationService()
+///     @Service var deviceInformation = DeviceInformationService()
 ///
 ///     @DeviceAction(\.connect)
 ///     var connect
@@ -77,7 +76,7 @@ import Spezi
 ///         Configuration {
 ///             Bluetooth {
 ///                 // Define which devices type to discover by what criteria .
-///                 // In this case we search for some custom FFF0 characteristic that is advertised.
+///                 // In this case we search for some custom FFF0 service that is advertised.
 ///                 Discover(MyDevice.self, by: .advertisedService("FFF0"))
 ///             }
 ///         }
@@ -198,7 +197,7 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
     ///
     /// ```swift
     /// Bluetooth {
-    ///     Discover(ExampleDevice.self, by: .advertisedService("..."))
+    ///     Discover(ExampleDevice.self, by: .advertisedService(MyExampleService.self))
     /// }
     /// ```
     ///

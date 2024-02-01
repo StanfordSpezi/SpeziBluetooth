@@ -14,8 +14,9 @@ import CoreBluetooth
 /// ## Topics
 ///
 /// ### Criteria
+/// - ``advertisedService(_:)-5o92s``
+/// - ``advertisedService(_:)-3pnr6``
 /// - ``advertisedService(_:)-swift.enum.case``
-/// - ``advertisedService(_:)-swift.type.method``
 public enum DiscoveryCriteria {
     /// Identify a device by their advertised service.
     case advertisedService(_ uuid: CBUUID)

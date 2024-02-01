@@ -19,11 +19,13 @@ let package = Package(
     ],
     products: [
         .library(name: "BluetoothServices", targets: ["BluetoothServices"]),
+        .library(name: "BluetoothViews", targets: ["BluetoothViews"]),
         .library(name: "SpeziBluetooth", targets: ["SpeziBluetooth"]),
         .library(name: "XCTBluetooth", targets: ["XCTBluetooth"])
     ],
     dependencies: [
         .package(url: "https://github.com/StanfordSpezi/Spezi", from: "1.0.0"),
+        .package(url: "https://github.com/StanfordSpezi/SpeziViews", from: "1.1.1"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.59.0"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.0.4")
     ],
@@ -49,7 +51,8 @@ let package = Package(
         .target(
             name: "BluetoothViews",
             dependencies: [
-                .target(name: "SpeziBluetooth")
+                .target(name: "SpeziBluetooth"),
+                .product(name: "SpeziViews", package: "SpeziViews")
             ]
         ),
         .target(

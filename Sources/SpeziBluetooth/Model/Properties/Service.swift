@@ -20,8 +20,7 @@ import CoreBluetooth
 /// 
 /// ```swift
 /// class MyDevice: BluetoothDevice {
-///     @Service
-///     var heartRate = HeartRateService()
+///     @Service var heartRate = HeartRateService()
 /// }
 /// ```
 ///

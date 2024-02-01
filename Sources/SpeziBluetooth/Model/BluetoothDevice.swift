@@ -22,10 +22,8 @@ import Spezi
 ///
 /// ```swift
 /// class MyDevice: BluetoothDevice {
-///     @Service
-///     var deviceInformation = DeviceInformationService()
-///     @Service
-///     var heartRate = HeartRateService()
+///     @Service var deviceInformation = DeviceInformationService()
+///     @Service var heartRate = HeartRateService()
 ///
 ///     init() {}
 /// }
