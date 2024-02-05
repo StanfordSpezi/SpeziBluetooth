@@ -56,7 +56,7 @@ public struct NearbyDeviceRow: View {
                     Label {
                         Text("Device Details", bundle: .module)
                     } icon: {
-                        Image(systemName: "info.circle")
+                        Image(systemName: "info.circle") // swiftlint:disable:this accessibility_label_for_image
                     }
                 }
                     .labelStyle(.iconOnly)

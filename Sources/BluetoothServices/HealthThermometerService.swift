@@ -14,12 +14,12 @@ import SpeziBluetooth
 ///
 /// This class implements the Bluetooth [Health Thermometer Service 1.0](https://www.bluetooth.com/specifications/specs/health-thermometer-service-1-0).
 public class HealthThermometerService: BluetoothService {
-    public static let id: CBUUID = .healthThermometerService // TODO: reverse the extension stuff?
+    public static let id = CBUUID(string: "1809")
 
     /// Receive temperature measurements.
     ///
     /// - Note: This is characteristic required and indicate-only.
-    @Characteristic(id: .temperatureMeasurementCharacteristic, notify: true)
+    @Characteristic(id: "2A1C", notify: true)
     public var temperatureMeasurement: TemperatureMeasurement?
     /// The body location of the temperature measurement.
     ///
@@ -27,12 +27,12 @@ public class HealthThermometerService: BluetoothService {
     /// Don't use both. Either of one is required.
     ///
     /// - Note: This is characteristic optional and read-only.
-    @Characteristic(id: .temperatureTypeCharacteristic)
+    @Characteristic(id: "2A1D")
     public var temperatureType: TemperatureType?
     /// Receive intermediate temperature values to a device for display purposes while a measurement is in progress.
     ///
     /// - Note: This is characteristic optional and notify-only.
-    @Characteristic(id: .intermediateTemperatureCharacteristic, notify: true)
+    @Characteristic(id: "2A1E", notify: true)
     public var intermediateTemperature: TemperatureMeasurement?
     /// The measurement interval between two measurements.
     ///
@@ -40,7 +40,7 @@ public class HealthThermometerService: BluetoothService {
     ///
     /// - Note: This is characteristic optional and read-only.
     ///     Optionally it might indicate and writeable.
-    @Characteristic(id: .measurementIntervalCharacteristic)
+    @Characteristic(id: "2A21")
     public var measurementInterval: MeasurementInterval?
 
 

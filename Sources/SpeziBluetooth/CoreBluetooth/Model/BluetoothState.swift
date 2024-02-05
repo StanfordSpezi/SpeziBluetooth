@@ -6,6 +6,8 @@
 // SPDX-License-Identifier: MIT
 //
 
+import CoreBluetooth
+
 
 /// Represents the various states of Bluetooth.
 public enum BluetoothState: UInt8 {
@@ -37,6 +39,29 @@ extension BluetoothState: CustomStringConvertible, Sendable {
             "unauthorized"
         case .poweredOn:
             "poweredOn"
+        }
+    }
+}
+
+
+extension BluetoothState {
+    /// Derive peripheral state from CoreBluetooth
+    public init(from state: CBManagerState) {
+        switch state {
+        case .unknown:
+            self = .unknown
+        case .resetting:
+            self = .poweredOff
+        case .unsupported:
+            self = .unsupported
+        case .unauthorized:
+            self = .unauthorized
+        case .poweredOff:
+            self = .poweredOff
+        case .poweredOn:
+            self = .poweredOn
+        @unknown default:
+            self = .unknown
         }
     }
 }

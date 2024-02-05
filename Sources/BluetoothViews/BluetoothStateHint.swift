@@ -10,11 +10,8 @@ import SpeziBluetooth
 import SwiftUI
 
 
-
 public struct BluetoothStateHint: View {
     private let state: BluetoothState
-
-    // TODO: adjust bundle for everything!
 
     private var titleMessage: LocalizedStringResource? {
         switch state {

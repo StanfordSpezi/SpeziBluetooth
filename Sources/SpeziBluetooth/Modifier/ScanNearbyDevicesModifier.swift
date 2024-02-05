@@ -10,35 +10,6 @@ import Spezi
 import SwiftUI
 
 
-private struct ScanModifierStates: EnvironmentKey {
-    static let defaultValue = ScanModifierStates()
-
-    private var registeredModifiers: [AnyHashable: Bool] = [:]
-
-    func parentScanning<Scanner: BluetoothScanner>(with scanner: Scanner) -> Bool {
-        registeredModifiers[AnyHashable(scanner.id), default: false]
-    }
-
-    func appending<Scanner: BluetoothScanner>(_ scanner: Scanner, enabled: Bool) -> ScanModifierStates {
-        var registeredModifiers = registeredModifiers
-        registeredModifiers[AnyHashable(scanner.id)] = enabled
-        return ScanModifierStates(registeredModifiers: registeredModifiers)
-    }
-}
-
-extension EnvironmentValues {
-    // TODO: naming and moving!
-    fileprivate var scanModifierStates: ScanModifierStates {
-        get {
-            self[ScanModifierStates.self]
-        }
-        set {
-            self[ScanModifierStates.self] = newValue
-        }
-    }
-}
-
-
 private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifier {
     private let enabled: Bool
     private let scanner: Scanner

@@ -18,7 +18,7 @@ struct BluetoothModuleView: View {
     private var device: TestDevice?
 
     var body: some View {
-        List {
+        List { // swiftlint:disable:this closure_body_length
             Section("State") {
                 HStack {
                     Text("Scanning")

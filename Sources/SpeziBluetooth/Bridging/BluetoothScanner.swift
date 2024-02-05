@@ -32,6 +32,7 @@ public protocol BluetoothScanner: Identifiable where ID: Hashable {
 
 
 extension BluetoothScanner where Self: AnyObject {
+    /// Default id based on `ObjectIdentifier`.
     public var id: ObjectIdentifier {
         ObjectIdentifier(self)
     }

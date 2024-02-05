@@ -59,12 +59,17 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
     private let delegate: Delegate
     private let stateObserver: KVOStateObserver<BluetoothPeripheral>
 
-    /// Ongoing accessed indexed by characteristic uuid.
-    private var ongoingAccesses: [CBCharacteristic: CharacteristicAccessContinuation] = [:]
+
+    /// Ongoing accessed per characteristic.
+    private var characteristicAccesses = CharacteristicAccesses()
+    /// Protecting concurrent access to an ongoing write without response.
+    private let writeWithoutResponseAccess = AsyncSemaphore()
     /// Continuation for the current write without response access.
-    private var writeWithoutResponseAccess: [CheckedContinuation<Void, Never>] = []
+    private var writeWithoutResponseContinuation: CheckedContinuation<Void, Never>?
+    /// Protecting concurrent access to an ongoing rssi read access.
+    private let rssiAccess = AsyncSemaphore()
     /// Continuation for a currently ongoing rssi read access.
-    private var rssiReadAccess: [CheckedContinuation<Int, Error>] = []
+    private var rssiContinuation: CheckedContinuation<Int, Error>?
 
     /// On-change handler registrations for all characteristics.
     private var onChangeHandlers: [CharacteristicLocator: [UUID: (Data) -> Void]] = [:]
@@ -253,34 +258,17 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
 
         // clear all the ongoing access
 
-        for continuation in writeWithoutResponseAccess {
-            continuation.resume()
+        characteristicAccesses.cancelAll()
+        writeWithoutResponseAccess.cancelAll()
+        rssiAccess.cancelAll()
+
+        if let writeWithoutResponseContinuation {
+            self.writeWithoutResponseContinuation = nil
+            writeWithoutResponseContinuation.resume()
         }
-        writeWithoutResponseAccess.removeAll()
-
-        for continuation in rssiReadAccess {
-            continuation.resume(throwing: CancellationError())
-        }
-        rssiReadAccess.removeAll()
-
-        let ongoingAccesses = ongoingAccesses
-        self.ongoingAccesses.removeAll()
-
-        for (_, access) in ongoingAccesses {
-            switch access {
-            case let .read(continuations, queued):
-                for continuation in continuations {
-                    continuation.resume(throwing: CancellationError())
-                }
-                for queue in queued {
-                    queue.resume()
-                }
-            case let .write(continuation, queued):
-                continuation.resume(throwing: CancellationError())
-                for queue in queued {
-                    queue.resume()
-                }
-            }
+        if let rssiContinuation {
+            self.rssiContinuation = nil
+            rssiContinuation.resume(throwing: CancellationError())
         }
     }
 
@@ -418,13 +406,11 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
     /// - Throws: Throws an `CBError` or `CBATTError` if the write fails.
     public func write(data: Data, for characteristic: GATTCharacteristic) async throws {
         let characteristic = characteristic.underlyingCharacteristic
-        while ongoingAccesses[characteristic] != nil {
-            await queueRWAccess(for: characteristic)
-        }
+        let access = characteristicAccesses.makeAccess(for: characteristic)
+        try await access.waitCheckingCancellation()
 
         try await withCheckedThrowingContinuation { continuation in
-            // using updateValue as of https://github.com/apple/swift/issues/63156. Revert to subscript access with Swift 5.10
-            ongoingAccesses.updateValue(.write(continuation), forKey: characteristic)
+            access.store(.write(continuation))
             peripheral.writeValue(data, for: characteristic, type: .withResponse)
         }
     }
@@ -440,17 +426,17 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
     ///   - data: The value to write.
     ///   - characteristic: The characteristic to which the value is written.
     public func writeWithoutResponse(data: Data, for characteristic: GATTCharacteristic) async {
-        while !writeWithoutResponseAccess.isEmpty {
-            await withCheckedContinuation { continuation in
-                writeWithoutResponseAccess.append(continuation)
-            }
+        do {
+            try await writeWithoutResponseAccess.waitCheckingCancellation()
+        } catch {
+            // task got cancelled, so just throw away the written value
+            return
         }
 
-        let characteristic = characteristic.underlyingCharacteristic
-
         await withCheckedContinuation { continuation in
-            writeWithoutResponseAccess.append(continuation)
-            peripheral.writeValue(data, for: characteristic, type: .withoutResponse)
+            assert(writeWithoutResponseContinuation == nil, "writeWithoutResponseAccess was unexpectedly not nil")
+            writeWithoutResponseContinuation = continuation
+            peripheral.writeValue(data, for: characteristic.underlyingCharacteristic, type: .withoutResponse)
         }
     }
 
@@ -464,23 +450,11 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
     public func read(characteristic: GATTCharacteristic) async throws -> Data {
         let characteristic = characteristic.underlyingCharacteristic
 
-        // if there is already a read for this characteristic, we just piggy back onto it
-        if case .read(var continuations, let queued) = ongoingAccesses[characteristic] {
-            return try await withCheckedThrowingContinuation { continuation in
-                continuations.append(continuation)
-                // using updateValue as of https://github.com/apple/swift/issues/63156. Revert to subscript access with Swift 5.10
-                ongoingAccesses.updateValue(.read(continuations, queued: queued), forKey: characteristic)
-            }
-        }
-
-        while ongoingAccesses[characteristic] != nil {
-            // otherwise there is a write and we wait for its completion before we read again
-            await queueRWAccess(for: characteristic)
-        }
+        let access = characteristicAccesses.makeAccess(for: characteristic)
+        try await access.waitCheckingCancellation()
 
         return try await withCheckedThrowingContinuation { continuation in
-            // using updateValue as of https://github.com/apple/swift/issues/63156. Revert to subscript access with Swift 5.10
-            ongoingAccesses.updateValue(.read([continuation]), forKey: characteristic)
+            access.store(.read(continuation))
             peripheral.readValue(for: characteristic)
         }
     }
@@ -491,37 +465,12 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
     /// - Returns: The read rssi value.
     /// - Throws: Throws an `CBError` or `CBATTError` if the read fails.
     public func readRSSI() async throws -> Int {
-        guard rssiReadAccess.isEmpty else {
-            // just return the same value as the current ongoing read
-            return try await withCheckedThrowingContinuation { continuation in
-                rssiReadAccess.append(continuation)
-            }
-        }
+        try await rssiAccess.waitCheckingCancellation()
 
         return try await withCheckedThrowingContinuation { continuation in
-            rssiReadAccess.append(continuation)
+            assert(rssiContinuation == nil, "rssiAccess was unexpectedly not nil")
+            rssiContinuation = continuation
             peripheral.readRSSI()
-        }
-    }
-
-    private func queueRWAccess(for characteristic: CBCharacteristic) async {
-        guard let access = ongoingAccesses[characteristic] else {
-            return
-        }
-
-        switch access {
-        case .read(let readContinuation, var queued):
-            await withCheckedContinuation { continuation in
-                queued.append(continuation)
-                // using updateValue as of https://github.com/apple/swift/issues/63156. Revert to subscript access with Swift 5.10
-                ongoingAccesses.updateValue(.read(readContinuation, queued: queued), forKey: characteristic)
-            }
-        case .write(let writeContinuation, var queued):
-            await withCheckedContinuation { continuation in
-                queued.append(continuation)
-                // using updateValue as of https://github.com/apple/swift/issues/63156. Revert to subscript access with Swift 5.10
-                ongoingAccesses.updateValue(.write(writeContinuation, queued: queued), forKey: characteristic)
-            }
         }
     }
 
@@ -583,11 +532,13 @@ extension BluetoothPeripheral {
             result = .success(rssi)
         }
 
-        for continuation in rssiReadAccess {
-            continuation.resume(with: result)
+        guard let rssiContinuation else {
+            return
         }
 
-        self.rssiReadAccess.removeAll()
+        self.rssiContinuation = nil
+        rssiContinuation.resume(with: result)
+        assert(rssiAccess.signal(), "Signaled rssiAccess though no one was waiting")
     }
 
     private func discovered(services: [CBService]) async {
@@ -637,8 +588,20 @@ extension BluetoothPeripheral {
         peripheral.discoverServices(serviceIds)
     }
 
-    private func discovered(characteristics: [CBCharacteristic], for service: CBService) async {
-        await completeServiceDiscovery(for: service)
+    private func discovered(service: CBService, result: Result<Void, Error>) async {
+        await completeServiceDiscovery(for: service) // ensure we keep track of all discoveries
+
+        if case let .failure(error) = result {
+            logger.error("Error discovering characteristics: \(error.localizedDescription)")
+            return
+        }
+
+        guard let characteristics = service.characteristics else {
+            logger.warning("Characteristic discovery for service \(service.uuid) resulted in an empty list.")
+            return
+        }
+
+        logger.debug("Discovered \(characteristics.count) characteristic(s) for service \(service.uuid): \(characteristics)")
 
         // automatically subscribe to discovered characteristics for which we have a handler subscribed!
         for characteristic in characteristics {
@@ -673,65 +636,58 @@ extension BluetoothPeripheral {
     }
 
     private func receivedReadyNotification() {
-        guard let first = writeWithoutResponseAccess.first else {
+        guard let writeWithoutResponseContinuation else {
             return
         }
 
-        writeWithoutResponseAccess.removeFirst()
-        first.resume()
+        self.writeWithoutResponseContinuation = nil
+        writeWithoutResponseContinuation.resume()
+        assert(writeWithoutResponseAccess.signal(), "Signaled writeWithoutResponseAccess though no one was waiting")
     }
 
     private func receivedUpdatedValue(for characteristic: CBCharacteristic, result: Result<Data, Error>) {
-        if case let .read(continuations, queued) = ongoingAccesses[characteristic] {
-            ongoingAccesses[characteristic] = nil
-            
+        if case let .read(continuation) = characteristicAccesses.retrieveAccess(for: characteristic) {
             if case let .failure(error) = result {
                 logger.debug("Characteristic read for \(characteristic.debugIdentifier) returned with error: \(error)")
             }
 
-            for continuation in continuations {
-                continuation.resume(with: result)
-            }
-
-            for queue in queued {
-                queue.resume()
-            }
+            continuation.resume(with: result)
+        } else if case let .failure(error) = result {
+            logger.debug("Received unsolicited value update error for \(characteristic.debugIdentifier): \(error)")
         }
 
-        switch result {
-        case let .success(data):
-            guard let service = characteristic.service else {
-                logger.warning("Received updated value for characteristic \(characteristic.debugIdentifier) without associated service!")
-                break
-            }
+        // notification handling
+        guard case let .success(data) = result else {
+            return
+        }
 
-            let locator = CharacteristicLocator(serviceId: service.uuid, characteristicId: characteristic.uuid)
+        guard let service = characteristic.service else {
+            logger.warning("Received updated value for characteristic \(characteristic.debugIdentifier) without associated service!")
+            return
+        }
 
-            for handler in onChangeHandlers[locator, default: [:]].values {
-                handler(data)
-            }
-        case let .failure(error):
-            logger.debug("Received unsolicited value update error for \(characteristic.debugIdentifier): \(error)")
+        let locator = CharacteristicLocator(serviceId: service.uuid, characteristicId: characteristic.uuid)
+        for handler in onChangeHandlers[locator, default: [:]].values {
+            handler(data)
         }
     }
 
     private func receivedWriteResponse(for characteristic: CBCharacteristic, result: Result<Void, Error>) {
-        guard case let .write(continuation, queued) = ongoingAccesses[characteristic] else {
-            logger.warning("Received write response for \(characteristic.debugIdentifier) without an ongoing access. Discarding write ...")
+        guard case let .write(continuation) = characteristicAccesses.retrieveAccess(for: characteristic) else {
+            switch result {
+            case .success:
+                logger.warning("Received write response for \(characteristic.debugIdentifier) without an ongoing access. Discarding write ...")
+            case let .failure(error):
+                logger.warning("Received erroneous write response for \(characteristic.debugIdentifier) without an ongoing access: \(error)")
+            }
             return
         }
-
-        ongoingAccesses[characteristic] = nil
 
         if case let .failure(error) = result {
             logger.debug("Characteristic write for \(characteristic.debugIdentifier) returned with error: \(error)")
         }
 
         continuation.resume(with: result)
-
-        for queue in queued {
-            queue.resume()
-        }
     }
 
     private func receiveUpdatedNotificationState(for characteristic: CBCharacteristic) {
@@ -823,27 +779,14 @@ extension BluetoothPeripheral {
         }
 
         func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
-            if let error = error {
-                logger.error("Error discovering characteristics: \(error.localizedDescription)")
-                Task { // TODO: this is weird!
-                    await device.completeServiceDiscovery(for: service)
-                }
-                return
-            }
-
-            guard let characteristics = service.characteristics else {
-                logger.warning("Characteristic discovery for service \(service.uuid) resulted in an empty list.")
-                Task { // TODO: this is weird!
-                    await device.completeServiceDiscovery(for: service)
-                }
-                return
-            }
-
-            logger.debug("Discovered \(characteristics.count) characteristic(s) for service \(service.uuid): \(characteristics)")
-
-            Task { @MainActor in
+            Task { @MainActor  in
                 device.didDiscoverCharacteristics(for: service)
-                await device.discovered(characteristics: characteristics, for: service)
+
+                if let error {
+                    await device.discovered(service: service, result: .failure(error))
+                } else {
+                    await device.discovered(service: service, result: .success(()))
+                }
             }
         }
 

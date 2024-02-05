@@ -74,7 +74,7 @@ struct IsRunningBluetoothQueue {
 /// - ``nearbyPeripheralsView``
 /// - ``scanNearbyDevices(autoConnect:)``
 /// - ``stopScanning()``
-@Observable
+@Observable // TODO: make an actor?
 public class BluetoothManager { // swiftlint:disable:this type_body_length
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothManager")
     /// The dispatch queue for all Bluetooth related functionality. This is serial (not `.concurrent`) to ensure synchronization.
@@ -115,6 +115,10 @@ public class BluetoothManager { // swiftlint:disable:this type_body_length
     /// This will deliver a matching candidate with the lowest RSSI if we don't have a device already connected,
     /// and there wasn't a device manually disconnected.
     private var autoConnectDeviceCandidate: BluetoothPeripheral? {
+        guard autoConnect else {
+            return nil // auto-connect is disabled
+        }
+
         guard lastManuallyDisconnectedDevice == nil && !hasConnectedDevices else {
             return nil
         }
@@ -217,32 +221,33 @@ public class BluetoothManager { // swiftlint:disable:this type_body_length
     /// - Parameter autoConnect: If enabled, the bluetooth manager will automatically connect to
     ///     the nearby device if only one is found for a given time threshold.
     public func scanNearbyDevices(autoConnect: Bool = false) async {
-        await withCheckedContinuation { continuation in
-            dispatchQueue.async {
-                self._scanNearbyDevices(autoConnect: autoConnect)
-                continuation.resume()
-            }
+        await dispatch {
+            self._scanNearbyDevices(autoConnect: autoConnect)
         }
     }
 
     /// If scanning, toggle the auto-connect feature.
     /// - Parameter autoConnect: Flag to turn on or off auto-connect
     public func setAutoConnect(_ autoConnect: Bool) async {
-        await withCheckedContinuation { continuation in
-            dispatchQueue.async {
-                if self.shouldBeScanning {
-                    self.autoConnect = autoConnect
-                }
-                continuation.resume()
+        await dispatch {
+            if self.shouldBeScanning {
+                self.autoConnect = autoConnect
             }
         }
     }
 
     /// Stop scanning for nearby bluetooth devices.
     public func stopScanning() async {
-        await withCheckedContinuation { continuation in
+        await dispatch {
+            self._stopScanning()
+        }
+    }
+
+    /// Queue an action onto the BluetoothManager's dispatch queue.
+    func dispatch(_ action: @escaping () -> Void) async {
+        await withUnsafeContinuation { continuation in
             dispatchQueue.async {
-                self._stopScanning()
+                action()
                 continuation.resume()
             }
         }
@@ -334,22 +339,14 @@ public class BluetoothManager { // swiftlint:disable:this type_body_length
 
     func connect(peripheral: BluetoothPeripheral) async {
         logger.debug("Trying to connect to \(peripheral.cbPeripheral.debugIdentifier) ...")
-        
-        await withCheckedContinuation { continuation in
-            dispatchQueue.async { [weak self] in
-                guard let self = self else {
-                    return
-                }
 
-                let cancelled = self.cancelStaleTask(for: peripheral)
+        await dispatch {
+            let cancelled = self.cancelStaleTask(for: peripheral)
 
-                self.centralManager.connect(peripheral.cbPeripheral, options: nil)
+            self.centralManager.connect(peripheral.cbPeripheral, options: nil)
 
-                if cancelled {
-                    self.scheduleStaleTaskForOldestActivityDevice(ignore: peripheral)
-                }
-
-                continuation.resume()
+            if cancelled {
+                self.scheduleStaleTaskForOldestActivityDevice(ignore: peripheral)
             }
         }
     }
@@ -372,10 +369,6 @@ public class BluetoothManager { // swiftlint:disable:this type_body_length
 
     private func kickOffAutoConnect() {
         assert(isRunningWithinQueue, "\(#function) was run outside the bluetooth queue. This introduces data races.")
-
-        guard autoConnect else {
-            return // auto connect is disabled
-        }
 
         guard autoConnectItem == nil && autoConnectDeviceCandidate != nil else {
             return
@@ -492,7 +485,7 @@ extension BluetoothManager: KVOReceiver {
     func observeChange<K, V>(of keyPath: KeyPath<K, V>, value: V) async {
         switch keyPath {
         case \CBCentralManager.isScanning:
-            dispatchQueue.async {
+            await dispatch {
                 self.isScanning = value as! Bool // swiftlint:disable:this force_cast
                 if !self.isScanning {
                     self.handleStoppedScanning()
@@ -543,42 +536,25 @@ extension BluetoothManager {
         }
 
 
-        func centralManagerDidUpdateState(_ central: CBCentralManager) { // swiftlint:disable:this cyclomatic_complexity
+        func centralManagerDidUpdateState(_ central: CBCentralManager) {
             guard let manager else {
                 return
             }
 
-            switch central.state {
-            case .poweredOn:
-                // Start working with the peripheral
-                logger.info("CBManager is powered on")
-                manager.state = .poweredOn
+            manager.state = BluetoothState(from: central.state)
+            logger.info("BluetoothManager central state is now \(manager.state)")
+
+            if case .poweredOn = manager.state {
                 manager.handlePoweredOn()
-            case .poweredOff:
-                logger.info("CBManager is not powered on")
-                manager.state = .poweredOff
-            case .resetting:
-                logger.info("CBManager is resetting")
-                manager.state = .poweredOff
-            case .unauthorized:
-                switch CBManager.authorization {
+            } else if case .unauthorized = manager.state {
+                switch CBCentralManager.authorization {
                 case .denied:
-                    logger.log("You are not authorized to use Bluetooth")
+                    logger.log("Unauthorized reason: Access to Bluetooth was denied.")
                 case .restricted:
-                    logger.log("Bluetooth is restricted")
+                    logger.log("Unauthorized reason: Bluetooth is restricted.")
                 default:
-                    logger.log("Unexpected authorization")
+                    break
                 }
-                manager.state = .unauthorized
-            case .unknown:
-                logger.log("CBManager state is unknown")
-                manager.state = .unknown
-            case .unsupported:
-                logger.log("Bluetooth is not supported on this device")
-                manager.state = .unsupported
-            @unknown default:
-                logger.log("A previously unknown central manager state occurred")
-                manager.state = .unsupported
             }
         }
 
@@ -713,8 +689,10 @@ extension BluetoothManager {
                 device.markLastActivity()
                 Task {
                     await device.handleDisconnect()
+                    await manager.dispatch {
+                        manager.clearDiscoveredPeripheral(forKey: device.id)
+                    }
                 }
-                manager.clearDiscoveredPeripheral(forKey: device.id)
             } else {
                 // we will keep discarded devices for 500ms before the stale timer kicks off
                 let interval = max(0, manager.advertisementStaleInterval - 0.5)

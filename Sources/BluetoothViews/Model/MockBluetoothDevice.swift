@@ -8,7 +8,9 @@
 
 import SpeziBluetooth
 
-struct MockBluetoothDevice: GenericBluetoothPeripheral { // TODO: where to put that?
+
+/// Mock peripheral used for internal previews.
+struct MockBluetoothDevice: GenericBluetoothPeripheral {
     var label: String
     var state: PeripheralState
     var requiresUserAttention: Bool
@@ -17,27 +19,5 @@ struct MockBluetoothDevice: GenericBluetoothPeripheral { // TODO: where to put t
         self.label = label
         self.state = state
         self.requiresUserAttention = requiresUserAttention
-    }
-}
-
-
-public protocol GenericBluetoothPeripheral {
-    var label: String { get }
-
-    var accessibilityLabel: String { get }
-
-    var state: PeripheralState { get }
-
-    var requiresUserAttention: Bool { get }
-}
-
-
-extension GenericBluetoothPeripheral {
-    public var accessibilityLabel: String {
-        label
-    }
-
-    public var requiresUserAttention: Bool {
-        false
     }
 }
