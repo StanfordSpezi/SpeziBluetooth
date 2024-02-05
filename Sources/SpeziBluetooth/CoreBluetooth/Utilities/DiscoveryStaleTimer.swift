@@ -12,15 +12,13 @@ import Foundation
 class DiscoveryStaleTimer {
     let targetDevice: UUID
     /// The dispatch work item that schedules the next stale timer.
-    private let workItem: DispatchWorkItem
+    private let workItem: BluetoothWorkItem
 
-    init(device: UUID, handler: @escaping () -> Void) {
+    init(device: UUID, manager: BluetoothManager, handler: @escaping (isolated BluetoothManager) -> Void) {
         // make sure that you don't create a reference cycle through the closure above!
 
         self.targetDevice = device
-        self.workItem = DispatchWorkItem { // we do not capture self here!!
-            handler()
-        }
+        self.workItem = BluetoothWorkItem(manager: manager, handler: handler)
     }
 
 
@@ -28,10 +26,10 @@ class DiscoveryStaleTimer {
         workItem.cancel()
     }
 
-    func schedule(for timeout: TimeInterval, in queue: DispatchQueue) {
+    func schedule(for timeout: TimeInterval, in queue: BluetoothSerialExecutor) {
         // `DispatchTime` only allows for integer time
         let milliSeconds = Int(timeout * 1000)
-        queue.asyncAfter(deadline: .now() + .milliseconds(milliSeconds), execute: workItem)
+        queue.schedule(for: .now() + .milliseconds(milliSeconds), execute: workItem)
     }
 
     deinit {

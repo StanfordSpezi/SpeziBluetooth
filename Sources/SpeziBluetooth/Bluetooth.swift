@@ -168,6 +168,7 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
 
     /// Represents the current state of Bluetooth.
     public var state: BluetoothState {
+        // TODO: unsafe access??
         bluetoothManager.state
     }
 
@@ -227,6 +228,7 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
 
     private func observeNearbyDevices() {
         withObservationTracking {
+            // TODO: make something like, withUnsafeAccess { stateContainer in ... }
             _ = bluetoothManager.discoveredPeripherals
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in

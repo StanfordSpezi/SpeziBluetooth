@@ -41,6 +41,9 @@ let package = Package(
             ],
             resources: [
                 .process("Resources")
+            ],
+            swiftSettings: [
+                .enableUpcomingFeature("StrictConcurrency") // TODO: remove again!
             ]
         ),
         .target(

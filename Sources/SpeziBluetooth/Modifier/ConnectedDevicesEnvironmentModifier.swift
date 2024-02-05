@@ -20,6 +20,7 @@ private struct ConnectedDeviceEnvironmentModifier<Device: BluetoothDevice>: View
         let connectedDeviceAny = connectedDevices[ObjectIdentifier(Device.self)]
         let connectedDevice = connectedDeviceAny as? Device
 
+        // TODO: can we set the thread local value via that thingy? (emulate the dynamicProperty behavior?)
         content
             .environment(connectedDevice)
     }

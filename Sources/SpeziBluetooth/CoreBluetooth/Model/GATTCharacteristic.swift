@@ -54,7 +54,6 @@ public class GATTCharacteristic {
     }
 
 
-    @MainActor
     func update() {
         if underlyingCharacteristic.isNotifying != isNotifying {
             isNotifying = underlyingCharacteristic.isNotifying

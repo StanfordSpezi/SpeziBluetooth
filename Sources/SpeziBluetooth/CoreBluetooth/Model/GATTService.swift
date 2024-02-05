@@ -54,7 +54,6 @@ public class GATTService {
         }
     }
 
-    @MainActor
     func didDiscoverCharacteristics() {
         guard let serviceCharacteristics = underlyingService.characteristics else {
             characteristics.removeAll()

@@ -16,23 +16,16 @@ import Foundation
 /// into a separate state container that is `@Observable`.
 @Observable
 final class PeripheralStateContainer {
-    // SYNCED TO MAIN ACTOR
     private(set) var peripheralName: String?
     private(set) var localName: String?
     private(set) var rssi: Int
     private(set) var advertisementData: AdvertisementData
     private(set) var state: PeripheralState
     private(set) var services: [GATTService]? // swiftlint:disable:this discouraged_optional_collection
+    @ObservationIgnored var lastActivity: Date
 
-    /// SYNCED TO THE BLUETOOTH MANAGER DISPATCH QUEUE
-    @ObservationIgnored private(set) var lastActivity: Date
-
-    var name: String? {
-        localName ?? peripheralName
-    }
-
-    init(name: String?, rssi: Int, advertisementData: AdvertisementData, state: CBPeripheralState, lastActivity: Date = .now) {
-        self.peripheralName = name
+    init(peripheralName: String?, rssi: Int, advertisementData: AdvertisementData, state: CBPeripheralState, lastActivity: Date = .now) {
+        self.peripheralName = peripheralName
         self.localName = advertisementData.localName
         self.advertisementData = advertisementData
         self.rssi = rssi
@@ -40,35 +33,29 @@ final class PeripheralStateContainer {
         self.lastActivity = lastActivity
     }
 
-    @MainActor
     func update(localName: String?) {
         if self.localName != localName {
             self.localName = localName
         }
     }
 
-    @MainActor
     func update(peripheralName: String?) {
         if self.peripheralName != peripheralName {
             self.peripheralName = peripheralName
         }
     }
 
-    @MainActor
     func update(rssi: Int) {
         if self.rssi != rssi {
             self.rssi = rssi
         }
     }
 
-    @MainActor
     func update(advertisementData: AdvertisementData) {
         self.advertisementData = advertisementData // not equatable
     }
 
-    @MainActor
-    func update(state cbState: CBPeripheralState) {
-        let state = PeripheralState(from: cbState)
+    func update(state: PeripheralState) {
         if self.state != state {
             if self.state == .connecting && state == .connected {
                 return // we set connected on our own!
@@ -77,7 +64,6 @@ final class PeripheralStateContainer {
         }
     }
 
-    @MainActor
     func signalFullyDiscovered() {
         if state == .connecting {
             state = .connected
@@ -88,12 +74,10 @@ final class PeripheralStateContainer {
         self.lastActivity = lastActivity
     }
 
-    @MainActor
     func assign(services: [GATTService]) {
         self.services = services
     }
 
-    @MainActor
     func invalidateServices(_ ids: [CBUUID]) {
         for id in ids {
             guard let index = services?.firstIndex(where: { $0.uuid == id }) else {
