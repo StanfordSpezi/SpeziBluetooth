@@ -21,9 +21,8 @@ private struct SetupServiceVisitor: ServiceVisitor {
         self.service = service
     }
 
-
-    @MainActor
     func visit<Value>(_ characteristic: Characteristic<Value>) {
+        // TODO: just call setup within the inject everywhere (where we pass the peripheral?)
         characteristic.inject(peripheral: peripheral, serviceId: serviceId, service: service)
     }
 
@@ -31,9 +30,11 @@ private struct SetupServiceVisitor: ServiceVisitor {
         action.inject(peripheral: peripheral)
     }
 
-    @MainActor
     func visit<Value>(_ state: DeviceState<Value>) {
-        state.inject(peripheral: peripheral)
+        let injection = state.inject(peripheral: peripheral)
+        injection.assumeIsolated { injection in
+            injection.setup()
+        }
     }
 }
 
@@ -47,11 +48,14 @@ private struct SetupDeviceVisitor: DeviceVisitor {
     }
 
 
-    @MainActor
     func visit<S: BluetoothService>(_ service: Service<S>) {
-        let blService = peripheral.getService(id: service.id)
+        let blService = peripheral.assumeIsolated { $0.getService(id: service.id) }
 
-        service.inject(peripheral: peripheral, service: blService)
+        let serviceInjection = ServicePeripheralInjection(peripheral: peripheral, serviceId: service.id, service: blService)
+        service.inject(serviceInjection)
+        serviceInjection.assumeIsolated { injection in
+            injection.setup()
+        }
 
         var visitor = SetupServiceVisitor(peripheral: peripheral, serviceId: service.id, service: blService)
         service.wrappedValue.accept(&visitor)
@@ -61,15 +65,18 @@ private struct SetupDeviceVisitor: DeviceVisitor {
         action.inject(peripheral: peripheral)
     }
 
-    @MainActor
     func visit<Value>(_ state: DeviceState<Value>) {
-        state.inject(peripheral: peripheral)
+        let injection = state.inject(peripheral: peripheral)
+        injection.assumeIsolated { injection in
+            injection.setup()
+        }
     }
 }
 
 
 extension BluetoothDevice {
     func inject(peripheral: BluetoothPeripheral) {
+        peripheral.bluetoothExecutor.assertIsolated("SetupDeviceVisitor must be called within the BluetoothSerialExecutor!")
         var visitor = SetupDeviceVisitor(peripheral: peripheral)
         accept(&visitor)
     }

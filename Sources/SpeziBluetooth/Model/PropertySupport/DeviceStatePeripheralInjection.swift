@@ -8,18 +8,29 @@
 
 import Observation
 
+enum ChangeClosure<Value> { // TODO: to be used by @Characteristic, move somewhere?
+    case none
+    case value(_ closure: (Value) async -> Void)
+    case cleared
+}
 
-class DeviceStatePeripheralInjection<Value> {
+
+actor DeviceStatePeripheralInjection<Value> {
+    private let bluetoothExecutor: BluetoothSerialExecutor
+    nonisolated var unownedExecutor: UnownedSerialExecutor {
+        bluetoothExecutor.asUnownedSerialExecutor()
+    }
+
     let peripheral: BluetoothPeripheral
     private let keyPath: KeyPath<BluetoothPeripheral, Value>
-
-    private var onChangeClosure: ((Value) async -> Void)?
+    private var onChangeClosure: ChangeClosure<Value>
 
 
     init(peripheral: BluetoothPeripheral, keyPath: KeyPath<BluetoothPeripheral, Value>, onChangeClosure: ((Value) async -> Void)?) {
+        self.bluetoothExecutor = BluetoothSerialExecutor(copy: peripheral.bluetoothExecutor)
         self.peripheral = peripheral
         self.keyPath = keyPath
-        self.onChangeClosure = onChangeClosure
+        self.onChangeClosure = onChangeClosure.map { .value($0) } ?? .none
     }
 
     func setup() {
@@ -30,27 +41,36 @@ class DeviceStatePeripheralInjection<Value> {
         withObservationTracking {
             _ = peripheral[keyPath: keyPath]
         } onChange: { [weak self] in
-            Task { @MainActor [weak self] in
-                await self?.executeChangeHandler()
+            Task { [weak self] in
+                await self?.dispatchChangeHandler()
             }
-            self?.trackStateUpdate()
+            self?.assumeIsolated { $0.trackStateUpdate() } // TODO: remove this anyways when we move away form observation tracking
         }
     }
 
-    private func executeChangeHandler() async {
-        guard let onChangeClosure else {
+    /// Returns once the change handler completes.
+    private func dispatchChangeHandler() async {
+        guard case let .value(closure) = onChangeClosure else {
             return
         }
 
         let value = peripheral[keyPath: keyPath]
-        await onChangeClosure(value)
+        await closure(value)
     }
 
-    func clearState() {
-        onChangeClosure = nil
+    func setOnChangeClosure(_ closure: @escaping (Value) async -> Void) {
+        if case .cleared = onChangeClosure {
+            // object is about to be cleared. Make sure we don't create a self reference last minute.
+            return
+        }
+
+        self.onChangeClosure = .value(closure)
     }
 
-    nonisolated func setOnChangeClosure(_ closure: ((Value) async -> Void)?) {
-        self.onChangeClosure = closure
+    /// Remove any onChangeClosure and mark injection as cleared.
+    ///
+    /// This important to ensure to clear any potential reference cycles because of a captured self in the closure.
+    func clearOnChangeClosure() {
+        onChangeClosure = .cleared
     }
 }

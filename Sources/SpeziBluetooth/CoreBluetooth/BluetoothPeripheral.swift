@@ -52,7 +52,7 @@ import OSLog
 public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothDevice")
     /// The serial DispatchQueue shared by the Bluetooth Manager.
-    private let bluetoothExecutor: BluetoothSerialExecutor
+    let bluetoothExecutor: BluetoothSerialExecutor
 
     public nonisolated var unownedExecutor: UnownedSerialExecutor {
         bluetoothExecutor.asUnownedSerialExecutor()
@@ -94,6 +94,9 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
         peripheral
     }
 
+    nonisolated var unsafeState: PeripheralStateContainer {
+        stateContainer // TODO: just return a view for this??
+    }
 
     /// The name of the peripheral.
     public var name: String? {
@@ -182,12 +185,12 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
 
     init(
         manager: BluetoothManager,
-        dispatchQueue: DispatchQueue,
+        executor: BluetoothSerialExecutor,
         peripheral: CBPeripheral,
         advertisementData: AdvertisementData,
         rssi: Int
     ) {
-        self.bluetoothExecutor = BluetoothSerialExecutor(dispatchQueue: dispatchQueue)
+        self.bluetoothExecutor = BluetoothSerialExecutor(copy: executor)
 
         self.manager = manager
         self.peripheral = peripheral
@@ -399,10 +402,11 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
     public func enableNotifications(_ enabled: Bool = true, serviceId: CBUUID, characteristicId: CBUUID) {
         // swiftlint:disable:previous function_default_parameter_at_end
         let id = CharacteristicLocator(serviceId: serviceId, characteristicId: characteristicId)
+
         if enabled {
-            notifyRequested.insert(id)
+            notifyRequested.insert(id).inserted
         } else {
-            notifyRequested.remove(id)
+            notifyRequested.remove(id) != nil
         }
 
         // if setting notify doesn't work here, we do it upon discovery of the characteristics

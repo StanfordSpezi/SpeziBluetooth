@@ -10,6 +10,7 @@ import CoreBluetooth
 import Foundation
 
 
+
 /// Declare a characteristic within a Bluetooth service.
 ///
 /// This property wrapper can be used to declare a Bluetooth characteristic within a ``BluetoothService``.
@@ -167,23 +168,9 @@ public class Characteristic<Value> {
         }
     }
 
-    @Observable
-    class ValueBox {
-        private(set) var value: Value?
-
-        init(_ value: Value?) {
-            self.value = value
-        }
-
-        @MainActor
-        func update(value: Value?) {
-            self.value = value
-        }
-    }
-
-    private let configuration: Configuration
-    private let valueBox: ValueBox
-    private var injection: CharacteristicPeripheralInjection<Value>?
+    let configuration: Configuration
+    private let _value: ObservableBox<Value?>
+    private(set) var injection: CharacteristicPeripheralInjection<Value>?
 
     var description: CharacteristicDescription {
         CharacteristicDescription(id: configuration.id, discoverDescriptors: configuration.discoverDescriptors)
@@ -193,7 +180,8 @@ public class Characteristic<Value> {
     ///
     /// This is either the last read value or the latest notified value.
     public var wrappedValue: Value? {
-        valueBox.value
+        #warning("value is an unsafe access?")
+        return _value.value
     }
 
     /// Retrieve a temporary accessors instance.
@@ -204,11 +192,10 @@ public class Characteristic<Value> {
     fileprivate init(wrappedValue: Value? = nil, characteristic: CBUUID, notify: Bool, discoverDescriptors: Bool = false) {
         // swiftlint:disable:previous function_default_parameter_at_end
         self.configuration = .init(id: characteristic, discoverDescriptors: discoverDescriptors, defaultNotify: notify)
-        self.valueBox = ValueBox(wrappedValue)
+        self._value = ObservableBox(wrappedValue)
     }
 
 
-    @MainActor
     func inject(peripheral: BluetoothPeripheral, serviceId: CBUUID, service: GATTService?) {
         let characteristic = service?.getCharacteristic(id: configuration.id)
 
@@ -219,21 +206,16 @@ public class Characteristic<Value> {
             peripheral: peripheral,
             serviceId: serviceId,
             characteristicId: configuration.id,
-            valueBox: valueBox,
+            value: _value,
             characteristic: characteristic,
             onChangeClosure: onChangeClosure
         )
 
+        // mutual access with `CharacteristicAccessors/enableNotifications`
         self.injection = injection
-
-        Task {
-            await injection.setup(defaultNotify: configuration.defaultNotify)
+        injection.assumeIsolated { injection in
+            injection.setup(defaultNotify: configuration.defaultNotify)
         }
-    }
-
-    @MainActor
-    func clearState() {
-        injection?.clearState()
     }
 }
 

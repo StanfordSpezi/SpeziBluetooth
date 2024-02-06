@@ -10,14 +10,16 @@ import Foundation
 
 
 private struct ClearStateServiceVisitor: ServiceVisitor {
-    @MainActor
     func visit<Value>(_ characteristic: Characteristic<Value>) {
-        characteristic.clearState()
+        characteristic.injection?.assumeIsolated { injection in
+            injection.clearState()
+        }
     }
 
-    @MainActor
     func visit<Value>(_ state: DeviceState<Value>) {
-        state.clearState()
+        state.injection?.assumeIsolated { injection in
+            injection.clearOnChangeClosure()
+        }
     }
 }
 
@@ -28,15 +30,17 @@ private struct ClearStateDeviceVisitor: DeviceVisitor {
         service.wrappedValue.accept(&visitor)
     }
 
-    @MainActor
     func visit<Value>(_ state: DeviceState<Value>) {
-        state.clearState()
+        state.injection?.assumeIsolated { injection in
+            injection.clearOnChangeClosure()
+        }
     }
 }
 
 
 extension BluetoothDevice {
-    func clearState() {
+    func clearState(peripheral: BluetoothPeripheral) {
+        peripheral.bluetoothExecutor.assertIsolated("ClearStateDeviceVisitor must be called within the BluetoothSerialExecutor!")
         var visitor = ClearStateDeviceVisitor()
         accept(&visitor)
     }

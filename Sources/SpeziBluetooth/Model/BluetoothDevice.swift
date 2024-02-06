@@ -33,6 +33,8 @@ public protocol BluetoothDevice: AnyObject, EnvironmentAccessible {
     ///
     /// This initializer is called automatically when a peripheral of this type connects.
     ///
+    /// The initializer is called on the Bluetooth Task.
+    ///
     /// - Note: This initializer is also called upon configuration to inspect the device structure.
     ///     You might want to make sure to not perform any heavy processing within the initializer.
     init()

@@ -79,9 +79,9 @@ import Observation
 @propertyWrapper
 public class DeviceState<Value> {
     private let keyPath: KeyPath<BluetoothPeripheral, Value>
-    private var injection: DeviceStatePeripheralInjection<Value>?
+    private(set) var injection: DeviceStatePeripheralInjection<Value>?
 
-    private var objectId: ObjectIdentifier {
+    var objectId: ObjectIdentifier {
         ObjectIdentifier(self)
     }
 
@@ -112,19 +112,13 @@ public class DeviceState<Value> {
     }
 
 
-    @MainActor
-    func inject(peripheral: BluetoothPeripheral) {
+    func inject(peripheral: BluetoothPeripheral) -> DeviceStatePeripheralInjection<Value> {
         let changeClosure = ClosureRegistrar.instance?.retrieve(for: objectId, value: Value.self)
 
         let injection = DeviceStatePeripheralInjection(peripheral: peripheral, keyPath: keyPath, onChangeClosure: changeClosure)
         self.injection = injection
 
-        injection.setup()
-    }
-
-    @MainActor
-    func clearState() {
-        injection?.clearState()
+        return injection
     }
 }
 

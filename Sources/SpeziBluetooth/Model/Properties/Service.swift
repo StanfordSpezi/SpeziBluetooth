@@ -59,12 +59,10 @@ public class Service<S: BluetoothService> {
         self.wrappedValue = wrappedValue
     }
 
-    @MainActor
-    func inject(peripheral: BluetoothPeripheral, service: GATTService?) {
-        let injection = ServicePeripheralInjection(peripheral: peripheral, serviceId: id, service: service)
-        self.injection = injection
 
-        injection.setup()
+    func inject(_ injection: ServicePeripheralInjection) {
+        injection.assertIsolated("Injection must be isolated to the BluetoothSerialExecutor of the owning BluetoothManager.")
+        self.injection = injection
     }
 }
 

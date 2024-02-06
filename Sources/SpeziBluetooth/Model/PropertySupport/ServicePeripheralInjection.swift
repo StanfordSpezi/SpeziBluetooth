@@ -9,18 +9,34 @@
 import CoreBluetooth
 
 
-@Observable
-class ServicePeripheralInjection {
+actor ServicePeripheralInjection {
+    private let bluetoothExecutor: BluetoothSerialExecutor
+    nonisolated var unownedExecutor: UnownedSerialExecutor {
+        bluetoothExecutor.asUnownedSerialExecutor()
+    }
+
     private let peripheral: BluetoothPeripheral
     private let serviceId: CBUUID
 
-    private(set) weak var service: GATTService?
+    /// Do not access directly.
+    private let _service: WeakObservableBox<GATTService>
+
+
+    private(set) var service: GATTService? {
+        get {
+            _service.value
+        }
+        set {
+            _service.value = newValue
+        }
+    }
 
 
     init(peripheral: BluetoothPeripheral, serviceId: CBUUID, service: GATTService?) {
+        self.bluetoothExecutor = BluetoothSerialExecutor(copy: peripheral.bluetoothExecutor)
         self.peripheral = peripheral
         self.serviceId = serviceId
-        self.service = service
+        self._service = WeakObservableBox(service)
     }
 
     func setup() {
@@ -28,18 +44,19 @@ class ServicePeripheralInjection {
     }
 
     private func trackServicesUpdate() {
+        // TODO: just register for services changes onChange(of: serviceId) { service in ... }
+        // TODO: replace observation access!
         withObservationTracking {
-            _ = peripheral.getService(id: serviceId)
+            _ = peripheral.assumeIsolated { $0.getService(id: serviceId) }
         } onChange: { [weak self] in
-            Task { @MainActor [weak self] in
-                self?.handleServicesChange()
+            Task { [weak self] in
+                await self?.handleServicesChange()
             }
-            self?.trackServicesUpdate()
+            self?.assumeIsolated { $0.trackServicesUpdate() } // TODO: we can assume actor isolation! However, not stable and we are replacing that anyways!
         }
     }
 
-    @MainActor
     private func handleServicesChange() {
-        service = peripheral.getService(id: serviceId)
+        service = peripheral.assumeIsolated { $0.getService(id: serviceId) }
     }
 }

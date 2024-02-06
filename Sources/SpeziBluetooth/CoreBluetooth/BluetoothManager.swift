@@ -77,15 +77,24 @@ struct IsRunningBluetoothQueue {
 /// - ``nearbyPeripheralsView``
 /// - ``scanNearbyDevices(autoConnect:)``
 /// - ``stopScanning()``
-// TODO: @Observable // TODO: make an actor?
 public actor BluetoothManager: Observable { // swiftlint:disable:this type_body_length
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothManager")
 
     /// The serial executor for all Bluetooth related functionality.
-    private let bluetoothExecutor: BluetoothSerialExecutor
+    let bluetoothExecutor: BluetoothSerialExecutor
 
     public nonisolated var unownedExecutor: UnownedSerialExecutor {
         bluetoothExecutor.asUnownedSerialExecutor()
+    }
+
+    @Observable
+    class State {
+        // TODO: retrieve a struct from that?
+        var state: BluetoothState = .unknown
+        var isScanning = false
+        var discoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> = [:]
+
+        init() {}
     }
 
 
@@ -96,18 +105,40 @@ public actor BluetoothManager: Observable { // swiftlint:disable:this type_body_
     /// The time interval after which an advertisement is considered stale and the device is removed.
     private let advertisementStaleInterval: TimeInterval
 
-    @Lazy @ObservationIgnored private var centralManager: CBCentralManager
-    @ObservationIgnored private var centralDelegate: Delegate? // swiftlint:disable:this weak_delegate
-    @ObservationIgnored private var isScanningObserver: KVOStateObserver<BluetoothManager>?
+    @Lazy private var centralManager: CBCentralManager
+    private var centralDelegate: Delegate? // swiftlint:disable:this weak_delegate
+    private var isScanningObserver: KVOStateObserver<BluetoothManager>?
 
-    // TODO: custom state container for Observability!
+    private let stateContainer: State
+
     /// Represents the current state of the Bluetooth Manager.
-    public private(set) var state: BluetoothState
+    public private(set) var state: BluetoothState {
+        get {
+            stateContainer.state
+        }
+        set {
+            stateContainer.state = newValue
+        }
+    }
     /// Whether or not we are currently scanning for nearby devices.
-    public private(set) var isScanning = false
+    public private(set) var isScanning: Bool {
+        get {
+            stateContainer.isScanning
+        }
+        set {
+            stateContainer.isScanning = newValue
+        }
+    }
     /// The list of discovered and connected bluetooth devices indexed by their identifier UUID.
     /// The state is isolated to our `dispatchQueue`.
-    private(set) var discoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> = [:]
+    private(set) var discoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> {
+        get {
+            stateContainer.discoveredPeripherals
+        }
+        set {
+            stateContainer.discoveredPeripherals = newValue
+        }
+    }
 
     /// Track if we should be scanning. This is important to check which resources should stay allocated.
     @ObservationIgnored private var shouldBeScanning = false
@@ -197,7 +228,7 @@ public actor BluetoothManager: Observable { // swiftlint:disable:this type_body_
         self.minimumRSSI = minimumRSSI
         self.advertisementStaleInterval = max(1, advertisementStaleInterval)
 
-        self.state = .unknown
+        self.stateContainer = State()
 
         self.centralDelegate = Delegate(self)
 
@@ -265,7 +296,7 @@ public actor BluetoothManager: Observable { // swiftlint:disable:this type_body_
 
     /// If scanning, toggle the auto-connect feature.
     /// - Parameter autoConnect: Flag to turn on or off auto-connect
-    public func setAutoConnect(_ autoConnect: Bool) async {
+    public func setAutoConnect(_ autoConnect: Bool) {
         if self.shouldBeScanning {
             self.autoConnect = autoConnect
         }
@@ -273,17 +304,6 @@ public actor BluetoothManager: Observable { // swiftlint:disable:this type_body_
 
     /// Stop scanning for nearby bluetooth devices.
     public func stopScanning() {
-        self._stopScanning() // TODO: inline?
-    }
-
-    /// Reactive scan upon powered on.
-    private func handlePoweredOn() {
-        if shouldBeScanning && !isScanning {
-            scanNearbyDevices(autoConnect: autoConnect)
-        }
-    }
-
-    private func _stopScanning(deinit isDeinit: Bool = false) {
         if isScanning { // transitively checks for state == .poweredOn
             centralManager.stopScan()
             isScanning = centralManager.isScanning // ensure this is synced
@@ -293,6 +313,13 @@ public actor BluetoothManager: Observable { // swiftlint:disable:this type_body_
         if shouldBeScanning {
             shouldBeScanning = false
             checkForCentralDeinit()
+        }
+    }
+
+    /// Reactive scan upon powered on.
+    private func handlePoweredOn() {
+        if shouldBeScanning && !isScanning {
+            scanNearbyDevices(autoConnect: autoConnect)
         }
     }
 
@@ -469,16 +496,21 @@ public actor BluetoothManager: Observable { // swiftlint:disable:this type_body_
 
 
     deinit {
-        _stopScanning(deinit: true)
-        staleTimer?.cancel()
-        autoConnectItem?.cancel()
+        // we must do it blocking to not lose reference to self.
+        bluetoothExecutor.unsafeDispatchQueue.sync {
+            self.assumeIsolated { manager in
+                manager.stopScanning()
+                manager.staleTimer?.cancel()
+                manager.autoConnectItem?.cancel()
 
-        self.state = .poweredOff
+                manager.state = .unknown
 
-        discoveredPeripherals = [:]
-        self.centralDelegate = nil
+                manager.discoveredPeripherals = [:]
+                manager.centralDelegate = nil
 
-        logger.debug("BluetoothManager destroyed")
+                manager.logger.debug("BluetoothManager destroyed")
+            }
+        }
     }
 }
 
@@ -499,11 +531,13 @@ extension BluetoothManager: KVOReceiver {
 
 
 extension BluetoothManager: BluetoothScanner {
+    /// Support for the auto connect modifier.
     @_documentation(visibility: internal)
-    public var hasConnectedDevices: Bool {
+    public nonisolated var hasConnectedDevices: Bool {
         // TODO: check how we can have unsafe access?
-        discoveredPeripherals.values.contains { peripheral in
-            peripheral.state != .disconnected
+        // TODO: no contains check but loop through all peripherals to have observability of all devices?
+        stateContainer.discoveredPeripherals.values.reduce(into: false) { partialResult, peripheral in
+            partialResult = partialResult || (peripheral.unsafeState.state != .disconnected)
         }
     }
 }
@@ -607,7 +641,7 @@ extension BluetoothManager {
 
                 let device = BluetoothPeripheral(
                     manager: manager,
-                    dispatchQueue: <#T##DispatchQueue#>, // TODO: give em the dispatch queue!
+                    executor: manager.bluetoothExecutor,
                     peripheral: peripheral,
                     advertisementData: data,
                     rssi: rssi.intValue

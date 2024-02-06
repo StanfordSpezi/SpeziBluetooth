@@ -16,7 +16,7 @@ public enum BluetoothError: Error, CustomStringConvertible, LocalizedError {
     case incompatibleDataFormat
     /// Thrown when accessing a ``Characteristic`` that was not present.
     /// Either because the device wasn't connected or the characteristic is not present on the connected device.
-    case notPresent(service: CBUUID?, characteristic: CBUUID)
+    case notPresent(service: CBUUID? = nil, characteristic: CBUUID)
 
     
     /// Provides a human-readable description of the error.

@@ -32,6 +32,7 @@ public struct DeviceStateAccessor<Value> {
     ///     resolve any reference cycles for you.
     /// - Parameter perform: The change handler to register.
     public func onChange(perform: @escaping (Value) async -> Void) {
+        // TODO: in theory there is a race condition where a onChange can get lost!
         guard let injection else {
             // Similar to CharacteristicAccessor/onChange(perform:), we save it in a global registrar
             // to avoid reference cycles we can't control.
@@ -39,6 +40,9 @@ public struct DeviceStateAccessor<Value> {
             return
         }
 
-        injection.setOnChangeClosure(perform)
+        // global actor ensures these tasks are queued serially and are executed in order.
+        Task { @MainActor in // TODO: have global actor for global queuing? ensure this will all tasks
+            await injection.setOnChangeClosure(perform)
+        }
     }
 }

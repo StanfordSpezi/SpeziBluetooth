@@ -8,50 +8,114 @@
 
 import CoreBluetooth
 
+// TODO: outward facing state:
+//  - @Characteristic:
+//      - ValueBox
+//      - CharacteristicBox (accessor)
+//  - @DeviceState
+//  - @Service accessors???
+//  - Bluetooth Module (state)
+// TODO: accessors might just create a shadow copy??
 
-private protocol DecodableCharacteristic {
-    @MainActor
-    func handleUpdateValueAssumingIsolation(_ data: Data?) async
+
+private protocol DecodableCharacteristic: Actor {
+    func handleUpdateValueAssumingIsolation(_ data: Data?)
+}
+
+@Observable
+class WeakObservableBox<Value: AnyObject> { // TODO: move both!
+    weak var value: Value?
+
+    init(_ value: Value? = nil) {
+        self.value = value
+    }
+}
+
+@Observable
+class ObservableBox<Value> {
+    var value: Value
+
+
+    init(_ value: Value) {
+        self.value = value
+    }
+}
+
+class Box<Value> {
+    var value: Value
+
+    init(_ value: Value) {
+        self.value = value
+    }
 }
 
 
 /// Captures and synchronizes access to the state of a ``Characteristic`` property wrapper.
-@Observable
-class CharacteristicPeripheralInjection<Value> {
+actor CharacteristicPeripheralInjection<Value> {
+    private let bluetoothExecutor: BluetoothSerialExecutor
+    nonisolated var unownedExecutor: UnownedSerialExecutor {
+        bluetoothExecutor.asUnownedSerialExecutor()
+    }
+
     let peripheral: BluetoothPeripheral
     let serviceId: CBUUID
     let characteristicId: CBUUID
-    let valueBox: Characteristic<Value>.ValueBox
 
-    // Updates must only happen through update(characteristic:)
-    private(set) weak var characteristic: GATTCharacteristic?
+    /// Observable value. Don't access directly.
+    private let _value: ObservableBox<Value?>
+    /// Don't access directly. Observable for the properties of ``CharacteristicAccessor``.
+    private let _characteristic: WeakObservableBox<GATTCharacteristic>
 
     /// The user supplied onChange closure we use to forward notifications.
-    @ObservationIgnored var onChangeClosure: ((Value) async -> Void)?
+    private var onChangeClosure: ChangeClosure<Value>
     /// The registration object we received from the ``BluetoothPeripheral`` for our onChange handler.
-    @ObservationIgnored var registration: OnChangeRegistration?
+    private var registration: OnChangeRegistration?
+
+
+    private(set) var value: Value? {
+        get {
+            _value.value
+        }
+        set {
+            _value.value = newValue
+        }
+    }
+
+    private var characteristic: GATTCharacteristic? {
+        get {
+            _characteristic.value
+        }
+        set {
+            _characteristic.value = newValue
+        }
+    }
+
+    nonisolated var unsafeCharacteristic: GATTCharacteristic? {
+        _characteristic.value
+    }
+
 
 
     init(
         peripheral: BluetoothPeripheral,
         serviceId: CBUUID,
         characteristicId: CBUUID,
-        valueBox: Characteristic<Value>.ValueBox,
+        value: ObservableBox<Value?>,
         characteristic: GATTCharacteristic?,
         onChangeClosure: ((Value) async -> Void)?
     ) {
+        self.bluetoothExecutor = BluetoothSerialExecutor(copy: peripheral.bluetoothExecutor)
         self.peripheral = peripheral
         self.serviceId = serviceId
         self.characteristicId = characteristicId
-        self.valueBox = valueBox
-        self.characteristic = characteristic
-        self.onChangeClosure = onChangeClosure
+        self._value = value
+        self._characteristic = .init(characteristic)
+        self.onChangeClosure = onChangeClosure.map { .value($0) } ?? .none
     }
 
     /// Setup the injection. Must be called after initialization to set up all handlers and write the initial value.
     /// - Parameter defaultNotify: Flag indicating if notification handlers should be registered immediately.
-    @MainActor
-    func setup(defaultNotify: Bool) async {
+    func setup(defaultNotify: Bool) {
         trackServicesUpdates() // enable observation tracking for peripheral.services and characteristic properties
 
         guard let instance = self as? DecodableCharacteristic else {
@@ -62,110 +126,164 @@ class CharacteristicPeripheralInjection<Value> {
         // handle assigning the initial value!
         if let characteristic,
            let value = characteristic.value {
-            await instance.handleUpdateValueAssumingIsolation(value)
+            instance.assumeIsolated { $0.handleUpdateValueAssumingIsolation(value) }
         }
 
         // register onChange handler
-        self.registration = await peripheral.registerOnChangeHandler(service: serviceId, characteristic: characteristicId) { [weak self] data in
-            Task { @MainActor [weak self] in
-                await self?.handleUpdatedValue(data)
+        let registration = peripheral.assumeIsolated { peripheral in
+            peripheral.registerOnChangeHandler(service: serviceId, characteristic: characteristicId) { [weak self] data in
+                guard let self = self else {
+                    return
+                }
+                self.assertIsolated("BluetoothPeripheral onChange handler was unexpectedly executed outside the peripheral actor!")
+                self.assumeIsolated { injection in
+                    injection.handleUpdatedValue(data)
+                }
             }
         }
+        self.registration = registration
 
         if defaultNotify {
-            await enableNotifications()
+            enableNotifications()
         }
     }
 
     /// Signal from the Bluetooth state to cleanup the device
-    @MainActor
     func clearState() {
         self.registration?.cancel()
         self.registration = nil
-        self.onChangeClosure = nil // might contain a self reference, so we need to clear that!
+        self.onChangeClosure = .cleared // might contain a self reference, so we need to clear that!
     }
 
-    @MainActor
     private func update(characteristic: GATTCharacteristic?) {
         if self.characteristic != characteristic {
             self.characteristic = characteristic
         }
     }
 
-    nonisolated func setOnChangeClosure(_ closure: ((Value) -> Void)?) {
-        self.onChangeClosure = closure
+    func setOnChangeClosure(_ closure: @escaping (Value) -> Void) {
+        if case .cleared = onChangeClosure {
+            // object is about to be cleared. Make sure we don't create a self reference last minute.
+            return
+        }
+        self.onChangeClosure = .value(closure)
     }
 
     /// Enable or disable notifications for the characteristic.
     /// - Parameter enabled: Flag indicating if notifications should be enabled.
-    func enableNotifications(_ enabled: Bool = true) async {
-        await peripheral.enableNotifications(enabled, serviceId: serviceId, characteristicId: characteristicId)
+    func enableNotifications(_ enabled: Bool = true) {
+        peripheral.assumeIsolated { peripheral in
+            peripheral.enableNotifications(enabled, serviceId: serviceId, characteristicId: characteristicId)
+        }
     }
 
-    /// Observes a write to the characteristics and saves the written value to the local storage.
-    func observeWrite(of value: Value, action: () async throws -> Void) async rethrows {
-        try await action()
-        await valueBox.update(value: value) // if write was successful, we save it in the property
-    }
-
-    @MainActor
     private func trackServicesUpdates() {
         withObservationTracking {
-            _ = peripheral.getCharacteristic(id: characteristicId, on: serviceId)
+            // TODO: remove observation tracking based solution
+            peripheral.assumeIsolated { peripheral in
+                _ = peripheral.getCharacteristic(id: characteristicId, on: serviceId)
+            }
         } onChange: { [weak self] in
-            Task { @MainActor [weak self] in
+            Task { [weak self] in
                 // we need to wait before registering, such that we register `.characteristic` property once the service becomes present
-                self?.trackServicesUpdates()
+                await self?.trackServicesUpdates()
                 await self?.handleServicesChange()
             }
         }
     }
 
-    @MainActor
-    private func handleServicesChange() async {
-        let characteristic = peripheral.getCharacteristic(id: characteristicId, on: serviceId)
+    private func handleServicesChange() {
+        // TODO: update this?
+        let characteristic = peripheral.assumeIsolated { $0.getCharacteristic(id: characteristicId, on: serviceId) }
 
         let instanceChanged = self.characteristic?.underlyingCharacteristic !== characteristic?.underlyingCharacteristic
         update(characteristic: characteristic)
 
         if instanceChanged {
             if let characteristic {
-                await handleUpdatedValue(characteristic.value)
+                handleUpdatedValue(characteristic.value)
             } else {
                 // we must make sure to not override the default value is one is present
-                valueBox.update(value: nil)
+                self.value = nil
             }
         }
     }
 
-    @MainActor
-    private func handleUpdatedValue(_ data: Data?) async {
+    private func handleUpdatedValue(_ data: Data?) {
         guard let decodable = self as? DecodableCharacteristic else {
             return
         }
 
-        await decodable.handleUpdateValueAssumingIsolation(data)
+        decodable.assumeIsolated { decodable in
+            decodable.handleUpdateValueAssumingIsolation(data)
+        }
+    }
+
+    private func dispatchChangeHandler(_ value: Value) async {
+        guard case let .value(closure) = onChangeClosure else {
+            return
+        }
+
+        await closure(value)
     }
 }
 
 
 extension CharacteristicPeripheralInjection: DecodableCharacteristic where Value: ByteDecodable {
-    @MainActor
-    func handleUpdateValueAssumingIsolation(_ data: Data?) async {
+    func handleUpdateValueAssumingIsolation(_ data: Data?) {
         if let data {
             guard let value = Value(data: data) else {
                 Bluetooth.logger.error("Could decode updated value for characteristic \(self.characteristic?.debugDescription ?? self.characteristicId.uuidString). Invalid format!")
                 return
             }
 
-            self.valueBox.update(value: value)
-            if let handler = onChangeClosure {
-                // We specifically create a dedicated Task for every updated value, so we can stay on the same task
-                // without blocking anything for the onChange handler.
-                await handler(value)
+            self.value = value
+            Task { // TODO: global serial actor?
+                await self.dispatchChangeHandler(value)
             }
         } else {
-            self.valueBox.update(value: nil)
+            self.value = nil
         }
+    }
+}
+
+
+// MARK: - Accessors Support
+
+extension CharacteristicPeripheralInjection where Value: ByteDecodable {
+    func read() async throws -> Value {
+        guard let characteristic else {
+            throw BluetoothError.notPresent(service: serviceId, characteristic: characteristicId)
+        }
+
+        let data = try await peripheral.read(characteristic: characteristic)
+        guard let value = Value(data: data) else {
+            throw BluetoothError.incompatibleDataFormat
+        }
+
+        return value
+    }
+}
+
+
+extension CharacteristicPeripheralInjection where Value: ByteEncodable {
+    func write(_ value: Value) async throws {
+        guard let characteristic else {
+            throw BluetoothError.notPresent(service: serviceId, characteristic: characteristicId)
+        }
+
+        let requestData = value.encode()
+        try await peripheral.write(data: requestData, for: characteristic)
+        self.value = value
+    }
+
+    func writeWithoutResponse(_ value: Value) async throws {
+        guard let characteristic else {
+            throw BluetoothError.notPresent(service: serviceId, characteristic: characteristicId)
+        }
+
+        let data = value.encode()
+        await peripheral.writeWithoutResponse(data: data, for: characteristic)
+        self.value = value
     }
 }

@@ -11,7 +11,7 @@ import Foundation
 class BluetoothWorkItem {
     fileprivate let workItem: DispatchWorkItem
 
-    init(manager: BluetoothManager, handler: (isolated BluetoothManager) -> Void) {
+    init(manager: BluetoothManager, handler: @escaping (isolated BluetoothManager) -> Void) {
         self.workItem = DispatchWorkItem { [weak manager] in
             // BluetoothWorkItem is only accepted by the `BluetoothSerialExecutor`, therefore we can assume isolation here
             manager?.assumeIsolated { manager in
@@ -28,6 +28,10 @@ class BluetoothWorkItem {
 
 final class BluetoothSerialExecutor: SerialExecutor {
     private let dispatchQueue: DispatchQueue
+
+    var unsafeDispatchQueue: DispatchQueue {
+        dispatchQueue
+    }
 
     init(copy executor: BluetoothSerialExecutor) {
         self.dispatchQueue = executor.dispatchQueue
