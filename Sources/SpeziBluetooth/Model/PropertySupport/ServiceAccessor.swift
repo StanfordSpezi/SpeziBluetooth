@@ -26,14 +26,16 @@ public struct ServiceAccessor {
     ///
     /// Returns `true` if the device is connected and the service is available and discovered.
     public var isPresent: Bool {
-        injection?.service != nil
+        // TODO: we need an access model for these properties to have some concurrency guarantees!
+        injection?.unsafeService != nil
     }
 
     /// The type of the service (primary or secondary).
     ///
     /// Returns `false` if service is not available.
     public var isPrimary: Bool {
-        injection?.service?.isPrimary == true
+        // TODO: they are dependent on each other, might just make a view of it while its initialized?
+        injection?.unsafeService?.isPrimary == true
     }
 
     init(id: CBUUID, injection: ServicePeripheralInjection?) {

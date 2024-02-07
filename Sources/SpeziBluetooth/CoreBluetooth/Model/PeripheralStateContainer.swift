@@ -15,14 +15,40 @@ import Foundation
 /// Main motivation is to have `BluetoothPeripheral` be implemented as an actor and moving state
 /// into a separate state container that is `@Observable`.
 @Observable
-final class PeripheralStateContainer {
-    private(set) var peripheralName: String?
-    private(set) var localName: String?
-    private(set) var rssi: Int
-    private(set) var advertisementData: AdvertisementData
-    private(set) var state: PeripheralState
-    private(set) var services: [GATTService]? // swiftlint:disable:this discouraged_optional_collection
+final class PeripheralStateContainer: SimpleObservable {
+    private(set) var peripheralName: String? {
+        didSet {
+            _$simpleRegistrar.triggerDidChange(for: \.peripheralName, on: self)
+        }
+    }
+    private(set) var localName: String? {
+        didSet {
+            _$simpleRegistrar.triggerDidChange(for: \.localName, on: self)
+        }
+    }
+    private(set) var rssi: Int {
+        didSet {
+            _$simpleRegistrar.triggerDidChange(for: \.rssi, on: self)
+        }
+    }
+    private(set) var advertisementData: AdvertisementData {
+        didSet {
+            _$simpleRegistrar.triggerDidChange(for: \.advertisementData, on: self)
+        }
+    }
+    private(set) var state: PeripheralState {
+        didSet {
+            _$simpleRegistrar.triggerDidChange(for: \.state, on: self)
+        }
+    }
+    private(set) var services: [GATTService]? { // swiftlint:disable:this discouraged_optional_collection
+        didSet {
+            _$simpleRegistrar.triggerDidChange(for: \.services, on: self)
+        }
+    }
     @ObservationIgnored var lastActivity: Date
+
+    @ObservationIgnored var _$simpleRegistrar = SimpleObservationRegistrar<PeripheralStateContainer>()
 
     init(peripheralName: String?, rssi: Int, advertisementData: AdvertisementData, state: CBPeripheralState, lastActivity: Date = .now) {
         self.peripheralName = peripheralName

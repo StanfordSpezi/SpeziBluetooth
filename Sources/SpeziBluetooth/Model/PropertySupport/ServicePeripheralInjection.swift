@@ -31,6 +31,10 @@ actor ServicePeripheralInjection {
         }
     }
 
+    nonisolated var unsafeService: GATTService? {
+        _service.value
+    }
+
 
     init(peripheral: BluetoothPeripheral, serviceId: CBUUID, service: GATTService?) {
         self.bluetoothExecutor = BluetoothSerialExecutor(copy: peripheral.bluetoothExecutor)

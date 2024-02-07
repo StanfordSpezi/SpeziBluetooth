@@ -270,6 +270,10 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
         getService(id: serviceId)?.getCharacteristic(id: characteristicId)
     }
 
+    func onChange<Value>(of keyPath: KeyPath<PeripheralStateContainer, Value>, perform closure: @escaping (Value) -> Void) {
+        stateContainer.onChange(of: keyPath, perform: closure)
+    }
+
     func handleConnect() {
         guard let manager else {
             logger.warning("Tried handling connection attempt for an orphaned bluetooth peripheral!")
@@ -404,9 +408,9 @@ public actor BluetoothPeripheral { // swiftlint:disable:this type_body_length
         let id = CharacteristicLocator(serviceId: serviceId, characteristicId: characteristicId)
 
         if enabled {
-            notifyRequested.insert(id).inserted
+            notifyRequested.insert(id)
         } else {
-            notifyRequested.remove(id) != nil
+            notifyRequested.remove(id)
         }
 
         // if setting notify doesn't work here, we do it upon discovery of the characteristics

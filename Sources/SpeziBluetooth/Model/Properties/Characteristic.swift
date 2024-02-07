@@ -180,7 +180,7 @@ public class Characteristic<Value> {
     ///
     /// This is either the last read value or the latest notified value.
     public var wrappedValue: Value? {
-        #warning("value is an unsafe access?")
+        // TODO: value is unsafe to access
         return _value.value
     }
 

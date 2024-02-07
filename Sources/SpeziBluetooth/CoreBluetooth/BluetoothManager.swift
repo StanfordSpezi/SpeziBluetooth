@@ -16,8 +16,60 @@ import OrderedCollections
 import OSLog
 
 
-struct IsRunningBluetoothQueue {
-    init() {}
+protocol AnyObservation {}
+
+// TODO: calling that ValueObservation/ValueObservable!
+struct SimpleObservationRegistrar<Observable: SimpleObservable> {
+    struct Observation<Value>: AnyObservation {
+        let keyPath: KeyPath<Observable, Value>
+        let handler: (Value) -> Void
+    }
+
+    private var id: UInt64 = 0
+    private var observations: [UInt64: AnyObservation] = [:]
+    private var keyPathIndex: [AnyKeyPath: Set<UInt64>] = [:]
+
+    private mutating func nextId() -> UInt64 {
+        defer {
+            id &+= 1 // add with overflow operator
+        }
+        return id
+    }
+
+    mutating func onChange<Value>(of keyPath: KeyPath<Observable, Value>, perform closure: @escaping (Value) -> Void) {
+        let id = nextId()
+        observations[id] = Observation(keyPath: keyPath, handler: closure)
+        keyPathIndex[keyPath, default: []].insert(id)
+    }
+
+    mutating func triggerDidChange<Value>(for keyPath: KeyPath<Observable, Value>, on observable: Observable) {
+        guard let ids = keyPathIndex.removeValue(forKey: keyPath) else {
+            return
+        }
+
+        for id in ids {
+            guard let anyObservation = observations.removeValue(forKey: id),
+                  let observation = anyObservation as? Observation<Value> else {
+                continue
+            }
+
+            let value = observable[keyPath: keyPath]
+            observation.handler(value)
+        }
+    }
+}
+
+// TODO: move
+protocol SimpleObservable: AnyObject {
+    var _$simpleRegistrar: SimpleObservationRegistrar<Self> { get set }
+
+    func onChange<Value>(of keyPath: KeyPath<Self, Value>, perform closure: @escaping (Value) -> Void)
+}
+
+extension SimpleObservable {
+    func onChange<Value>(of keyPath: KeyPath<Self, Value>, perform closure: @escaping (Value) -> Void) {
+        _$simpleRegistrar.onChange(of: keyPath, perform: closure)
+    }
 }
 
 
@@ -88,11 +140,19 @@ public actor BluetoothManager: Observable { // swiftlint:disable:this type_body_
     }
 
     @Observable
-    class State {
+    class State: SimpleObservable {
+        // TODO: naming!
         // TODO: retrieve a struct from that?
         var state: BluetoothState = .unknown
         var isScanning = false
-        var discoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> = [:]
+        var discoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> = [:] {
+            didSet {
+                _$simpleRegistrar.triggerDidChange(for: \.discoveredPeripherals, on: self)
+            }
+        }
+
+        // TODO: support all the other properties just for fun?
+        @ObservationIgnored var _$simpleRegistrar = SimpleObservationRegistrar<BluetoothManager.State>()
 
         init() {}
     }
@@ -131,9 +191,12 @@ public actor BluetoothManager: Observable { // swiftlint:disable:this type_body_
     }
     /// The list of discovered and connected bluetooth devices indexed by their identifier UUID.
     /// The state is isolated to our `dispatchQueue`.
-    private(set) var discoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> {
+    var discoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> {
         get {
             stateContainer.discoveredPeripherals
+        }
+        _modify {
+            yield &stateContainer.discoveredPeripherals
         }
         set {
             stateContainer.discoveredPeripherals = newValue
@@ -141,14 +204,14 @@ public actor BluetoothManager: Observable { // swiftlint:disable:this type_body_
     }
 
     /// Track if we should be scanning. This is important to check which resources should stay allocated.
-    @ObservationIgnored private var shouldBeScanning = false
+    private var shouldBeScanning = false
     /// The identifier of the last manually disconnected device.
     /// This is to avoid automatically reconnecting to a device that was manually disconnected.
-    @ObservationIgnored private var lastManuallyDisconnectedDevice: UUID?
+    private var lastManuallyDisconnectedDevice: UUID?
 
-    @ObservationIgnored private var autoConnect = false
-    @ObservationIgnored private var autoConnectItem: BluetoothWorkItem?
-    @ObservationIgnored private var staleTimer: DiscoveryStaleTimer?
+    private var autoConnect = false
+    private var autoConnectItem: BluetoothWorkItem?
+    private var staleTimer: DiscoveryStaleTimer?
 
     /// Checks and determines the device candidate for auto-connect.
     ///
@@ -198,12 +261,6 @@ public actor BluetoothManager: Observable { // swiftlint:disable:this type_body_
         return discoveryIds.isEmpty ? nil : discoveryIds
     }
 
-    /*
-     // TODO: remove eventually!
-    private var isRunningWithinQueue2: Bool {
-        DispatchQueue.getSpecific(key: isRunningBluetoothQueueKey) != nil
-    }*/
-
     
     /// Initialize a new Bluetooth Manager with provided device description and optional configuration options.
     /// - Parameters:
@@ -230,7 +287,9 @@ public actor BluetoothManager: Observable { // swiftlint:disable:this type_body_
 
         self.stateContainer = State()
 
-        self.centralDelegate = Delegate(self)
+        let delegate = Delegate()
+        self.centralDelegate = delegate
+        self._centralManager = Lazy()
 
         // This helps us later to identity that we are running within the bluetooth dispatch queue!
         // TODO: self.dispatchQueue.setSpecific(key: isRunningBluetoothQueueKey, value: IsRunningBluetoothQueue())
@@ -240,10 +299,9 @@ public actor BluetoothManager: Observable { // swiftlint:disable:this type_body_
         // To have those alerts shown at the right time (and repeatedly), we lazily initialize the CBCentralManager and also deinit it
         // once we don't use it anymore (we are not scanning and no device is currently connected).
         // All this state handling happens here within the closures passed to the `Lazy` property wrapper.
-        _centralManager = Lazy { [weak self] in
+        _centralManager.supply { [weak self] in
             // As `centralManager` is actor isolated, the initializer closure and the onCleanup closure
             // can both be assumed to be isolated to the BluetoothManager.
-
             let centralDelegate = self?.assumeIsolated { $0.centralDelegate }
             let central = CBCentralManager(
                 delegate: centralDelegate,
@@ -263,6 +321,9 @@ public actor BluetoothManager: Observable { // swiftlint:disable:this type_body_
                 manager.isScanningObserver = nil
             }
         }
+
+        // delay using self so we don't leave isolation
+        delegate.initManager(self)
     }
 
     /// Scan for nearby bluetooth devices.
@@ -314,6 +375,10 @@ public actor BluetoothManager: Observable { // swiftlint:disable:this type_body_
             shouldBeScanning = false
             checkForCentralDeinit()
         }
+    }
+
+    func onChange<Value>(of keyPath: KeyPath<State, Value>, perform closure: @escaping (Value) -> Void) {
+        stateContainer.onChange(of: keyPath, perform: closure)
     }
 
     /// Reactive scan upon powered on.
@@ -565,9 +630,12 @@ extension BluetoothManager {
         private weak var manager: BluetoothManager?
 
 
-        init(_ manager: BluetoothManager) {
-            self.manager = manager
+        override init() {
             super.init()
+        }
+
+        func initManager(_ manager: BluetoothManager) {
+            self.manager = manager
         }
 
 

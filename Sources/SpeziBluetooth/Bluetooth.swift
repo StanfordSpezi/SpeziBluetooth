@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
+import OrderedCollections
 import OSLog
 import Spezi
 
@@ -155,6 +156,11 @@ import Spezi
 /// - ``scanNearbyDevices(autoConnect:)``
 /// - ``stopScanning()``
 public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
+    @Observable
+    class Storage {
+        var nearbyDevices: OrderedDictionary<UUID, BluetoothDevice> = [:]
+    }
+
     static let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "Bluetooth")
 
     /// The Bluetooth Executor from the underlying BluetoothManager.
@@ -166,6 +172,8 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
 
     private let bluetoothManager: BluetoothManager
     private let deviceConfigurations: Set<DiscoveryConfiguration>
+
+    private let _storage = Storage()
 
     private var logger: Logger {
         Self.logger
@@ -189,13 +197,19 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
     }
 
 
-    // TODO: nearby devices observable!!
-    @MainActor private var nearbyDevices: [UUID: BluetoothDevice] = [:]
+    private var nearbyDevices: OrderedDictionary<UUID, BluetoothDevice> {
+        get {
+            _storage.nearbyDevices
+        }
+        set {
+            _storage.nearbyDevices = newValue
+        }
+    }
 
     /// Stores the connected device instance for every configured ``BluetoothDevice`` type.
-    @Model @ObservationIgnored  private var connectedDevicesModel = ConnectedDevices()
+    @Model private var connectedDevicesModel = ConnectedDevices()
     /// Injects the ``BluetoothDevice`` instances from the `ConnectedDevices` model into the SwiftUI environment.
-    @Modifier @ObservationIgnored private var devicesInjector: ConnectedDevicesEnvironmentModifier
+    @Modifier private var devicesInjector: ConnectedDevicesEnvironmentModifier
 
 
     /// Configure the Bluetooth Module.
@@ -233,22 +247,24 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
         self.deviceConfigurations = configuration
         self._devicesInjector = Modifier(wrappedValue: ConnectedDevicesEnvironmentModifier(configuredDeviceTypes: deviceTypes))
 
-        observeNearbyDevices() // register observation tracking
+        Task { // TODO: semi ugly?
+            await self.observeDiscoveredDevices()
+        }
     }
 
-    private func observeNearbyDevices() {
-        withObservationTracking {
-            // TODO: make something like, withUnsafeAccess { stateContainer in ... }
-            _ = bluetoothManager.assumeIsolated{ $0.discoveredPeripherals }
-        } onChange: { [weak self] in
-            Task { @MainActor [weak self] in // TODO: shared global bluetooth actor?
+    private func observeDiscoveredDevices() {
+        bluetoothManager.assumeIsolated { manager in
+            manager.onChange(of: \.discoveredPeripherals) { [weak self] discoveredDevices in
                 guard let self = self else {
                     return
                 }
-                await self.handleNearbyDevicesChange(self.nearbyDevices)
+
+                self.assertIsolated("BluetoothManager peripherals change closure was unexpectedly not called on the BluetoothSerialExecutor.")
+                self.assumeIsolated { bluetooth in
+                    bluetooth.observeDiscoveredDevices()
+                    bluetooth.handleUpdatedNearbyDevicesChange(discoveredDevices)
+                }
             }
-            // TODO: is it save to assume?
-            self?.assumeIsolated { $0.observeNearbyDevices() }
         }
     }
 
@@ -260,23 +276,22 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
             return
         }
 
-        withObservationTracking {
-            _ = peripheral.assumeIsolated{ $0.state }
-        } onChange: { [weak self] in
-            Task { @MainActor [weak self] in // TODO: global actor!
-                await self?.handlePeripheralStateChange()
-            }
+        peripheral.assumeIsolated { peripheral in
+            peripheral.onChange(of: \.state) { [weak self] state in
+                guard let self = self else {
+                    return
+                }
 
-            self?.assumeIsolated { $0.observePeripheralState(of: uuid) }
+                self.assumeIsolated { bluetooth in
+                    bluetooth.observePeripheralState(of: uuid)
+                    bluetooth.handlePeripheralStateChange()
+                }
+            }
         }
     }
 
-    private func handleNearbyDevicesChange(_ nearbyDevices: [UUID: BluetoothDevice]) {
-        let discoveredDevices = bluetoothManager.assumeIsolated { $0.discoveredPeripherals }
-
+    private func handleUpdatedNearbyDevicesChange(_ discoveredDevices: OrderedDictionary<UUID, BluetoothPeripheral>) {
         var checkForConnected = false
-
-        var nearbyDevices = nearbyDevices
 
         // remove all delete keys
         for key in nearbyDevices.keys {
@@ -304,18 +319,12 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
             }
 
             checkForConnected = true
-            observePeripheralState(of: uuid)
+            observePeripheralState(of: uuid) // register \.state onChange closure
         }
 
         if checkForConnected { // TODO: do that after nearbyDevices were written
             // ensure that we get notified about, e.g., a connected peripheral that is instantly removed
             handlePeripheralStateChange()
-        }
-
-        let result = nearbyDevices
-        // TODO: we should await that!
-        Task { @MainActor in
-            self.nearbyDevices = result
         }
     }
 
@@ -332,7 +341,10 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
                 result[tuple.0] = tuple.1
             }
 
-        self.connectedDevicesModel.update(with: connectedDevices)
+        let connectedDevicesModel = connectedDevicesModel
+        Task { @MainActor in
+            connectedDevicesModel.update(with: connectedDevices)
+        }
     }
 
     /// Retrieve nearby devices.
@@ -341,10 +353,10 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
     /// return nearby devices that are of the provided ``BluetoothDevice`` type.
     /// - Parameter device: The device type to filter for.
     /// - Returns: A list of nearby devices of a given ``BluetoothDevice`` type.
-    @MainActor
-    public func nearbyDevices<Device: BluetoothDevice>(for device: Device.Type = Device.self) -> [Device] {
-        // TODO: or just nonisolated?
-        nearbyDevices.values.compactMap { device in
+    public nonisolated func nearbyDevices<Device: BluetoothDevice>(for device: Device.Type = Device.self) -> [Device] {
+        // TODO: is this unsafe access?
+        // TODO: make all storage container naming consistent in whole project!
+        _storage.nearbyDevices.values.compactMap { device in
             device as? Device
         }
     }
