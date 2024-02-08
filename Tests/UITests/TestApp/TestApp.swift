@@ -11,29 +11,15 @@ import SpeziBluetooth
 import SwiftUI
 
 
-class CustomDynamicProperty: Observable, DynamicProperty {
-    var someProperty: String {
-        print("Hello World")
-        return "Hello World"
+@globalActor
+actor TestActor {
+    let dispatchQueue = DispatchSerialQueue(label: "my.queue")
+
+    nonisolated var unownedExecutor: UnownedSerialExecutor {
+        dispatchQueue.asUnownedSerialExecutor()
     }
 
-    func update() {
-        print("Update called!")
-        Task { @MainActor in
-            print("Hello Update world")
-        }
-    }
-}
-
-
-struct DynamicPropertyTests: View {
-    // TODO: think about custom DynamicProperty to support thread-safe update()! with thread local shadow copy and withSafeAccess
-    @Environment(CustomDynamicProperty.self)
-    private var hello
-
-    var body: some View {
-        Text(hello.someProperty)
-    }
+    static let shared = TestActor()
 }
 
 
@@ -47,7 +33,6 @@ struct UITestsApp: App {
         WindowGroup {
             NavigationStack {
                 List {
-                    DynamicPropertyTests()
                     NavigationLink("Nearby Devices") {
                         BluetoothManagerView()
                     }
@@ -58,7 +43,6 @@ struct UITestsApp: App {
                     .navigationTitle("Spezi Bluetooth")
             }
                 .spezi(appDelegate)
-                .environment(CustomDynamicProperty())
         }
     }
 }

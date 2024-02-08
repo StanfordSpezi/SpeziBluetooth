@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
-import CoreBluetooth
+@preconcurrency import CoreBluetooth
 
 
 /// The criteria by which we identify a discovered device.
@@ -17,7 +17,7 @@ import CoreBluetooth
 /// - ``advertisedService(_:)-5o92s``
 /// - ``advertisedService(_:)-3pnr6``
 /// - ``advertisedService(_:)-swift.enum.case``
-public enum DiscoveryCriteria {
+public enum DiscoveryCriteria: Sendable {
     /// Identify a device by their advertised service.
     case advertisedService(_ uuid: CBUUID)
 

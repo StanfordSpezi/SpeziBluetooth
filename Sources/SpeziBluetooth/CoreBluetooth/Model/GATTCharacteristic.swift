@@ -10,6 +10,19 @@ import CoreBluetooth
 import Foundation
 
 
+struct CBCharacteristicCapture {
+    let isNotifying: Bool
+    let value: Data?
+    let descriptors: [CBDescriptor]?
+
+    init(from characteristic: CBCharacteristic) {
+        self.isNotifying = characteristic.isNotifying
+        self.value = characteristic.value
+        self.descriptors = characteristic.descriptors
+    }
+}
+
+
 /// A Bluetooth characteristic of a service.
 ///
 /// ## Topics
@@ -54,15 +67,15 @@ public class GATTCharacteristic {
     }
 
 
-    func update() {
-        if underlyingCharacteristic.isNotifying != isNotifying {
-            isNotifying = underlyingCharacteristic.isNotifying
+    func synchronizeModel(capture: CBCharacteristicCapture) {
+        if capture.isNotifying != isNotifying {
+            isNotifying = capture.isNotifying
         }
-        if underlyingCharacteristic.value != value {
-            value = underlyingCharacteristic.value
+        if capture.value != value {
+            value = capture.value
         }
-        if underlyingCharacteristic.descriptors != descriptors {
-            descriptors = underlyingCharacteristic.descriptors
+        if capture.descriptors != descriptors {
+            descriptors = capture.descriptors
         }
     }
 }

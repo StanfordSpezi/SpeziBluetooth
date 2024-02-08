@@ -10,12 +10,16 @@ import CoreBluetooth
 import Foundation
 
 
-/// A dedicated state container for a ``BluetoothPeripheral``.
+/// A dedicated, observable storage container for a ``BluetoothPeripheral``.
 ///
 /// Main motivation is to have `BluetoothPeripheral` be implemented as an actor and moving state
 /// into a separate state container that is `@Observable`.
 @Observable
-final class PeripheralStateContainer: SimpleObservable {
+final class PeripheralStorage: SimpleObservable {
+    var name: String? {
+        localName ?? peripheralName
+    }
+
     private(set) var peripheralName: String? {
         didSet {
             _$simpleRegistrar.triggerDidChange(for: \.peripheralName, on: self)
@@ -48,7 +52,7 @@ final class PeripheralStateContainer: SimpleObservable {
     }
     @ObservationIgnored var lastActivity: Date
 
-    @ObservationIgnored var _$simpleRegistrar = SimpleObservationRegistrar<PeripheralStateContainer>()
+    @ObservationIgnored var _$simpleRegistrar = SimpleObservationRegistrar<PeripheralStorage>()
 
     init(peripheralName: String?, rssi: Int, advertisementData: AdvertisementData, state: CBPeripheralState, lastActivity: Date = .now) {
         self.peripheralName = peripheralName

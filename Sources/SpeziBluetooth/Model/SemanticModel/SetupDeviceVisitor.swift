@@ -76,7 +76,7 @@ private struct SetupDeviceVisitor: DeviceVisitor {
 
 extension BluetoothDevice {
     func inject(peripheral: BluetoothPeripheral) {
-        peripheral.bluetoothExecutor.assertIsolated("SetupDeviceVisitor must be called within the BluetoothSerialExecutor!")
+        peripheral.bluetoothQueue.assertIsolated("SetupDeviceVisitor must be called within the BluetoothSerialExecutor!")
         var visitor = SetupDeviceVisitor(peripheral: peripheral)
         accept(&visitor)
     }

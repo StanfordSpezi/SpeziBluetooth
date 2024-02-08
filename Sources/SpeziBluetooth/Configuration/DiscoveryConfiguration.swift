@@ -8,7 +8,7 @@
 
 
 /// Describes how to discover a given ``BluetoothDevice``.
-public struct DiscoveryConfiguration {
+public struct DiscoveryConfiguration: Sendable {
     let discoveryCriteria: DiscoveryCriteria
     let anyDeviceType: any BluetoothDevice.Type
 

@@ -10,6 +10,8 @@
 /// Any kind of Bluetooth Scanner.
 public protocol BluetoothScanner: Identifiable where ID: Hashable {
     /// Indicates if there is at least one connected peripheral.
+    ///
+    /// Make sure this tracks observability of all devices classes.
     var hasConnectedDevices: Bool { get }
 
     /// Scan for nearby bluetooth devices.

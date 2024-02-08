@@ -40,7 +40,7 @@ private struct ClearStateDeviceVisitor: DeviceVisitor {
 
 extension BluetoothDevice {
     func clearState(peripheral: BluetoothPeripheral) {
-        peripheral.bluetoothExecutor.assertIsolated("ClearStateDeviceVisitor must be called within the BluetoothSerialExecutor!")
+        peripheral.bluetoothQueue.assertIsolated("ClearStateDeviceVisitor must be called within the BluetoothSerialExecutor!")
         var visitor = ClearStateDeviceVisitor()
         accept(&visitor)
     }

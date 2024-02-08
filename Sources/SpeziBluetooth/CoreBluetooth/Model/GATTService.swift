@@ -54,7 +54,7 @@ public class GATTService {
         }
     }
 
-    func didDiscoverCharacteristics() {
+    func synchronizeModel() {
         guard let serviceCharacteristics = underlyingService.characteristics else {
             characteristics.removeAll()
             return

@@ -8,28 +8,10 @@
 
 import Foundation
 
-class BluetoothWorkItem {
-    fileprivate let workItem: DispatchWorkItem
-
-    init(manager: BluetoothManager, handler: @escaping (isolated BluetoothManager) -> Void) {
-        self.workItem = DispatchWorkItem { [weak manager] in
-            // BluetoothWorkItem is only accepted by the `BluetoothSerialExecutor`, therefore we can assume isolation here
-            manager?.assumeIsolated { manager in
-                handler(manager)
-            }
-        }
-    }
-
-    func cancel() {
-        workItem.cancel()
-    }
-}
-
 
 final class BluetoothSerialExecutor: SerialExecutor {
-    private let dispatchQueue: DispatchQueue
-
-    var unsafeDispatchQueue: DispatchQueue {
+    private let dispatchQueue: DispatchSerialQueue
+    var unsafeDispatchQueue: DispatchSerialQueue {
         dispatchQueue
     }
 
@@ -37,12 +19,17 @@ final class BluetoothSerialExecutor: SerialExecutor {
         self.dispatchQueue = executor.dispatchQueue
     }
 
-    init(dispatchQueue: DispatchQueue) {
+    init(dispatchQueue: DispatchSerialQueue) {
         self.dispatchQueue = dispatchQueue
     }
 
+    func asUnownedSerialExecutor() -> UnownedSerialExecutor {
+        UnownedSerialExecutor(complexEquality: self)
+    }
+
     func isSameExclusiveExecutionContext(other: BluetoothSerialExecutor) -> Bool {
-        dispatchQueue == other.dispatchQueue
+        print("Checked for equality")
+        return dispatchQueue == other.dispatchQueue
     }
 
     func enqueue(_ job: consuming ExecutorJob) {

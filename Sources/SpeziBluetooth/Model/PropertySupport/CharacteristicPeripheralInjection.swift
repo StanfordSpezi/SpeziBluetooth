@@ -51,11 +51,8 @@ class Box<Value> {
 
 
 /// Captures and synchronizes access to the state of a ``Characteristic`` property wrapper.
-actor CharacteristicPeripheralInjection<Value> {
-    private let bluetoothExecutor: BluetoothSerialExecutor
-    nonisolated var unownedExecutor: UnownedSerialExecutor {
-        bluetoothExecutor.asUnownedSerialExecutor()
-    }
+actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
+    let bluetoothQueue: DispatchSerialQueue
 
     let peripheral: BluetoothPeripheral
     let serviceId: CBUUID
@@ -104,7 +101,7 @@ actor CharacteristicPeripheralInjection<Value> {
         characteristic: GATTCharacteristic?,
         onChangeClosure: ((Value) async -> Void)?
     ) {
-        self.bluetoothExecutor = BluetoothSerialExecutor(copy: peripheral.bluetoothExecutor)
+        self.bluetoothQueue = peripheral.bluetoothQueue
         self.peripheral = peripheral
         self.serviceId = serviceId
         self.characteristicId = characteristicId
@@ -178,8 +175,8 @@ actor CharacteristicPeripheralInjection<Value> {
     }
 
     private func trackServicesUpdates() {
+        // TODO: have a listener for characteristic tracking and value changes?
         withObservationTracking {
-            // TODO: remove observation tracking based solution
             peripheral.assumeIsolated { peripheral in
                 _ = peripheral.getCharacteristic(id: characteristicId, on: serviceId)
             }

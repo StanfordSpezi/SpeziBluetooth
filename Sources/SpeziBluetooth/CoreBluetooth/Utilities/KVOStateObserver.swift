@@ -35,7 +35,7 @@ class KVOStateObserver<Receiver: KVOReceiver>: NSObject {
     }
 
     func observeChange<K, V>(of keyPath: KeyPath<K, V>, value: V) {
-        Task {
+        Task { @SpeziBluetooth in
             await receiver?.observeChange(of: keyPath, value: value)
         }
     }

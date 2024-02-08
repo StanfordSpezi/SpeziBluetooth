@@ -30,7 +30,7 @@ public class OnChangeRegistration {
 
     /// Cancel the on-change handler registration.
     public func cancel() {
-        Task {
+        Task { @SpeziBluetooth in
             await peripheral?.deregisterOnChange(self)
         }
     }
@@ -42,7 +42,7 @@ public class OnChangeRegistration {
         let locator = locator
         let handlerId = handlerId
 
-        Task {
+        Task { @SpeziBluetooth in
             await peripheral?.deregisterOnChange(locator: locator, handlerId: handlerId)
         }
     }

@@ -6,13 +6,13 @@
 // SPDX-License-Identifier: MIT
 //
 
-import CoreBluetooth
+@preconcurrency import CoreBluetooth
 
 
 /// A service description for a certain device.
 ///
 /// Describes what characteristics we expect to be present for a certain service.
-public struct ServiceDescription {
+public struct ServiceDescription: Sendable {
     /// The service id.
     public let serviceId: CBUUID
     /// The description of characteristics present on the service.

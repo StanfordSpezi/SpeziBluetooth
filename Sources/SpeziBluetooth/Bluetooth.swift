@@ -155,7 +155,7 @@ import Spezi
 /// - ``nearbyDevices(for:)``
 /// - ``scanNearbyDevices(autoConnect:)``
 /// - ``stopScanning()``
-public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
+public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, BluetoothActor {
     @Observable
     class Storage {
         var nearbyDevices: OrderedDictionary<UUID, BluetoothDevice> = [:]
@@ -164,11 +164,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
     static let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "Bluetooth")
 
     /// The Bluetooth Executor from the underlying BluetoothManager.
-    private let bluetoothExecutor: BluetoothSerialExecutor
-
-    public nonisolated var unownedExecutor: UnownedSerialExecutor {
-        bluetoothExecutor.asUnownedSerialExecutor()
-    }
+    let bluetoothQueue: DispatchSerialQueue
 
     private let bluetoothManager: BluetoothManager
     private let deviceConfigurations: Set<DiscoveryConfiguration>
@@ -181,22 +177,23 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
 
 
     /// Represents the current state of Bluetooth.
-    public var state: BluetoothState {
-        bluetoothManager.assumeIsolated { $0.state }
+    nonisolated public var state: BluetoothState {
+        bluetoothManager.state
     }
 
     /// Whether or not we are currently scanning for nearby devices.
-    public var isScanning: Bool {
-        bluetoothManager.assumeIsolated { $0.isScanning }
+    nonisolated public var isScanning: Bool {
+        bluetoothManager.isScanning
     }
 
     /// Support for the auto connect modifier.
     @_documentation(visibility: internal)
-    public nonisolated var hasConnectedDevices: Bool {
+    nonisolated public var hasConnectedDevices: Bool {
         bluetoothManager.hasConnectedDevices
     }
 
 
+    // TODO: MainActor? or non-isolated?
     private var nearbyDevices: OrderedDictionary<UUID, BluetoothDevice> {
         get {
             _storage.nearbyDevices
@@ -233,6 +230,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
         advertisementStaleInterval: TimeInterval = BluetoothManager.Defaults.defaultStaleTimeout,
         @DiscoveryConfigurationBuilder _ devices: () -> Set<DiscoveryConfiguration>
     ) {
+        // TODO: DiscoveryConfiguration sendability!!?? jus tmake a container for that?
         let configuration = devices()
         let deviceTypes = configuration.deviceTypes
 
@@ -242,7 +240,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
             advertisementStaleInterval: advertisementStaleInterval
         )
 
-        self.bluetoothExecutor = BluetoothSerialExecutor(copy: bluetoothManager.bluetoothExecutor)
+        self.bluetoothQueue = bluetoothManager.bluetoothQueue
         self.bluetoothManager = bluetoothManager
         self.deviceConfigurations = configuration
         self._devicesInjector = Modifier(wrappedValue: ConnectedDevicesEnvironmentModifier(configuredDeviceTypes: deviceTypes))
@@ -253,6 +251,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
     }
 
     private func observeDiscoveredDevices() {
+        self.assertIsolated("This didn't move to the actor even if it should.")
         bluetoothManager.assumeIsolated { manager in
             manager.onChange(of: \.discoveredPeripherals) { [weak self] discoveredDevices in
                 guard let self = self else {
@@ -305,7 +304,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
 
         // add devices for new keys
         for (uuid, peripheral) in discoveredDevices where nearbyDevices[uuid] == nil {
-            let advertisementData = peripheral.assumeIsolated { $0.advertisementData }
+            let advertisementData = peripheral.advertisementData
             guard let configuration = deviceConfigurations.find(for: advertisementData, logger: logger) else {
                 logger.warning("Ignoring peripheral \(peripheral.debugDescription) that cannot be mapped to a device class.")
                 continue

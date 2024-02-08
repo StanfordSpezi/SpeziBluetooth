@@ -6,11 +6,11 @@
 // SPDX-License-Identifier: MIT
 //
 
-import CoreBluetooth
+@preconcurrency import class CoreBluetooth.CBUUID
 
 
 /// A characteristic description.
-public struct CharacteristicDescription {
+public struct CharacteristicDescription: Sendable {
     /// The characteristic id.
     public let characteristicId: CBUUID
     /// Flag indicating if descriptors should be discovered for this characteristic.

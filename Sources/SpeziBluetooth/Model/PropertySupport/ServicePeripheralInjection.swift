@@ -9,11 +9,8 @@
 import CoreBluetooth
 
 
-actor ServicePeripheralInjection {
-    private let bluetoothExecutor: BluetoothSerialExecutor
-    nonisolated var unownedExecutor: UnownedSerialExecutor {
-        bluetoothExecutor.asUnownedSerialExecutor()
-    }
+actor ServicePeripheralInjection: BluetoothActor {
+    let bluetoothQueue: DispatchSerialQueue
 
     private let peripheral: BluetoothPeripheral
     private let serviceId: CBUUID
@@ -37,7 +34,7 @@ actor ServicePeripheralInjection {
 
 
     init(peripheral: BluetoothPeripheral, serviceId: CBUUID, service: GATTService?) {
-        self.bluetoothExecutor = BluetoothSerialExecutor(copy: peripheral.bluetoothExecutor)
+        self.bluetoothQueue = peripheral.bluetoothQueue
         self.peripheral = peripheral
         self.serviceId = serviceId
         self._service = WeakObservableBox(service)
@@ -48,19 +45,18 @@ actor ServicePeripheralInjection {
     }
 
     private func trackServicesUpdate() {
-        // TODO: just register for services changes onChange(of: serviceId) { service in ... }
-        // TODO: replace observation access!
-        withObservationTracking {
-            _ = peripheral.assumeIsolated { $0.getService(id: serviceId) }
-        } onChange: { [weak self] in
-            Task { [weak self] in
-                await self?.handleServicesChange()
-            }
-            self?.assumeIsolated { $0.trackServicesUpdate() } // TODO: we can assume actor isolation! However, not stable and we are replacing that anyways!
-        }
-    }
+        peripheral.assumeIsolated { peripheral in
+            peripheral.onChange(of: \.services) { [weak self] services in
+                guard let self = self,
+                      let service = services?.first(where: { $0.uuid == self.serviceId }) else {
+                    return
+                }
 
-    private func handleServicesChange() {
-        service = peripheral.assumeIsolated { $0.getService(id: serviceId) }
+                self.assumeIsolated { injection in
+                    injection.trackServicesUpdate()
+                    injection.service = service
+                }
+            }
+        }
     }
 }

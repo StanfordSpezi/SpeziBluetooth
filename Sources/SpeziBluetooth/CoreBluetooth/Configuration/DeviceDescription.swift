@@ -13,7 +13,7 @@ import OSLog
 ///
 /// Describes what services we expect to be present for a certain type of device.
 /// The ``BluetoothManager`` uses that to determine what devices to discover and what services and characteristics to expect.
-public struct DeviceDescription {
+public struct DeviceDescription: Sendable {
     /// The criteria by which we identify a discovered device.
     public let discoveryCriteria: DiscoveryCriteria
     /// The set of service configurations we expect from the device.

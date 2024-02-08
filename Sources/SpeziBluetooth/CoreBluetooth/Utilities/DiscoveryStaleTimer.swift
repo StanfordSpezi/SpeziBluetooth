@@ -26,7 +26,7 @@ class DiscoveryStaleTimer {
         workItem.cancel()
     }
 
-    func schedule(for timeout: TimeInterval, in queue: BluetoothSerialExecutor) {
+    func schedule(for timeout: TimeInterval, in queue: DispatchSerialQueue) {
         // `DispatchTime` only allows for integer time
         let milliSeconds = Int(timeout * 1000)
         queue.schedule(for: .now() + .milliseconds(milliSeconds), execute: workItem)

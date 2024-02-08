@@ -32,11 +32,12 @@ struct BluetoothManagerView: View {
                 .accessibilityElement(children: .combine)
             }
 
-            if bluetooth.nearbyPeripheralsView.isEmpty {
+            let peripherals = bluetooth.nearbyPeripherals // TODO: persistence state!
+            if peripherals.isEmpty {
                 SearchingNearbyDevicesView()
             } else {
                 Section {
-                    ForEach(bluetooth.nearbyPeripheralsView) { peripheral in
+                    ForEach(peripherals) { peripheral in
                         DeviceRowView(peripheral: peripheral)
                     }
                 } header: {
