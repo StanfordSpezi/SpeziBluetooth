@@ -90,6 +90,7 @@ final class AsyncSemaphore {
     }
 
 
+    @discardableResult
     func signal() -> Bool {
         lock()
 
@@ -107,7 +108,7 @@ final class AsyncSemaphore {
         return true
     }
 
-    func signalAll() { // TODO: not used!
+    func signalAll() {
         lock()
 
         value += suspendedTasks.count

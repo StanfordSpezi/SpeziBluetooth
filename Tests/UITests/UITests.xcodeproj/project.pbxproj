@@ -12,6 +12,7 @@
 		2F64EA8B2A86B3DE006789D0 /* XCTestExtensions in Frameworks */ = {isa = PBXBuildFile; productRef = 2F64EA8A2A86B3DE006789D0 /* XCTestExtensions */; };
 		2F6D139A28F5F386007C25D6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2F6D139928F5F386007C25D6 /* Assets.xcassets */; };
 		2FA43E922AE057CA009B1B2C /* SpeziBluetoothTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FA43E912AE057CA009B1B2C /* SpeziBluetoothTests.swift */; };
+		A91E672E2B75A500009A1E02 /* BluetoothViews in Frameworks */ = {isa = PBXBuildFile; productRef = A91E672D2B75A500009A1E02 /* BluetoothViews */; };
 		A92802B72B5081F200874D0A /* SpeziBluetooth in Frameworks */ = {isa = PBXBuildFile; productRef = A92802B62B5081F200874D0A /* SpeziBluetooth */; };
 		A92802B92B50823600874D0A /* BluetoothManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A92802B82B50823600874D0A /* BluetoothManagerView.swift */; };
 		A92802BD2B51CBBE00874D0A /* DeviceRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A92802BC2B51CBBE00874D0A /* DeviceRowView.swift */; };
@@ -72,6 +73,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A92802B72B5081F200874D0A /* SpeziBluetooth in Frameworks */,
+				A91E672E2B75A500009A1E02 /* BluetoothViews in Frameworks */,
 				A9C17DEA2B5F1EAA00976924 /* BluetoothServices in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -170,6 +172,7 @@
 			packageProductDependencies = (
 				A92802B62B5081F200874D0A /* SpeziBluetooth */,
 				A9C17DE92B5F1EAA00976924 /* BluetoothServices */,
+				A91E672D2B75A500009A1E02 /* BluetoothViews */,
 			);
 			productName = Example;
 			productReference = 2F6D139228F5F384007C25D6 /* TestApp.app */;
@@ -204,7 +207,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1500;
-				LastUpgradeCheck = 1500;
+				LastUpgradeCheck = 1520;
 				TargetAttributes = {
 					2F6D139128F5F384007C25D6 = {
 						CreatedOnToolsVersion = 14.1;
@@ -712,6 +715,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 2F64EA892A86B3DE006789D0 /* XCRemoteSwiftPackageReference "XCTestExtensions" */;
 			productName = XCTestExtensions;
+		};
+		A91E672D2B75A500009A1E02 /* BluetoothViews */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = BluetoothViews;
 		};
 		A92802B62B5081F200874D0A /* SpeziBluetooth */ = {
 			isa = XCSwiftPackageProductDependency;

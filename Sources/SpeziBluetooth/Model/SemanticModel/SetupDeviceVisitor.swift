@@ -22,7 +22,6 @@ private struct SetupServiceVisitor: ServiceVisitor {
     }
 
     func visit<Value>(_ characteristic: Characteristic<Value>) {
-        // TODO: just call setup within the inject everywhere (where we pass the peripheral?)
         characteristic.inject(peripheral: peripheral, serviceId: serviceId, service: service)
     }
 
@@ -31,10 +30,7 @@ private struct SetupServiceVisitor: ServiceVisitor {
     }
 
     func visit<Value>(_ state: DeviceState<Value>) {
-        let injection = state.inject(peripheral: peripheral)
-        injection.assumeIsolated { injection in
-            injection.setup()
-        }
+        state.inject(peripheral: peripheral)
     }
 }
 
@@ -50,12 +46,7 @@ private struct SetupDeviceVisitor: DeviceVisitor {
 
     func visit<S: BluetoothService>(_ service: Service<S>) {
         let blService = peripheral.assumeIsolated { $0.getService(id: service.id) }
-
-        let serviceInjection = ServicePeripheralInjection(peripheral: peripheral, serviceId: service.id, service: blService)
-        service.inject(serviceInjection)
-        serviceInjection.assumeIsolated { injection in
-            injection.setup()
-        }
+        service.inject(peripheral: peripheral, service: blService)
 
         var visitor = SetupServiceVisitor(peripheral: peripheral, serviceId: service.id, service: blService)
         service.wrappedValue.accept(&visitor)
@@ -66,17 +57,14 @@ private struct SetupDeviceVisitor: DeviceVisitor {
     }
 
     func visit<Value>(_ state: DeviceState<Value>) {
-        let injection = state.inject(peripheral: peripheral)
-        injection.assumeIsolated { injection in
-            injection.setup()
-        }
+        state.inject(peripheral: peripheral)
     }
 }
 
 
 extension BluetoothDevice {
     func inject(peripheral: BluetoothPeripheral) {
-        peripheral.bluetoothQueue.assertIsolated("SetupDeviceVisitor must be called within the BluetoothSerialExecutor!")
+        peripheral.bluetoothQueue.assertIsolated("SetupDeviceVisitor must be called within the Bluetooth SerialExecutor!")
         var visitor = SetupDeviceVisitor(peripheral: peripheral)
         accept(&visitor)
     }

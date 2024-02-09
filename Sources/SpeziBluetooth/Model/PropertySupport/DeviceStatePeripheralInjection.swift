@@ -8,25 +8,21 @@
 
 import Foundation
 
-enum ChangeClosure<Value> { // TODO: to be used by @Characteristic, move somewhere?
-    case none
-    case value(_ closure: (Value) async -> Void)
-    case cleared
-}
-
 
 actor DeviceStatePeripheralInjection<Value>: BluetoothActor {
     let bluetoothQueue: DispatchSerialQueue
 
     let peripheral: BluetoothPeripheral
-    private let keyPath: KeyPath<PeripheralStorage, Value> // TODO: the actor thingy broke this!
+    private let accessKeyPath: KeyPath<BluetoothPeripheral, Value>
+    private let observationKeyPath: KeyPath<PeripheralStorage, Value>?
     private var onChangeClosure: ChangeClosure<Value>
 
 
     init(peripheral: BluetoothPeripheral, keyPath: KeyPath<BluetoothPeripheral, Value>, onChangeClosure: ((Value) async -> Void)?) {
         self.bluetoothQueue = peripheral.bluetoothQueue
         self.peripheral = peripheral
-        self.keyPath = keyPath.transform()
+        self.accessKeyPath = keyPath
+        self.observationKeyPath = keyPath.storageEquivalent()
         self.onChangeClosure = onChangeClosure.map { .value($0) } ?? .none
     }
 
@@ -35,8 +31,12 @@ actor DeviceStatePeripheralInjection<Value>: BluetoothActor {
     }
 
     private func trackStateUpdate() {
+        guard let observationKeyPath else {
+            return
+        }
+
         peripheral.assumeIsolated { peripheral in
-            peripheral.onChange(of: keyPath) { [weak self] value in
+            peripheral.onChange(of: observationKeyPath) { [weak self] value in
                 guard let self = self else {
                     return
                 }
@@ -57,7 +57,7 @@ actor DeviceStatePeripheralInjection<Value>: BluetoothActor {
             return
         }
 
-        await closure(value) // TODO: does this stay sync???
+        await closure(value)
     }
 
     func setOnChangeClosure(_ closure: @escaping (Value) async -> Void) {
@@ -79,8 +79,8 @@ actor DeviceStatePeripheralInjection<Value>: BluetoothActor {
 
 
 extension KeyPath where Root == BluetoothPeripheral {
-    func transform() -> KeyPath<PeripheralStorage, Value> {
-        let anyKeyPath: AnyKeyPath = switch self {
+    func storageEquivalent() -> KeyPath<PeripheralStorage, Value>? {
+        let anyKeyPath: AnyKeyPath? = switch self {
         case \.name:
             \PeripheralStorage.name
         case \.rssi:
@@ -91,8 +91,14 @@ extension KeyPath where Root == BluetoothPeripheral {
             \PeripheralStorage.state
         case \.services:
             \PeripheralStorage.services
+        case \.id:
+            nil
         default:
-            preconditionFailure("Could not find a translation for peripheral KeyPath \(self)")
+            preconditionFailure("Could not find a observable translation for peripheral KeyPath \(self)")
+        }
+
+        guard let anyKeyPath else {
+            return nil
         }
 
         guard let keyPath = anyKeyPath as? KeyPath<PeripheralStorage, Value> else {

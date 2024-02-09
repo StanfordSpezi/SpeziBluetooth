@@ -7,8 +7,77 @@
 //
 
 
-import SpeziBluetooth
+import BluetoothServices
+@_spi(TestingSupport) import SpeziBluetooth
+import SpeziViews
 import SwiftUI
+
+
+struct DeviceInformationView: View { // TODO: move?
+    private let deviceInformation: DeviceInformationService
+
+
+    var body: some View {
+        if let manufacturerName = deviceInformation.manufacturerName {
+            ListRow("Manufacturer") {
+                Text(manufacturerName)
+            }
+        }
+        if let modelNumber = deviceInformation.modelNumber {
+            ListRow("Model") {
+                Text(modelNumber)
+            }
+        }
+        if let serialNumber = deviceInformation.serialNumber {
+            ListRow("Serial Number") {
+                Text(serialNumber)
+            }
+        }
+
+        if let firmwareRevision = deviceInformation.firmwareRevision {
+            ListRow("Firmware Revision") {
+                Text(firmwareRevision)
+            }
+        }
+        if let softwareRevision = deviceInformation.softwareRevision {
+            ListRow("Software Revision") {
+                Text(softwareRevision)
+            }
+        }
+        if let hardwareRevision = deviceInformation.hardwareRevision {
+            ListRow("Hardware Revision") {
+                Text(hardwareRevision)
+            }
+        }
+
+        if let systemID = deviceInformation.systemID {
+            ListRow("System Id") {
+                Text(String(format: "%02X", systemID))
+            }
+        }
+        if let regulatoryCertificationDataList = deviceInformation.regulatoryCertificationDataList {
+            ListRow("Regulatory Certification Data") {
+                Text(regulatoryCertificationDataList.hexString())
+            }
+        }
+
+        if let pnpID = deviceInformation.pnpID {
+            ListRow("Vendor Id") {
+                Text(verbatim: "\(String(format: "%02X", pnpID.vendorId)) (\(pnpID.vendorIdSource.label))")
+            }
+            ListRow("Product Id") {
+                Text(String(format: "%02X", pnpID.productId))
+            }
+            ListRow("Product Version") {
+                Text(String(format: "%02X", pnpID.productVersion))
+            }
+        }
+    }
+
+    init(_ deviceInformation: DeviceInformationService) {
+        self.deviceInformation = deviceInformation
+    }
+}
 
 
 struct BluetoothModuleView: View {
@@ -54,20 +123,21 @@ struct BluetoothModuleView: View {
                 Section {
                     Text("Device State: \(device.state.description)")
                     Text("RSSI: \(device.rssi)")
-                    if let serialNumber = device.deviceInformation.serialNumber {
-                        Text("Serial Number: \(serialNumber)")
-                    }
+
                     Button("Query Device Info") {
                         Task {
                             print("Querying ...")
                             do {
                                 try await device.deviceInformation.retrieveDeviceInformation()
-                                print("Successfully retrieved")
                             } catch {
                                 print("Failed with: \(error)")
                             }
                         }
                     }
+                }
+
+                Section {
+                    DeviceInformationView(device.deviceInformation)
                 }
             }
         }

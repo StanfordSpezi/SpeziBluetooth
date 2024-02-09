@@ -48,6 +48,12 @@ public class Service<S: BluetoothService> {
     public let wrappedValue: S
 
     /// Retrieve a temporary accessors instance.
+    ///
+    /// This type allows you to interact with a Service's properties.
+    ///
+    /// - Note: The accessor captures the service instance upon creation. Within the same `ServiceAccessor` instance
+    ///     the view on the service is consistent. However, if you project a new `ServiceAccessor` instance right
+    ///     after your access, the view on the service might have changed due to the asynchronous nature of SpeziBluetooth.
     public var projectedValue: ServiceAccessor {
         ServiceAccessor(id: id, injection: injection)
     }
@@ -60,9 +66,12 @@ public class Service<S: BluetoothService> {
     }
 
 
-    func inject(_ injection: ServicePeripheralInjection) {
-        injection.assertIsolated("Injection must be isolated to the BluetoothSerialExecutor of the owning BluetoothManager.")
+    func inject(peripheral: BluetoothPeripheral, service: GATTService?) {
+        let injection = ServicePeripheralInjection(peripheral: peripheral, serviceId: id, service: service)
         self.injection = injection
+        injection.assumeIsolated { injection in
+            injection.setup()
+        }
     }
 }
 

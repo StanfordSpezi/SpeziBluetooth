@@ -32,16 +32,25 @@ public struct DeviceStateAccessor<Value> {
     ///     resolve any reference cycles for you.
     /// - Parameter perform: The change handler to register.
     public func onChange(perform: @escaping (Value) async -> Void) {
-        // TODO: in theory there is a race condition where a onChange can get lost!
         guard let injection else {
+            guard let closures = ClosureRegistrar.writeableView else {
+                Bluetooth.logger.warning(
+                    """
+                    Tried to register onChange(perform:) closure out-of-band. Make sure to register your onChange closure \
+                    within the initializer or when the peripheral is fully injected. This is expected if you manually initialized your device. \
+                    The closure was discarded and won't have any effect.
+                    """
+                )
+                return
+            }
             // Similar to CharacteristicAccessor/onChange(perform:), we save it in a global registrar
             // to avoid reference cycles we can't control.
-            ClosureRegistrar.instance?.insert(for: id, closure: perform)
+            closures.insert(for: id, closure: perform)
             return
         }
 
         // global actor ensures these tasks are queued serially and are executed in order.
-        Task { @MainActor in // TODO: have global actor for global queuing? ensure this will all tasks
+        Task { @SpeziBluetooth in
             await injection.setOnChangeClosure(perform)
         }
     }

@@ -13,6 +13,11 @@ import CoreBluetooth
 ///
 /// This type allows you to interact with a Characteristic you previously declared using the ``Characteristic`` property wrapper.
 ///
+/// - Note: The accessor captures the characteristic instance upon creation. Within the same `CharacteristicAccessors` instance
+///     the view on the characteristic is consistent (characteristic exists vs. it doesn't, the underlying values themselves might still change).
+///     However, if you project a new `CharacteristicAccessors` instance right after your access,
+///     the view on the characteristic might have changed due to the asynchronous nature of SpeziBluetooth.
+///
 /// ## Topics
 ///
 /// ### Characteristic properties
@@ -36,11 +41,14 @@ import CoreBluetooth
 public struct CharacteristicAccessors<Value> {
     private let configuration: Characteristic<Value>.Configuration
     private let injection: CharacteristicPeripheralInjection<Value>?
+    /// Capture of the characteristic.
+    private let characteristic: GATTCharacteristic?
 
 
     init(configuration: Characteristic<Value>.Configuration, injection: CharacteristicPeripheralInjection<Value>?) {
         self.configuration = configuration
         self.injection = injection
+        self.characteristic = injection?.unsafeCharacteristic
     }
 }
 
@@ -48,25 +56,24 @@ public struct CharacteristicAccessors<Value> {
 extension CharacteristicAccessors {
     /// Determine if the characteristic is available.
     ///
-    /// Returns true if the characteristic is available for the current device.
-    /// It is true if (a) the device is connected and (b) the device exposes the requested characteristic.
+    /// Returns `true` if the characteristic is available for the current device.
+    /// It is `true` if (a) the device is connected and (b) the device exposes the requested characteristic.
     public var isPresent: Bool {
-        // TODO: we need an access model for these properties (with wrappedValue) to have some concurrency guarantees!
-        injection?.unsafeCharacteristic != nil
+        characteristic != nil
     }
 
     /// Properties of the characteristic.
     ///
-    /// Nil if device is not connected.
+    /// `nil` if device is not connected.
     public var properties: CBCharacteristicProperties? {
-        injection?.unsafeCharacteristic?.properties
+        characteristic?.properties
     }
 
     /// Descriptors of the characteristic.
     ///
-    /// Nil if device is not connected or descriptors are not yet discovered.
+    /// `nil` if device is not connected or descriptors are not yet discovered.
     public var descriptors: [CBDescriptor]? { // swiftlint:disable:this discouraged_optional_collection
-        injection?.unsafeCharacteristic?.descriptors
+        characteristic?.descriptors
     }
 }
 
@@ -74,9 +81,9 @@ extension CharacteristicAccessors {
 extension CharacteristicAccessors where Value: ByteDecodable {
     /// Characteristic is currently notifying about updated values.
     ///
-    /// This is also false if device is not connected.
+    /// This is also `false` if device is not connected.
     public var isNotifying: Bool {
-        injection?.unsafeCharacteristic?.isNotifying ?? false
+        characteristic?.isNotifying ?? false
     }
 
 
@@ -86,17 +93,26 @@ extension CharacteristicAccessors where Value: ByteDecodable {
     ///     resolve any reference cycles for you.
     /// - Parameter perform: The change handler to register.
     public func onChange(perform: @escaping (Value) -> Void) {
-        // TODO: there is a race condition where the closure could get lost!
         guard let injection else {
+            guard let closures = ClosureRegistrar.writeableView else {
+                Bluetooth.logger.warning(
+                    """
+                    Tried to register onChange(perform:) closure out-of-band. Make sure to register your onChange closure \
+                    within the initializer or when the peripheral is fully injected. This is expected if you manually initialized your device. \
+                    The closure was discarded and won't have any effect.
+                    """
+                )
+                return
+            }
             // We save the instance in the global registrar if its available.
             // It will be available if we are instantiated through the Bluetooth module.
             // This indirection is required to support self referencing closures without encountering a strong reference cycle.
-            ClosureRegistrar.instance?.insert(for: configuration.objectId, closure: perform)
+            closures.insert(for: configuration.objectId, closure: perform)
             return
         }
 
         // global actor ensures these tasks are queued serially and are executed in order.
-        Task { @MainActor in // TODO: have global actor for global queuing? ensure this will all tasks
+        Task { @SpeziBluetooth in
             await injection.setOnChangeClosure(perform)
         }
     }
@@ -106,20 +122,18 @@ extension CharacteristicAccessors where Value: ByteDecodable {
     /// - Parameter enabled: Flag indicating if notifications should be enabled.
     public func enableNotifications(_ enabled: Bool = true) async {
         guard let injection else {
-            // this will value will be populated to the injection once it is set up
+            // this value will be populated to the injection once it is set up
             configuration.defaultNotify = enabled
 
-            // this method might not run on the BluetoothSerialExecutor. So it could be that while we
-            // set the `defaultNotify` property, that the injection was populated and set up without
-            // noticing our request to enable/disable notifications.
-            if let injection {
-                // so if it is magically present now, we schedule into the BluetoothSerialExecutor and
-                // ensure that notification state is up to date. This ensures consistency without requiring a lock.
-                await injection.enableNotifications(enabled)
+            if ClosureRegistrar.writeableView == nil {
+                Bluetooth.logger.warning(
+                    """
+                    Tried to \(enabled ? "enable" : "disable") notifications out-of-band. Make sure to change notification settings \
+                    within the initializer or when the peripheral is fully injected. This is expected if you manually initialized your device. \
+                    The change was discarded and won't have any effect.
+                    """
+                )
             }
-
-            // otherwise its fine. We know injection will be set before defaultNotify is used.
-            // That's why we are finished here!
             return
         }
 

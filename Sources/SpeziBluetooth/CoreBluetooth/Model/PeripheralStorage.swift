@@ -15,7 +15,7 @@ import Foundation
 /// Main motivation is to have `BluetoothPeripheral` be implemented as an actor and moving state
 /// into a separate state container that is `@Observable`.
 @Observable
-final class PeripheralStorage: SimpleObservable {
+final class PeripheralStorage: ValueObservable {
     var name: String? {
         localName ?? peripheralName
     }
@@ -52,7 +52,7 @@ final class PeripheralStorage: SimpleObservable {
     }
     @ObservationIgnored var lastActivity: Date
 
-    @ObservationIgnored var _$simpleRegistrar = SimpleObservationRegistrar<PeripheralStorage>()
+    @ObservationIgnored var _$simpleRegistrar = ValueObservationRegistrar<PeripheralStorage>()
 
     init(peripheralName: String?, rssi: Int, advertisementData: AdvertisementData, state: CBPeripheralState, lastActivity: Date = .now) {
         self.peripheralName = peripheralName
@@ -106,15 +106,5 @@ final class PeripheralStorage: SimpleObservable {
 
     func assign(services: [GATTService]) {
         self.services = services
-    }
-
-    func invalidateServices(_ ids: [CBUUID]) {
-        for id in ids {
-            guard let index = services?.firstIndex(where: { $0.uuid == id }) else {
-                continue
-            }
-
-            services?.remove(at: index)
-        }
     }
 }

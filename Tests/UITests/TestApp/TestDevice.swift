@@ -39,7 +39,14 @@ class TestDevice: BluetoothDevice, Identifiable, SomePeripheral {
 
     @Service var deviceInformation = DeviceInformationService()
 
-    required init() {}
+    required init() {
+        $state.onChange { state in
+            // TODO: assert that we are running on the bluetooth actor by default?
+        }
+        deviceInformation.$pnpID.onChange { _ in
+            // TODO: assert that we are running on the bluetooth actor by default? (this closure here does not make sense!)
+        }
+    }
 
 
     func connect() async {

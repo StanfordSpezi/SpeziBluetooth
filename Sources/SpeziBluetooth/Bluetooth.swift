@@ -193,7 +193,6 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
     }
 
 
-    // TODO: MainActor? or non-isolated?
     private var nearbyDevices: OrderedDictionary<UUID, BluetoothDevice> {
         get {
             _storage.nearbyDevices
@@ -228,14 +227,18 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
     public init(
         minimumRSSI: Int = BluetoothManager.Defaults.defaultMinimumRSSI,
         advertisementStaleInterval: TimeInterval = BluetoothManager.Defaults.defaultStaleTimeout,
-        @DiscoveryConfigurationBuilder _ devices: () -> Set<DiscoveryConfiguration>
+        @DiscoveryConfigurationBuilder _ devices: @Sendable () -> Set<DiscoveryConfiguration>
     ) {
-        // TODO: DiscoveryConfiguration sendability!!?? jus tmake a container for that?
         let configuration = devices()
         let deviceTypes = configuration.deviceTypes
 
+        let devices = ClosureRegistrar.$writeableView.withValue(.init()) {
+            // we provide a closure registrar just to silence any out-of-band usage warnings!
+            configuration.parseDeviceDescription()
+        }
+
         let bluetoothManager = BluetoothManager(
-            devices: configuration.parseDeviceDescription(),
+            devices: devices,
             minimumRSSI: minimumRSSI,
             advertisementStaleInterval: advertisementStaleInterval
         )
@@ -245,7 +248,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
         self.deviceConfigurations = configuration
         self._devicesInjector = Modifier(wrappedValue: ConnectedDevicesEnvironmentModifier(configuredDeviceTypes: deviceTypes))
 
-        Task { // TODO: semi ugly?
+        Task {
             await self.observeDiscoveredDevices()
         }
     }
@@ -258,7 +261,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
                     return
                 }
 
-                self.assertIsolated("BluetoothManager peripherals change closure was unexpectedly not called on the BluetoothSerialExecutor.")
+                self.assertIsolated("BluetoothManager peripherals change closure was unexpectedly not called on the Bluetooth SerialExecutor.")
                 self.assumeIsolated { bluetooth in
                     bluetooth.observeDiscoveredDevices()
                     bluetooth.handleUpdatedNearbyDevicesChange(discoveredDevices)
@@ -293,13 +296,10 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
         var checkForConnected = false
 
         // remove all delete keys
-        for key in nearbyDevices.keys {
-            guard let peripheral = discoveredDevices[key] else {
-                continue
-            }
+        for key in nearbyDevices.keys where discoveredDevices[key] == nil{
             checkForConnected = true
             let device = nearbyDevices.removeValue(forKey: key)
-            device?.clearState(peripheral: peripheral)
+            device?.clearState(isolatedTo: self)
         }
 
         // add devices for new keys
@@ -311,8 +311,11 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
             }
 
 
-            ClosureRegistrar.$instance.withValue(ClosureRegistrar()) {
-                let device = configuration.anyDeviceType.init()
+            let closures = ClosureRegistrar()
+            let device = ClosureRegistrar.$writeableView.withValue(closures) {
+                configuration.anyDeviceType.init()
+            }
+            ClosureRegistrar.$readableView.withValue(closures) {
                 device.inject(peripheral: peripheral)
                 nearbyDevices[uuid] = device
             }
@@ -321,7 +324,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
             observePeripheralState(of: uuid) // register \.state onChange closure
         }
 
-        if checkForConnected { // TODO: do that after nearbyDevices were written
+        if checkForConnected {
             // ensure that we get notified about, e.g., a connected peripheral that is instantly removed
             handlePeripheralStateChange()
         }
@@ -353,8 +356,6 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
     /// - Parameter device: The device type to filter for.
     /// - Returns: A list of nearby devices of a given ``BluetoothDevice`` type.
     public nonisolated func nearbyDevices<Device: BluetoothDevice>(for device: Device.Type = Device.self) -> [Device] {
-        // TODO: is this unsafe access?
-        // TODO: make all storage container naming consistent in whole project!
         _storage.nearbyDevices.values.compactMap { device in
             device as? Device
         }

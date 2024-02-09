@@ -11,6 +11,7 @@ import Foundation
 
 @Observable
 class ConnectedDevices {
+    /// We track the first connected device for every BluetoothDevice type.
     @MainActor private var connectedDevices: [ObjectIdentifier: BluetoothDevice] = [:]
     @MainActor private var connectedDeviceIds: [ObjectIdentifier: UUID] = [:]
 

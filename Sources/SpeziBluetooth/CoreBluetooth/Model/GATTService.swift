@@ -9,6 +9,11 @@
 import CoreBluetooth
 import Foundation
 
+struct ServiceChangeProtocol {
+    let removedCharacteristics: Set<CBUUID>
+    let updatedCharacteristics: [GATTCharacteristic]
+}
+
 
 /// A Bluetooth service of a device.
 ///
@@ -21,6 +26,8 @@ import Foundation
 @Observable
 public class GATTService {
     let underlyingService: CBService
+    /// The stored characteristics, indexed by their uuid.
+    private var _characteristics: [CBUUID: GATTCharacteristic]
 
     /// The Bluetooth UUID of the service.
     public var uuid: CBUUID {
@@ -33,15 +40,17 @@ public class GATTService {
     }
 
     /// A list of characteristics that have been discovered in this service.
-    public private(set) var characteristics: [GATTCharacteristic]
+    public var characteristics: [GATTCharacteristic] {
+        Array(_characteristics.values)
+    }
 
 
     init(service: CBService) {
         self.underlyingService = service
-        self.characteristics = []
-        self.characteristics = service.characteristics?.map { characteristic in
-            GATTCharacteristic(characteristic: characteristic, service: self)
-        } ?? []
+        self._characteristics = [:]
+        self._characteristics = service.characteristics?.reduce(into: [:], { result, characteristic in
+            result[characteristic.uuid] = GATTCharacteristic(characteristic: characteristic, service: self)
+        }) ?? [:]
     }
 
 
@@ -54,15 +63,34 @@ public class GATTService {
         }
     }
 
-    func synchronizeModel() {
-        guard let serviceCharacteristics = underlyingService.characteristics else {
-            characteristics.removeAll()
-            return
+    /// Signal from the BluetoothManager to update your stored representations.
+    func synchronizeModel() -> ServiceChangeProtocol {
+        var removedCharacteristics = Set(_characteristics.keys)
+        var updatedCharacteristics: [GATTCharacteristic] = []
+
+        for cbCharacteristic in underlyingService.characteristics ?? [] {
+            let characteristic = _characteristics[cbCharacteristic.uuid]
+            if characteristic != nil {
+                // The characteristic is there. Mark it as not removed.
+                removedCharacteristics.remove(cbCharacteristic.uuid)
+            }
+
+
+            // either the characteristic does not exists, or the underlying reference changed
+            if characteristic == nil || characteristic?.underlyingCharacteristic !== cbCharacteristic {
+                // create/replace it
+                let characteristic = GATTCharacteristic(characteristic: cbCharacteristic, service: self)
+                updatedCharacteristics.append(characteristic)
+                _characteristics[cbCharacteristic.uuid] = characteristic
+            }
         }
 
-        characteristics = serviceCharacteristics.map { characteristic in
-            GATTCharacteristic(characteristic: characteristic, service: self)
+        // remove all characteristics we haven't found in the
+        for removedId in removedCharacteristics {
+            _characteristics.removeValue(forKey: removedId)
         }
+
+        return ServiceChangeProtocol(removedCharacteristics: removedCharacteristics, updatedCharacteristics: updatedCharacteristics)
     }
 }
 

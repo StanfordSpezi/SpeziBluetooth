@@ -39,7 +39,7 @@ class CharacteristicAccess {
     func receive() -> Access? {
         let access = access
         self.access = nil
-        assert(semaphore.signal(), "Signaled characteristic access for \(id) though no one was waiting")
+        semaphore.signal()
         return access
     }
 

@@ -8,45 +8,9 @@
 
 import CoreBluetooth
 
-// TODO: outward facing state:
-//  - @Characteristic:
-//      - ValueBox
-//      - CharacteristicBox (accessor)
-//  - @DeviceState
-//  - @Service accessors???
-//  - Bluetooth Module (state)
-// TODO: accessors might just create a shadow copy??
-
 
 private protocol DecodableCharacteristic: Actor {
     func handleUpdateValueAssumingIsolation(_ data: Data?)
-}
-
-@Observable
-class WeakObservableBox<Value: AnyObject> { // TODO: move both!
-    weak var value: Value?
-
-    init(_ value: Value? = nil) {
-        self.value = value
-    }
-}
-
-@Observable
-class ObservableBox<Value> {
-    var value: Value
-
-
-    init(_ value: Value) {
-        self.value = value
-    }
-}
-
-class Box<Value> {
-    var value: Value
-
-    init(_ value: Value) {
-        self.value = value
-    }
 }
 
 
@@ -65,8 +29,10 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
 
     /// The user supplied onChange closure we use to forward notifications.
     private var onChangeClosure: ChangeClosure<Value>
-    /// The registration object we received from the ``BluetoothPeripheral`` for our onChange handler.
-    private var registration: OnChangeRegistration?
+    /// The registration object we received from the ``BluetoothPeripheral`` for our instance onChange handler.
+    private var instanceRegistration: OnChangeRegistration?
+    /// The registration object we received from the ``BluetoothPeripheral`` for our value onChange handler.
+    private var valueRegistration: OnChangeRegistration?
 
 
     private(set) var value: Value? {
@@ -113,7 +79,7 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
     /// Setup the injection. Must be called after initialization to set up all handlers and write the initial value.
     /// - Parameter defaultNotify: Flag indicating if notification handlers should be registered immediately.
     func setup(defaultNotify: Bool) {
-        trackServicesUpdates() // enable observation tracking for peripheral.services and characteristic properties
+        registerCharacteristicInstanceChanges()
 
         guard let instance = self as? DecodableCharacteristic else {
             return
@@ -126,19 +92,7 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
             instance.assumeIsolated { $0.handleUpdateValueAssumingIsolation(value) }
         }
 
-        // register onChange handler
-        let registration = peripheral.assumeIsolated { peripheral in
-            peripheral.registerOnChangeHandler(service: serviceId, characteristic: characteristicId) { [weak self] data in
-                guard let self = self else {
-                    return
-                }
-                self.assertIsolated("BluetoothPeripheral onChange handler was unexpectedly executed outside the peripheral actor!")
-                self.assumeIsolated { injection in
-                    injection.handleUpdatedValue(data)
-                }
-            }
-        }
-        self.registration = registration
+        self.registerCharacteristicValueChanges()
 
         if defaultNotify {
             enableNotifications()
@@ -147,16 +101,13 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
 
     /// Signal from the Bluetooth state to cleanup the device
     func clearState() {
-        self.registration?.cancel()
-        self.registration = nil
+        self.instanceRegistration?.cancel()
+        self.instanceRegistration = nil
+        self.valueRegistration?.cancel()
+        self.valueRegistration = nil
         self.onChangeClosure = .cleared // might contain a self reference, so we need to clear that!
     }
 
-    private func update(characteristic: GATTCharacteristic?) {
-        if self.characteristic != characteristic {
-            self.characteristic = characteristic
-        }
-    }
 
     func setOnChangeClosure(_ closure: @escaping (Value) -> Void) {
         if case .cleared = onChangeClosure {
@@ -174,27 +125,54 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
         }
     }
 
-    private func trackServicesUpdates() {
-        // TODO: have a listener for characteristic tracking and value changes?
-        withObservationTracking {
-            peripheral.assumeIsolated { peripheral in
-                _ = peripheral.getCharacteristic(id: characteristicId, on: serviceId)
-            }
-        } onChange: { [weak self] in
-            Task { [weak self] in
-                // we need to wait before registering, such that we register `.characteristic` property once the service becomes present
-                await self?.trackServicesUpdates()
-                await self?.handleServicesChange()
+    private func registerCharacteristicInstanceChanges() {
+        self.instanceRegistration = peripheral.assumeIsolated { peripheral in
+            peripheral.registerOnChangeCharacteristicHandler(
+                service: serviceId,
+                characteristic: characteristicId
+            ) { [weak self] characteristic in
+                guard let self = self else {
+                    return
+                }
+
+                self.assertIsolated("BluetoothPeripheral onChange handler was unexpectedly executed outside the peripheral actor!")
+                self.assumeIsolated { injection in
+                    injection.handleChangedCharacteristic(characteristic)
+                }
             }
         }
     }
 
-    private func handleServicesChange() {
-        // TODO: update this?
-        let characteristic = peripheral.assumeIsolated { $0.getCharacteristic(id: characteristicId, on: serviceId) }
+    private func registerCharacteristicValueChanges() {
+        self.valueRegistration = peripheral.assumeIsolated { peripheral in
+            peripheral.registerOnChangeHandler(service: serviceId, characteristic: characteristicId) { [weak self] data in
+                guard let self = self else {
+                    return
+                }
+                self.assertIsolated("BluetoothPeripheral onChange handler was unexpectedly executed outside the peripheral actor!")
+                self.assumeIsolated { injection in
+                    injection.handleUpdatedValue(data)
+                }
+            }
+        }
+    }
 
-        let instanceChanged = self.characteristic?.underlyingCharacteristic !== characteristic?.underlyingCharacteristic
-        update(characteristic: characteristic)
+    private func handleChangedCharacteristic(_ characteristic: GATTCharacteristic?) {
+        // This the characteristic reference change?
+        let instanceChanged = switch (self.characteristic, characteristic) {
+        case let (.some(lhs), .some(rhs)):
+            lhs.underlyingCharacteristic !== rhs.underlyingCharacteristic
+        case (.some, .none):
+            true
+        case (.none, .some):
+            true
+        case (.none, .none):
+            false
+        }
+
+        if self.characteristic != characteristic {
+            self.characteristic = characteristic
+        }
 
         if instanceChanged {
             if let characteristic {
@@ -235,7 +213,7 @@ extension CharacteristicPeripheralInjection: DecodableCharacteristic where Value
             }
 
             self.value = value
-            Task { // TODO: global serial actor?
+            Task { @SpeziBluetooth in
                 await self.dispatchChangeHandler(value)
             }
         } else {

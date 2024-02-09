@@ -17,8 +17,12 @@ struct CharacteristicLocator {
 
 extension CharacteristicLocator: Hashable {}
 
-extension CharacteristicLocator: CustomStringConvertible {
+extension CharacteristicLocator: CustomStringConvertible, CustomDebugStringConvertible {
     public var description: String {
         "\(characteristicId)@\(serviceId)"
+    }
+
+    public var debugDescription: String {
+        "CharacteristicLocator(service: \(serviceId), characteristic: \(characteristicId))"
     }
 }

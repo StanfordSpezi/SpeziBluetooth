@@ -12,6 +12,9 @@
 
 Connect and communicate with Bluetooth devices using modern programming paradigms.
 
+```swift
+//  TODO: there should be a article on the Thread-model!
+```
 
 ## Overview
 

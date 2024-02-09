@@ -9,40 +9,44 @@
 import Foundation
 
 
-protocol AnyObservation {}
+protocol AnyValueObservation {}
 
-// TODO: calling that ValueObservation/ValueObservable!
-struct SimpleObservationRegistrar<Observable: SimpleObservable> {
-    struct Observation<Value>: AnyObservation {
+
+/// Internal value observation registrar.
+///
+/// Holds the registered closure till the next value update happens.
+/// Inspired by Apple's Observation framework but with more power!
+class ValueObservationRegistrar<Observable: ValueObservable> {
+    struct ValueObservation<Value>: AnyValueObservation {
         let keyPath: KeyPath<Observable, Value>
         let handler: (Value) -> Void
     }
 
     private var id: UInt64 = 0
-    private var observations: [UInt64: AnyObservation] = [:]
+    private var observations: [UInt64: AnyValueObservation] = [:]
     private var keyPathIndex: [AnyKeyPath: Set<UInt64>] = [:]
 
-    private mutating func nextId() -> UInt64 {
+    private func nextId() -> UInt64 {
         defer {
             id &+= 1 // add with overflow operator
         }
         return id
     }
 
-    mutating func onChange<Value>(of keyPath: KeyPath<Observable, Value>, perform closure: @escaping (Value) -> Void) {
+    func onChange<Value>(of keyPath: KeyPath<Observable, Value>, perform closure: @escaping (Value) -> Void) {
         let id = nextId()
-        observations[id] = Observation(keyPath: keyPath, handler: closure)
+        observations[id] = ValueObservation(keyPath: keyPath, handler: closure)
         keyPathIndex[keyPath, default: []].insert(id)
     }
 
-    mutating func triggerDidChange<Value>(for keyPath: KeyPath<Observable, Value>, on observable: Observable) {
+    func triggerDidChange<Value>(for keyPath: KeyPath<Observable, Value>, on observable: Observable) {
         guard let ids = keyPathIndex.removeValue(forKey: keyPath) else {
             return
         }
 
         for id in ids {
             guard let anyObservation = observations.removeValue(forKey: id),
-                  let observation = anyObservation as? Observation<Value> else {
+                  let observation = anyObservation as? ValueObservation<Value> else {
                 continue
             }
 
@@ -52,14 +56,16 @@ struct SimpleObservationRegistrar<Observable: SimpleObservable> {
     }
 }
 
-// TODO: rename
-protocol SimpleObservable: AnyObject {
-    var _$simpleRegistrar: SimpleObservationRegistrar<Self> { get set }
+
+/// A model with value observable properties.
+protocol ValueObservable: AnyObject {
+    var _$simpleRegistrar: ValueObservationRegistrar<Self> { get set }
 
     func onChange<Value>(of keyPath: KeyPath<Self, Value>, perform closure: @escaping (Value) -> Void)
 }
 
-extension SimpleObservable {
+
+extension ValueObservable {
     func onChange<Value>(of keyPath: KeyPath<Self, Value>, perform closure: @escaping (Value) -> Void) {
         _$simpleRegistrar.onChange(of: keyPath, perform: closure)
     }

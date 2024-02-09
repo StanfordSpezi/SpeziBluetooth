@@ -16,7 +16,9 @@ final class ClosureRegistrar {
     }
 
     // task local value ensures nobody is interfering here and resolves thread safety
-    @TaskLocal static var instance: ClosureRegistrar?
+    // we maintain two different states for different processes (init vs. setup).
+    @TaskLocal static var writeableView: ClosureRegistrar?
+    @TaskLocal static var readableView: ClosureRegistrar?
 
 
     private var registrations: [ObjectIdentifier: Any] = [:]

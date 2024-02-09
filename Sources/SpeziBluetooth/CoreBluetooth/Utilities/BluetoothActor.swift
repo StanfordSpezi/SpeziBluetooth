@@ -23,21 +23,3 @@ extension BluetoothActor {
         perform(self)
     }
 }
-
-extension BluetoothManager {
-    func isolated2(perform: (isolated BluetoothManager) -> Void) {
-        perform(self) // TODO: remove?
-    }
-}
-
-extension BluetoothActor { // TODO: remove?
-    nonisolated func preconditionIsolatedUnsafe() {
-        // Adapted from https://github.com/apple/swift/blob/a1062d06e9f33512b0005d589e3b086a89cfcbd1/stdlib/public/Concurrency/ExecutorAssertions.swift#L101-L117
-        guard _isDebugAssertConfiguration() || _isReleaseAssertConfiguration() else {
-            return
-        }
-
-        self.preconditionIsolated()
-        // TODO: dispatchPrecondition(condition: .onQueue(bluetoothQueue))
-    }
-}

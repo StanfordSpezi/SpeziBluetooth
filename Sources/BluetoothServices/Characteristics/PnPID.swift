@@ -18,10 +18,21 @@ public enum VendorIDSource {
     case usbImplementersForumAssigned
     /// Reserved value range.
     case reserved(_ value: UInt8)
+
+    public var label: String {
+        switch self {
+        case .bluetoothSIGAssigned:
+            return "SIG assigned"
+        case .usbImplementersForumAssigned:
+            return "USB assigned"
+        case let .reserved(value):
+            return String(format: "%02X", value)
+        }
+    }
 }
 
 
-/// THe Plug and Play (PnP) Vendor ID and Product ID.
+/// The Plug and Play (PnP) Vendor ID and Product ID.
 public struct PnPID {
     /// The vendor id source.
     public let vendorIdSource: VendorIDSource

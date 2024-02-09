@@ -112,13 +112,15 @@ public class DeviceState<Value> {
     }
 
 
-    func inject(peripheral: BluetoothPeripheral) -> DeviceStatePeripheralInjection<Value> {
-        let changeClosure = ClosureRegistrar.instance?.retrieve(for: objectId, value: Value.self)
+    func inject(peripheral: BluetoothPeripheral) {
+        let changeClosure = ClosureRegistrar.readableView?.retrieve(for: objectId, value: Value.self)
 
         let injection = DeviceStatePeripheralInjection(peripheral: peripheral, keyPath: keyPath, onChangeClosure: changeClosure)
         self.injection = injection
 
-        return injection
+        injection.assumeIsolated { injection in
+            injection.setup()
+        }
     }
 }
 

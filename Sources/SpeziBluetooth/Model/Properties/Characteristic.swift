@@ -180,11 +180,17 @@ public class Characteristic<Value> {
     ///
     /// This is either the last read value or the latest notified value.
     public var wrappedValue: Value? {
-        // TODO: value is unsafe to access
-        return _value.value
+        _value.value
     }
 
     /// Retrieve a temporary accessors instance.
+    ///
+    /// This type allows you to interact with a Characteristic.
+    ///
+    /// - Note: The accessor captures the characteristic instance upon creation. Within the same `CharacteristicAccessors` instance
+    ///     the view on the characteristic is consistent (characteristic exists vs. it doesn't, the underlying values themselves might still change).
+    ///     However, if you project a new `CharacteristicAccessors` instance right after your access,
+    ///     the view on the characteristic might have changed due to the asynchronous nature of SpeziBluetooth.
     public var projectedValue: CharacteristicAccessors<Value> {
         CharacteristicAccessors(configuration: configuration, injection: injection)
     }
@@ -200,7 +206,7 @@ public class Characteristic<Value> {
         let characteristic = service?.getCharacteristic(id: configuration.id)
 
         // Any potential onChange closure registration that happened within the initializer. Forward them to the injection.
-        let onChangeClosure = ClosureRegistrar.instance?.retrieve(for: configuration.objectId, value: Value.self)
+        let onChangeClosure = ClosureRegistrar.readableView?.retrieve(for: configuration.objectId, value: Value.self)
 
         let injection = CharacteristicPeripheralInjection<Value>(
             peripheral: peripheral,

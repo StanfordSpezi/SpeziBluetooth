@@ -6,8 +6,6 @@
 // SPDX-License-Identifier: MIT
 //
 
-// TODO: there should be a article on the Thread-model!
-
 
 import CoreBluetooth
 import NIO
@@ -74,17 +72,24 @@ import OSLog
 /// - ``stopScanning()``
 public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable:this type_body_length
     @Observable
-    class ObservableStorage: SimpleObservable {
-        var state: BluetoothState = .unknown
-        var isScanning = false
+    class ObservableStorage: ValueObservable {
+        var state: BluetoothState = .unknown {
+            didSet {
+                _$simpleRegistrar.triggerDidChange(for: \.state, on: self)
+            }
+        }
+        var isScanning = false {
+            didSet {
+                _$simpleRegistrar.triggerDidChange(for: \.isScanning, on: self)
+            }
+        }
         var discoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> = [:] {
             didSet {
                 _$simpleRegistrar.triggerDidChange(for: \.discoveredPeripherals, on: self)
             }
         }
 
-        // TODO: support all the other properties just for fun?
-        @ObservationIgnored var _$simpleRegistrar = SimpleObservationRegistrar<BluetoothManager.ObservableStorage>()
+        @ObservationIgnored var _$simpleRegistrar = ValueObservationRegistrar<BluetoothManager.ObservableStorage>()
 
         init() {}
     }
@@ -366,10 +371,6 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
         self.lastManuallyDisconnectedDevice = peripheral.id
     }
 
-    func findDeviceDescription(for advertisementData: AdvertisementData) -> DeviceDescription? {
-        configuredDevices.find(for: advertisementData, logger: logger)
-    }
-
     // MARK: - Auto Connect
 
     private func kickOffAutoConnect() {
@@ -433,11 +434,17 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
     /// - Parameter device: The device to ignore.
     private func oldestActivityDevice(ignore device: BluetoothPeripheral? = nil) -> BluetoothPeripheral? {
         // when we are just interested in the min device, this operation is a bit cheaper then sorting the whole list
-        return discoveredPeripherals.values
+        discoveredPeripherals.values
             // it's important to access the underlying state here
-            .filter { $0.cbPeripheral.state == .disconnected && $0.id != device?.id }
+            .filter {
+                $0.cbPeripheral.state == .disconnected && $0.id != device?.id
+            }
             .min { lhs, rhs in
-                lhs.assumeIsolated { $0.lastActivity } < rhs.assumeIsolated { $0.lastActivity }
+                lhs.assumeIsolated {
+                    $0.lastActivity
+                } < rhs.assumeIsolated {
+                    $0.lastActivity
+                }
             }
     }
 
@@ -526,9 +533,8 @@ extension BluetoothManager: BluetoothScanner {
     /// Support for the auto connect modifier.
     @_documentation(visibility: internal)
     public nonisolated var hasConnectedDevices: Bool {
-        // TODO: check how we can have unsafe access?
-        // TODO: no contains check but loop through all peripherals to have observability of all devices?
-        // TODO: unsafe access!
+        // we make sure to loop over all peripherals here. This ensures observability subscribes to all
+        // changing states.
         _storage.discoveredPeripherals.values.reduce(into: false) { partialResult, peripheral in
             partialResult = partialResult || (peripheral.unsafeState.state != .disconnected)
         }
@@ -547,11 +553,6 @@ extension BluetoothManager {
         /// The default time in seconds after which we check for auto connectable devices after the initial advertisement.
         public static let defaultAutoConnectDebounce: Int = 1
     }
-}
-
-@globalActor
-actor SpeziBluetooth { // TODO: move!
-    static let shared = SpeziBluetooth()
 }
 
 
@@ -645,7 +646,6 @@ extension BluetoothManager {
                             device.markLastActivity()
                             device.update(advertisement: data, rssi: rssi.intValue)
                         }
-                        // TODO: check there aren't any Tasks created for device access!!
 
                         if manager.cancelStaleTask(for: device) {
                             // current device was earliest to go stale, schedule timeout for next oldest device
@@ -694,7 +694,7 @@ extension BluetoothManager {
 
                     logger.debug("Peripheral \(peripheral.debugIdentifier) connected.")
                     device.assumeIsolated { device in
-                        device.handleConnect()
+                        device.handleConnect(consider: manager.configuredDevices)
                     }
                 }
             }
