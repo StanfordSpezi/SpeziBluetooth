@@ -76,6 +76,11 @@ public class DeviceAction<Action: _BluetoothPeripheralAction> {
         return Action(.peripheral(peripheral))
     }
 
+    /// Retrieve a temporary accessors instance.
+    public var projectedValue: DeviceActionAccessor<Action.ClosureType> {
+        DeviceActionAccessor(_injectedClosure)
+    }
+
 
     /// Provide a `KeyPath` to the device action you want to access.
     /// - Parameter keyPath: The `KeyPath` to a property of ``DeviceActions``.
@@ -95,15 +100,5 @@ extension DeviceAction: DeviceVisitable, ServiceVisitable {
 
     func accept<Visitor: ServiceVisitor>(_ visitor: inout Visitor) {
         visitor.visit(self)
-    }
-}
-
-// MARK: - Testing Support
-
-extension DeviceAction {
-    /// Retrieve a temporary accessors instance.
-    @_spi(TestingSupport)
-    public var projectedValue: DeviceActionAccessor<Action.ClosureType> {
-        DeviceActionAccessor(_injectedClosure)
     }
 }

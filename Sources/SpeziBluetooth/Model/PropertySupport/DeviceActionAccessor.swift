@@ -8,7 +8,6 @@
 
 
 /// Interact with a Device Action.
-@_spi(TestingSupport)
 public struct DeviceActionAccessor<ClosureType> {
     private let _injectedClosure: Box<ClosureType?>
 
@@ -23,6 +22,7 @@ public struct DeviceActionAccessor<ClosureType> {
     /// This is particularly helpful when writing SwiftUI previews or doing UI testing.
     ///
     /// - Parameter action: The action to inject.
+    @_spi(TestingSupport)
     public func inject(_ action: ClosureType) {
         _injectedClosure.value = action
     }
