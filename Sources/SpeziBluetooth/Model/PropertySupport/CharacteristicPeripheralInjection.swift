@@ -194,7 +194,7 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
         }
     }
 
-    private func dispatchChangeHandler(_ value: Value) async {
+    private func dispatchChangeHandler(_ value: Value, with onChangeClosure: ChangeClosure<Value>) async {
         guard case let .value(closure) = onChangeClosure else {
             return
         }
@@ -213,8 +213,9 @@ extension CharacteristicPeripheralInjection: DecodableCharacteristic where Value
             }
 
             self.value = value
+            let onChangeClosure = onChangeClosure // make sure we capture it now not later where it might have changed.
             Task { @SpeziBluetooth in
-                await self.dispatchChangeHandler(value)
+                await self.dispatchChangeHandler(value, with: onChangeClosure)
             }
         } else {
             self.value = nil
