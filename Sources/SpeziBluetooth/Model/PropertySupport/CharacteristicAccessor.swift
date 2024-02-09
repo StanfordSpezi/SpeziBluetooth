@@ -13,9 +13,9 @@ import CoreBluetooth
 ///
 /// This type allows you to interact with a Characteristic you previously declared using the ``Characteristic`` property wrapper.
 ///
-/// - Note: The accessor captures the characteristic instance upon creation. Within the same `CharacteristicAccessors` instance
+/// - Note: The accessor captures the characteristic instance upon creation. Within the same `CharacteristicAccessor` instance
 ///     the view on the characteristic is consistent (characteristic exists vs. it doesn't, the underlying values themselves might still change).
-///     However, if you project a new `CharacteristicAccessors` instance right after your access,
+///     However, if you project a new `CharacteristicAccessor` instance right after your access,
 ///     the view on the characteristic might have changed due to the asynchronous nature of SpeziBluetooth.
 ///
 /// ## Topics
@@ -38,22 +38,25 @@ import CoreBluetooth
 ///
 /// ### Get notified about changes
 /// - ``onChange(perform:)``
-public struct CharacteristicAccessors<Value> {
+public struct CharacteristicAccessor<Value> {
     private let configuration: Characteristic<Value>.Configuration
     private let injection: CharacteristicPeripheralInjection<Value>?
+    /// We keep track of this for testing support.
+    private let _value: ObservableBox<Value?>
     /// Capture of the characteristic.
     private let characteristic: GATTCharacteristic?
 
 
-    init(configuration: Characteristic<Value>.Configuration, injection: CharacteristicPeripheralInjection<Value>?) {
+    init(configuration: Characteristic<Value>.Configuration, injection: CharacteristicPeripheralInjection<Value>?, value: ObservableBox<Value?>) {
         self.configuration = configuration
         self.injection = injection
+        self._value = value
         self.characteristic = injection?.unsafeCharacteristic
     }
 }
 
 
-extension CharacteristicAccessors {
+extension CharacteristicAccessor {
     /// Determine if the characteristic is available.
     ///
     /// Returns `true` if the characteristic is available for the current device.
@@ -78,7 +81,7 @@ extension CharacteristicAccessors {
 }
 
 
-extension CharacteristicAccessors where Value: ByteDecodable {
+extension CharacteristicAccessor where Value: ByteDecodable {
     /// Characteristic is currently notifying about updated values.
     ///
     /// This is also `false` if device is not connected.
@@ -155,7 +158,7 @@ extension CharacteristicAccessors where Value: ByteDecodable {
 }
 
 
-extension CharacteristicAccessors where Value: ByteEncodable {
+extension CharacteristicAccessor where Value: ByteEncodable {
     /// Write the value of a characteristic expecting a confirmation.
     ///
     /// Writes the value of a characteristic expecting a confirmation from the peripheral.
@@ -189,5 +192,23 @@ extension CharacteristicAccessors where Value: ByteEncodable {
         }
 
         try await injection.writeWithoutResponse(value)
+    }
+}
+
+// MARK: - Testing Support
+
+@_spi(TestingSupport)
+extension CharacteristicAccessor {
+    /// Inject a custom value for previewing purposes.
+    ///
+    /// This method can be used to inject a custom characteristic value.
+    /// This is particularly helpful when writing SwiftUI previews or doing UI testing.
+    ///
+    /// - Note: `onChange` closures are currently not supported. If required, you should
+    /// call your onChange closures manually.
+    ///
+    /// - Parameter value: The value to inject.
+    public func inject(_ value: Value) {
+        _value.value = value
     }
 }

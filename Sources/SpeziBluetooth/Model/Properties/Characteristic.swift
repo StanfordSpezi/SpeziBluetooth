@@ -39,7 +39,7 @@ import Foundation
 /// by supplying the `notify` initializer argument.
 ///
 /// - Tip: If you want to react to every change of the characteristic value, you can use
-///     ``CharacteristicAccessors/onChange(perform:)`` to set up your action.
+///     ``CharacteristicAccessor/onChange(perform:)`` to set up your action.
 ///
 /// The below code example uses the [Bluetooth Heart Rate Service](https://www.bluetooth.com/specifications/specs/heart-rate-service-1-0)
 /// to demonstrate the automatic notifications feature for the Heart Rate Measurement characteristic.
@@ -67,7 +67,7 @@ import Foundation
 /// ### Characteristic Interactions
 ///
 /// To interact with a characteristic to read or write a value or enable or disable notifications,
-/// you can use the ``projectedValue`` (`$` notation) to retrieve a temporary ``CharacteristicAccessors`` instance.
+/// you can use the ``projectedValue`` (`$` notation) to retrieve a temporary ``CharacteristicAccessor`` instance.
 ///
 /// Do demonstrate this functionality, we completed the implementation of our Heart Rate Service
 /// according to its [Specification](https://www.bluetooth.com/specifications/specs/heart-rate-service-1-0).
@@ -126,28 +126,28 @@ import Foundation
 /// - ``init(wrappedValue:id:notify:discoverDescriptors:)-9zex3``
 ///
 /// ### Inspecting a Characteristic
-/// - ``CharacteristicAccessors/isPresent``
-/// - ``CharacteristicAccessors/properties``
-/// - ``CharacteristicAccessors/descriptors``
+/// - ``CharacteristicAccessor/isPresent``
+/// - ``CharacteristicAccessor/properties``
+/// - ``CharacteristicAccessor/descriptors``
 ///
 /// ### Reading a value
-/// - ``CharacteristicAccessors/read()``
+/// - ``CharacteristicAccessor/read()``
 ///
 /// ### Writing a value
-/// - ``CharacteristicAccessors/write(_:)``
-/// - ``CharacteristicAccessors/writeWithoutResponse(_:)``
+/// - ``CharacteristicAccessor/write(_:)``
+/// - ``CharacteristicAccessor/writeWithoutResponse(_:)``
 ///
 /// ### Controlling notifications
-/// - ``CharacteristicAccessors/isNotifying``
-/// - ``CharacteristicAccessors/enableNotifications(_:)``
+/// - ``CharacteristicAccessor/isNotifying``
+/// - ``CharacteristicAccessor/enableNotifications(_:)``
 ///
 /// ### Get notified about changes
-/// - ``CharacteristicAccessors/onChange(perform:)``
+/// - ``CharacteristicAccessor/onChange(perform:)``
 ///
 /// ### Property wrapper access
 /// - ``wrappedValue``
 /// - ``projectedValue``
-/// - ``CharacteristicAccessors``
+/// - ``CharacteristicAccessor``
 @propertyWrapper
 public class Characteristic<Value> {
     class Configuration {
@@ -187,12 +187,12 @@ public class Characteristic<Value> {
     ///
     /// This type allows you to interact with a Characteristic.
     ///
-    /// - Note: The accessor captures the characteristic instance upon creation. Within the same `CharacteristicAccessors` instance
+    /// - Note: The accessor captures the characteristic instance upon creation. Within the same `CharacteristicAccessor` instance
     ///     the view on the characteristic is consistent (characteristic exists vs. it doesn't, the underlying values themselves might still change).
-    ///     However, if you project a new `CharacteristicAccessors` instance right after your access,
+    ///     However, if you project a new `CharacteristicAccessor` instance right after your access,
     ///     the view on the characteristic might have changed due to the asynchronous nature of SpeziBluetooth.
-    public var projectedValue: CharacteristicAccessors<Value> {
-        CharacteristicAccessors(configuration: configuration, injection: injection)
+    public var projectedValue: CharacteristicAccessor<Value> {
+        CharacteristicAccessor(configuration: configuration, injection: injection)
     }
 
     fileprivate init(wrappedValue: Value? = nil, characteristic: CBUUID, notify: Bool, discoverDescriptors: Bool = false) {
@@ -217,7 +217,7 @@ public class Characteristic<Value> {
             onChangeClosure: onChangeClosure
         )
 
-        // mutual access with `CharacteristicAccessors/enableNotifications`
+        // mutual access with `CharacteristicAccessor/enableNotifications`
         self.injection = injection
         injection.assumeIsolated { injection in
             injection.setup(defaultNotify: configuration.defaultNotify)
