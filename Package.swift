@@ -62,7 +62,8 @@ let package = Package(
         .target(
             name: "XCTBluetooth",
             dependencies: [
-                .target(name: "SpeziBluetooth")
+                .target(name: "SpeziBluetooth"),
+                .product(name: "NIO", package: "swift-nio")
             ]
         ),
         .executableTarget(
