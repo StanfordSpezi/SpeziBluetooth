@@ -43,8 +43,13 @@ actor DeviceStatePeripheralInjection<Value>: BluetoothActor {
 
                 self.assumeIsolated { injection in
                     injection.trackStateUpdate()
+
+                    // The onChange handler of global Bluetooth module is called right after this to clear this
+                    // injection if the state changed to `disconnected`. So we must capture the onChangeClosure before
+                    // that to still be able to deliver `disconnected` events.
+                    let onChangeClosure = onChangeClosure
                     Task { @SpeziBluetooth in
-                        await injection.dispatchChangeHandler(value)
+                        await injection.dispatchChangeHandler(value, with: onChangeClosure)
                     }
                 }
             }
@@ -52,7 +57,7 @@ actor DeviceStatePeripheralInjection<Value>: BluetoothActor {
     }
 
     /// Returns once the change handler completes.
-    private func dispatchChangeHandler(_ value: Value) async {
+    private func dispatchChangeHandler(_ value: Value, with onChangeClosure: ChangeClosure<Value>) async {
         guard case let .value(closure) = onChangeClosure else {
             return
         }
