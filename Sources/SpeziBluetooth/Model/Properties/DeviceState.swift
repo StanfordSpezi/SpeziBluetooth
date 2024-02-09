@@ -85,9 +85,42 @@ public class DeviceState<Value> {
         ObjectIdentifier(self)
     }
 
+    var defaultValue: Value? { // TODO: ability to inject some values as well via TestingSupport?
+        let value: Any? = switch keyPath {
+        case \.id:
+            nil // we cannot provide a stable id?
+        case \.name:
+            Optional<String>(nilLiteral: ())
+        case \.state:
+            PeripheralState.disconnected
+        case \.advertisementData:
+            AdvertisementData(advertisementData: [:])
+        case \.rssi:
+            UInt8.max
+        case \.services:
+            Optional<[GATTService]>(nilLiteral: ())
+        default:
+            nil
+        }
+
+        guard let value else {
+            return nil
+        }
+
+        guard let value = value as? Value else {
+            // TODO: this is fragile?
+            preconditionFailure("Default value \(value) was not the expected type for \(keyPath)")
+        }
+        return value
+    }
+
     /// Access the device state.
     public var wrappedValue: Value {
         guard let injection else {
+            if let defaultValue { // better support previews with some default values
+                return defaultValue
+            }
+
             preconditionFailure(
                 """
                 Failed to access bluetooth device state. Make sure your @DeviceState is only declared within your bluetooth device class \
