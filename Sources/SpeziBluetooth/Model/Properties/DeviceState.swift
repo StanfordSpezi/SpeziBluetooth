@@ -80,38 +80,10 @@ import Observation
 public class DeviceState<Value> {
     private let keyPath: KeyPath<BluetoothPeripheral, Value>
     private(set) var injection: DeviceStatePeripheralInjection<Value>?
+    private var _injectedValue = ObservableBox<Value?>(nil)
 
     var objectId: ObjectIdentifier {
         ObjectIdentifier(self)
-    }
-
-    var defaultValue: Value? { // TODO: ability to inject some values as well via TestingSupport?
-        let value: Any? = switch keyPath {
-        case \.id:
-            nil // we cannot provide a stable id?
-        case \.name:
-            Optional<String>.none as Any
-        case \.state:
-            PeripheralState.disconnected
-        case \.advertisementData:
-            AdvertisementData(advertisementData: [:])
-        case \.rssi:
-            UInt8.max
-        case \.services:
-            Optional<[GATTService]>.none as Any
-        default:
-            nil
-        }
-
-        guard let value else {
-            return nil
-        }
-
-        guard let value = value as? Value else {
-            // TODO: this is fragile?
-            preconditionFailure("Default value \(value) was not the expected type for \(keyPath)")
-        }
-        return value
     }
 
     /// Access the device state.
@@ -134,7 +106,7 @@ public class DeviceState<Value> {
 
     /// Retrieve a temporary accessors instance.
     public var projectedValue: DeviceStateAccessor<Value> {
-        DeviceStateAccessor(id: objectId, injection: injection)
+        DeviceStateAccessor(id: objectId, injection: injection, injectedValue: _injectedValue)
     }
 
 
@@ -165,5 +137,40 @@ extension DeviceState: DeviceVisitable, ServiceVisitable {
 
     func accept<Visitor: ServiceVisitor>(_ visitor: inout Visitor) {
         visitor.visit(self)
+    }
+}
+
+
+extension DeviceState {
+    var defaultValue: Value? {
+        if let injected = _injectedValue.value {
+            return injected
+        }
+
+        let value: Any? = switch keyPath {
+        case \.id:
+            nil // we cannot provide a stable id?
+        case \.name:
+            Optional<String>.none as Any
+        case \.state:
+            PeripheralState.disconnected
+        case \.advertisementData:
+            AdvertisementData(advertisementData: [:])
+        case \.rssi:
+            UInt8.max
+        case \.services:
+            Optional<[GATTService]>.none as Any
+        default:
+            nil
+        }
+
+        guard let value else {
+            return nil
+        }
+
+        guard let value = value as? Value else {
+            preconditionFailure("Default value \(value) was not the expected type for \(keyPath)")
+        }
+        return value
     }
 }

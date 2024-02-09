@@ -18,11 +18,14 @@
 public struct DeviceStateAccessor<Value> {
     private let id: ObjectIdentifier
     private let injection: DeviceStatePeripheralInjection<Value>?
+    /// To support testing support.
+    private let _injectedValue: ObservableBox<Value?>
 
 
-    init(id: ObjectIdentifier, injection: DeviceStatePeripheralInjection<Value>?) {
+    init(id: ObjectIdentifier, injection: DeviceStatePeripheralInjection<Value>?, injectedValue: ObservableBox<Value?>) {
         self.id = id
         self.injection = injection
+        self._injectedValue = injectedValue
     }
 
 
@@ -53,5 +56,24 @@ public struct DeviceStateAccessor<Value> {
         Task { @SpeziBluetooth in
             await injection.setOnChangeClosure(perform)
         }
+    }
+}
+
+
+// MARK: - Testing Support
+
+@_spi(TestingSupport)
+extension DeviceStateAccessor {
+    /// Inject a custom value for previewing purposes.
+    ///
+    /// This method can be used to inject a custom device state value.
+    /// This is particularly helpful when writing SwiftUI previews or doing UI testing.
+    ///
+    /// - Note: `onChange` closures are currently not supported. If required, you should
+    /// call your onChange closures manually.
+    ///
+    /// - Parameter value: The value to inject.
+    public func inject(_ value: Value) {
+        _injectedValue.value = value
     }
 }
