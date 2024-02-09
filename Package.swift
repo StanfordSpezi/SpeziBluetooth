@@ -25,6 +25,7 @@ let package = Package(
         .library(name: "XCTBluetooth", targets: ["XCTBluetooth"])
     ],
     dependencies: [
+        .package(url: "https://github.com/StanfordSpezi/SpeziFoundation", from: "1.0.0"),
         .package(url: "https://github.com/StanfordSpezi/Spezi", from: "1.0.0"),
         .package(url: "https://github.com/StanfordSpezi/SpeziViews", from: "1.1.1"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.59.0"),
@@ -37,7 +38,8 @@ let package = Package(
                 .product(name: "Spezi", package: "Spezi"),
                 .product(name: "NIO", package: "swift-nio"),
                 .product(name: "NIOFoundationCompat", package: "swift-nio"),
-                .product(name: "OrderedCollections", package: "swift-collections")
+                .product(name: "OrderedCollections", package: "swift-collections"),
+                .product(name: "SpeziFoundation", package: "SpeziFoundation") // TODO: verify?
             ],
             resources: [
                 .process("Resources")
