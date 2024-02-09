@@ -90,7 +90,7 @@ public class DeviceState<Value> {
         case \.id:
             nil // we cannot provide a stable id?
         case \.name:
-            Optional<String>(nilLiteral: ())
+            Optional<String>.none as Any
         case \.state:
             PeripheralState.disconnected
         case \.advertisementData:
@@ -98,7 +98,7 @@ public class DeviceState<Value> {
         case \.rssi:
             UInt8.max
         case \.services:
-            Optional<[GATTService]>(nilLiteral: ())
+            Optional<[GATTService]>.none as Any
         default:
             nil
         }
