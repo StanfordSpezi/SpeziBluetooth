@@ -58,7 +58,6 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
     }
 
 
-
     init(
         peripheral: BluetoothPeripheral,
         serviceId: CBUUID,

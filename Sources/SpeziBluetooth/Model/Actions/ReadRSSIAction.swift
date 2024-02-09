@@ -6,21 +6,27 @@
 // SPDX-License-Identifier: MIT
 //
 
-
 /// Read the current RSSI from the Bluetooth peripheral.
 ///
 /// For more information refer to ``DeviceActions/readRSSI``
 public struct ReadRSSIAction: _BluetoothPeripheralAction {
-    private let peripheral: BluetoothPeripheral
+    public typealias ClosureType = () async throws -> Int
+
+    private let content: _PeripheralActionContent<ClosureType>
 
     @_documentation(visibility: internal)
-    public init(from peripheral: BluetoothPeripheral) {
-        self.peripheral = peripheral
+    public init(_ content: _PeripheralActionContent<ClosureType>) {
+        self.content = content
     }
 
 
     @discardableResult
     public func callAsFunction() async throws -> Int {
-        try await peripheral.readRSSI()
+        switch content {
+        case let .peripheral(peripheral):
+            try await peripheral.readRSSI()
+        case let .injected(closure):
+            try await closure()
+        }
     }
 }

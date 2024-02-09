@@ -11,14 +11,21 @@
 ///
 /// For more information refer to ``DeviceActions/disconnect``
 public struct BluetoothDisconnectAction: _BluetoothPeripheralAction {
-    private let peripheral: BluetoothPeripheral
+    public typealias ClosureType = () async -> Void
+
+    private let content: _PeripheralActionContent<ClosureType>
 
     @_documentation(visibility: internal)
-    public init(from peripheral: BluetoothPeripheral) {
-        self.peripheral = peripheral
+    public init(_ content: _PeripheralActionContent<ClosureType>) {
+        self.content = content
     }
 
     public func callAsFunction() async {
-        await peripheral.disconnect()
+        switch content {
+        case let .peripheral(peripheral):
+            await peripheral.disconnect()
+        case let .injected(closure):
+            await closure()
+        }
     }
 }

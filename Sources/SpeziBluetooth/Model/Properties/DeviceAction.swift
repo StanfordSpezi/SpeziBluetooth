@@ -55,11 +55,17 @@
 @propertyWrapper
 public class DeviceAction<Action: _BluetoothPeripheralAction> {
     private var peripheral: BluetoothPeripheral?
+    /// Support injection of closures for testing support.
+    private let _injectedClosure = Box<Action.ClosureType?>(nil)
 
 
     /// Access the device action.
     public var wrappedValue: Action {
         guard let peripheral else {
+            if let injectedClosure = _injectedClosure.value {
+                return Action(.injected(injectedClosure))
+            }
+
             preconditionFailure(
                 """
                 Failed to access bluetooth device action. Make sure your @DeviceAction is only declared within your bluetooth device class \
@@ -67,7 +73,7 @@ public class DeviceAction<Action: _BluetoothPeripheralAction> {
                 """
             )
         }
-        return Action(from: peripheral)
+        return Action(.peripheral(peripheral))
     }
 
 
@@ -89,5 +95,15 @@ extension DeviceAction: DeviceVisitable, ServiceVisitable {
 
     func accept<Visitor: ServiceVisitor>(_ visitor: inout Visitor) {
         visitor.visit(self)
+    }
+}
+
+// MARK: - Testing Support
+
+extension DeviceAction {
+    /// Retrieve a temporary accessors instance.
+    @_spi(TestingSupport)
+    public var projectedValue: DeviceActionAccessor<Action.ClosureType> {
+        DeviceActionAccessor(_injectedClosure)
     }
 }
