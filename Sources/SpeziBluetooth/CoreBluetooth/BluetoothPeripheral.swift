@@ -598,10 +598,12 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
             return
         }
 
-        for (index, service) in zip(services.indices, services) {
+        for (index, service) in zip(services.indices, services).reversed() {
             guard ids.contains(service.uuid) else {
                 continue
             }
+
+            // Note: we iterate over the zipped array in reverse such that the indices stay valid if remove elements
 
             // the service was invalidated!
             self.services?.remove(at: index)
