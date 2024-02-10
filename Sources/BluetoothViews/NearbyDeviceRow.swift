@@ -66,7 +66,7 @@ public struct NearbyDeviceRow: View {
             }
         }
 
-        #if TEST
+        #if TEST || targetEnvironment(simulator)
         // accessibility actions cannot be unit tested
         stack
         #else

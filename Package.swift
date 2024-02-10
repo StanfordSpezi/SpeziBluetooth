@@ -39,7 +39,9 @@ let package = Package(
                 .product(name: "NIO", package: "swift-nio"),
                 .product(name: "NIOFoundationCompat", package: "swift-nio"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
-                .product(name: "SpeziFoundation", package: "SpeziFoundation") // TODO: verify?
+                // We have an issue in Xcode projects when importing XCTBluetooth in a test target that it fails
+                // to link with SpeziFoundation. lol. :)
+                .product(name: "SpeziFoundation", package: "SpeziFoundation")
             ],
             resources: [
                 .process("Resources")
