@@ -61,6 +61,12 @@ extension TemperatureMeasurement {
 }
 
 
+extension TemperatureMeasurement.Value: Equatable {}
+
+
+extension TemperatureMeasurement: Equatable {}
+
+
 extension TemperatureMeasurement: ByteCodable {
     public init?(from byteBuffer: inout ByteBuffer) {
         guard let flags = UInt8(from: &byteBuffer),

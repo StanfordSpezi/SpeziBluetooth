@@ -8,41 +8,55 @@
 
 import CoreBluetooth
 import NIO
+@_spi(TestingSupport)
 import SpeziBluetooth
 
-// TODO: what do we wanna test
-//  - ready only characteristic?
-//  - (write-only characteristics?)
-//  - read-write characteristics?
-//  - notify characteristics (+ auto-subscribe)
 
-
+/// An event emitted by the test peripheral.
+///
+/// Those events always imply to happen on characteristics of the `TestService`.
 @_spi(TestingSupport)
-extension CBUUID {
-    private static func uuid(ofCustom: String) -> CBUUID {
-        precondition(ofCustom.count == 4, "Unexpected length of \(ofCustom.count)")
-        return CBUUID(string: "0000\(ofCustom)-0000-1000-8000-00805F9B34FB")
-    }
-
-    public static let testService: CBUUID = .uuid(ofCustom: "F001")
-
-    public static let testCharacteristic: CBUUID = .uuid(ofCustom: "F002")
-    public static let eventLogCharacteristic: CBUUID = .uuid(ofCustom: "F003")
+public enum EventLog {
+    /// No event happened yet.
+    case none
+    /// Central subscribed to the notifications of the given characteristic.
+    case subscribedToNotification(_ characteristic: CBUUID)
+    /// Central unsubscribed to the notifications of the given characteristic.
+    case unsubscribedToNotification(_ characteristic: CBUUID)
+    /// The peripheral received a read request for the given characteristic.
+    case receivedRead(_ characteristic: CBUUID)
+    /// The peripheral received a write request for the given characteristic and data.
+    case receivedWrite(_ characteristic: CBUUID, value: Data)
 }
 
 
 @_spi(TestingSupport)
-public enum EventLog {
-    case subscribedToNotification(_ characteristic: CBUUID)
-    case unsubscribedToNotification(_ characteristic: CBUUID)
-    case receivedRead(_ characteristic: CBUUID)
-    case receivedWrite(_ characteristic: CBUUID, value: Data)
+extension EventLog: Equatable {}
+
+
+@_spi(TestingSupport)
+extension EventLog: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .none:
+            "none"
+        case let .subscribedToNotification(characteristic):
+            "Subscribed to notifications for \(characteristic)"
+        case let .unsubscribedToNotification(characteristic):
+            "Unsubscribed from notifications for \(characteristic)"
+        case let .receivedRead(characteristic):
+            "Received read request for \(characteristic)"
+        case let .receivedWrite(characteristic, value):
+            "Received write request for \(characteristic): \(value.hexString())"
+        }
+    }
 }
 
 
 @_spi(TestingSupport)
 extension EventLog: ByteCodable {
     private enum EventType: UInt8 {
+        case none
         case subscribed
         case unsubscribed
         case read
@@ -51,6 +65,8 @@ extension EventLog: ByteCodable {
 
     private var type: EventType {
         switch self {
+        case .none:
+            return .none
         case .subscribedToNotification:
             return .subscribed
         case .unsubscribedToNotification:
@@ -68,6 +84,12 @@ extension EventLog: ByteCodable {
             return nil
         }
 
+        if case type = .none {
+            // non has no characteristic to read, so skip here. Makes it easier below.
+            self = .none
+            return
+        }
+
         guard let data = byteBuffer.readData(length: 16) else { // 128-bit UUID
             return nil
         }
@@ -76,6 +98,8 @@ extension EventLog: ByteCodable {
 
 
         switch type {
+        case .none:
+            self = .none
         case .subscribed:
             self = .subscribedToNotification(characteristic)
         case .unsubscribed:
@@ -93,6 +117,8 @@ extension EventLog: ByteCodable {
     public func encode(to byteBuffer: inout ByteBuffer) {
         type.rawValue.encode(to: &byteBuffer)
         switch self {
+        case .none:
+            break
         case let .subscribedToNotification(characteristic):
             characteristic.data.encode(to: &byteBuffer)
         case let .unsubscribedToNotification(characteristic):
@@ -104,16 +130,4 @@ extension EventLog: ByteCodable {
             byteBuffer.writeData(value)
         }
     }
-}
-
-
-@_spi(TestingSupport)
-public class TestService: BluetoothService {
-    public static let id: CBUUID = .testService
-
-    @Characteristic(id: .testCharacteristic)
-    public var test: String?
-
-    @Characteristic(id: .eventLogCharacteristic, notify: true)
-    public var eventLog: EventLog?
 }

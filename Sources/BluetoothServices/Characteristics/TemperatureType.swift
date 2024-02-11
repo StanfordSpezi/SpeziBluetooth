@@ -11,7 +11,7 @@ import SpeziBluetooth
 
 
 /// The location of a temperature measurement.
-public enum TemperatureType: UInt8 {
+public enum TemperatureType: UInt8, CaseIterable {
     /// Reserved for future use.
     case reserved
     /// Armpit.
@@ -33,6 +33,9 @@ public enum TemperatureType: UInt8 {
     /// Tympanum (ear drum).
     case tympanum
 }
+
+
+extension TemperatureType: Equatable {}
 
 
 extension TemperatureType: ByteCodable {

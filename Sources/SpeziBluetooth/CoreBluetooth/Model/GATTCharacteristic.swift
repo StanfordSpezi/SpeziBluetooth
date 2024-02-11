@@ -13,7 +13,7 @@ import Foundation
 struct CBCharacteristicCapture {
     let isNotifying: Bool
     let value: Data?
-    let descriptors: [CBDescriptor]?
+    let descriptors: [CBDescriptor]? // swiftlint:disable:this discouraged_optional_collection
 
     init(from characteristic: CBCharacteristic) {
         self.isNotifying = characteristic.isNotifying

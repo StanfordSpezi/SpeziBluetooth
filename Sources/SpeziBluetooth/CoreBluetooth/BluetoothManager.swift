@@ -89,6 +89,7 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
             }
         }
 
+        // swiftlint:disable:next identifier_name
         @ObservationIgnored var _$simpleRegistrar = ValueObservationRegistrar<BluetoothManager.ObservableStorage>()
 
         init() {}
@@ -107,7 +108,7 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
     private let advertisementStaleInterval: TimeInterval
 
     @Lazy private var centralManager: CBCentralManager
-    private var centralDelegate: Delegate? // swiftlint:disable:this weak_delegate
+    private var centralDelegate: Delegate?
     private var isScanningObserver: KVOStateObserver<BluetoothManager>?
 
     private let _storage: ObservableStorage
@@ -533,8 +534,8 @@ extension BluetoothManager: BluetoothScanner {
     /// Support for the auto connect modifier.
     @_documentation(visibility: internal)
     public nonisolated var hasConnectedDevices: Bool {
-        // we make sure to loop over all peripherals here. This ensures observability subscribes to all
-        // changing states.
+        // We make sure to loop over all peripherals here. This ensures observability subscribes to all changing states.
+        // swiftlint:disable:next reduce_boolean
         _storage.discoveredPeripherals.values.reduce(into: false) { partialResult, peripheral in
             partialResult = partialResult || (peripheral.unsafeState.state != .disconnected)
         }

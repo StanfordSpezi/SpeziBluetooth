@@ -279,7 +279,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
         }
 
         peripheral.assumeIsolated { peripheral in
-            peripheral.onChange(of: \.state) { [weak self] state in
+            peripheral.onChange(of: \.state) { [weak self] _ in
                 guard let self = self else {
                     return
                 }
@@ -296,7 +296,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
         var checkForConnected = false
 
         // remove all delete keys
-        for key in nearbyDevices.keys where discoveredDevices[key] == nil{
+        for key in nearbyDevices.keys where discoveredDevices[key] == nil {
             checkForConnected = true
             let device = nearbyDevices.removeValue(forKey: key)
             device?.clearState(isolatedTo: self)
@@ -334,7 +334,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
         // check for active connected device
         let connectedDevices = bluetoothManager.assumeIsolated { $0.discoveredPeripherals }
             .filter { _, value in
-                value.assumeIsolated({ $0.state }) == .connected
+                value.assumeIsolated { $0.state } == .connected
             }
             .compactMap { key, _ in
                 (key, nearbyDevices[key]) // map them to their devices class

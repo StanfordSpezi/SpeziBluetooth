@@ -6,11 +6,59 @@
 // SPDX-License-Identifier: MIT
 //
 
-
+@_spi(TestingSupport)
 import BluetoothServices
-@_spi(TestingSupport) import SpeziBluetooth
+@_spi(TestingSupport)
+import SpeziBluetooth
 import SpeziViews
 import SwiftUI
+
+// TODO: last manually connected doesn't work! (longer timeout when removing disconnected devices!)
+
+struct TestServiceView: View {
+    private let testService: TestService
+
+    @State private var viewState: ViewState = .idle
+
+    var body: some View {
+        if let eventLog = testService.eventLog {
+            ListRow(verbatim: "Event") {
+                Text(verbatim: eventLog.description)
+            }
+        }
+
+        // TODO: enable + disable interactions
+
+        if let readString = testService.readString {
+            ListRow(verbatim: "Read Value") {
+                Text(verbatim: readString)
+            }
+        }
+
+        if let readWriteString = testService.readWriteString {
+            ListRow(verbatim: "RW Value") {
+                Text(verbatim: readWriteString)
+            }
+        }
+
+        AsyncButton(state: $viewState, action: {
+            // TODO: save and
+            try await testService.$readString.read()
+        }) {
+            Text(verbatim: "Read new value!")
+        }
+        AsyncButton(state: $viewState, action: {
+            try await testService.$readWriteString.write("Something!")
+        }) {
+            Text(verbatim: "Write Something")
+        }
+        // TODO: write characteristic?
+    }
+
+    init(_ testService: TestService) {
+        self.testService = testService
+    }
+}
 
 
 struct DeviceInformationView: View { // TODO: move?
@@ -112,7 +160,7 @@ struct BluetoothModuleView: View {
             } else {
                 Section {
                     ForEach(nearbyDevices) { device in
-                        DeviceRowView(peripheral: device)
+                        DeviceRowView(peripheral: device) // TODO: replace this with the Bluetooth views!
                     }
                 } header: {
                     DevicesHeader(loading: bluetooth.isScanning)
@@ -136,8 +184,12 @@ struct BluetoothModuleView: View {
                     }
                 }
 
-                Section {
+                Section("Device Information") {
                     DeviceInformationView(device.deviceInformation)
+                }
+
+                Section("Test Service") {
+                    TestServiceView(device.testService)
                 }
             }
         }

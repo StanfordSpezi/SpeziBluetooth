@@ -52,6 +52,7 @@ final class PeripheralStorage: ValueObservable {
     }
     @ObservationIgnored var lastActivity: Date
 
+    // swiftlint:disable:next identifier_name
     @ObservationIgnored var _$simpleRegistrar = ValueObservationRegistrar<PeripheralStorage>()
 
     init(peripheralName: String?, rssi: Int, advertisementData: AdvertisementData, state: CBPeripheralState, lastActivity: Date = .now) {

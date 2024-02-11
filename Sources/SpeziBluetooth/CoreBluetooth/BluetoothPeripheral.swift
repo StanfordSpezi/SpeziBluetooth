@@ -790,7 +790,6 @@ extension BluetoothPeripheral {
                 await device.isolated { device in
                     device.isolatedUpdate(of: \.peripheralName, name)
                 }
-
             }
         }
 

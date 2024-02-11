@@ -19,6 +19,7 @@ public enum VendorIDSource {
     /// Reserved value range.
     case reserved(_ value: UInt8)
 
+    /// String representation of the vendor id source.
     public var label: String {
         switch self {
         case .bluetoothSIGAssigned:
@@ -57,6 +58,12 @@ public struct PnPID {
         self.productVersion = productVersion
     }
 }
+
+
+extension VendorIDSource: Equatable {}
+
+
+extension PnPID: Equatable {}
 
 
 extension VendorIDSource: RawRepresentable {

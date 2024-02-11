@@ -15,8 +15,9 @@ protocol BluetoothActor: Actor {
 }
 
 extension BluetoothActor {
+    /// Default implementation returning the unknown serial executor of the dispatch queue.
     public nonisolated var unownedExecutor: UnownedSerialExecutor {
-        UnownedSerialExecutor(complexEquality: bluetoothQueue)
+        bluetoothQueue.asUnownedSerialExecutor()
     }
 
     func isolated(perform: (isolated Self) -> Void) {

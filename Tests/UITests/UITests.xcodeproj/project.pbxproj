@@ -21,7 +21,6 @@
 		A95542BB2B5E3F7B0066646D /* DevicesHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A95542BA2B5E3F7B0066646D /* DevicesHeader.swift */; };
 		A95542BD2B5E40DF0066646D /* TestDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = A95542BC2B5E40DF0066646D /* TestDevice.swift */; };
 		A9C17DEA2B5F1EAA00976924 /* BluetoothServices in Frameworks */ = {isa = PBXBuildFile; productRef = A9C17DE92B5F1EAA00976924 /* BluetoothServices */; };
-		A9C17DEC2B5F1ED500976924 /* HealthThermometerDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9C17DEB2B5F1ED500976924 /* HealthThermometerDevice.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -63,7 +62,6 @@
 		A95542B82B5E3F490066646D /* SearchingNearbyDevicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchingNearbyDevicesView.swift; sourceTree = "<group>"; };
 		A95542BA2B5E3F7B0066646D /* DevicesHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicesHeader.swift; sourceTree = "<group>"; };
 		A95542BC2B5E40DF0066646D /* TestDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestDevice.swift; sourceTree = "<group>"; };
-		A9C17DEB2B5F1ED500976924 /* HealthThermometerDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthThermometerDevice.swift; sourceTree = "<group>"; };
 		A9C17DEF2B5F566200976924 /* TestApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TestApp.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -122,7 +120,6 @@
 				2F6D139928F5F386007C25D6 /* Assets.xcassets */,
 				A95542B72B5E3F260066646D /* Utiltities */,
 				A95542BC2B5E40DF0066646D /* TestDevice.swift */,
-				A9C17DEB2B5F1ED500976924 /* HealthThermometerDevice.swift */,
 			);
 			path = TestApp;
 			sourceTree = "<group>";
@@ -269,7 +266,6 @@
 				A95542BD2B5E40DF0066646D /* TestDevice.swift in Sources */,
 				A92802BD2B51CBBE00874D0A /* DeviceRowView.swift in Sources */,
 				A92802B92B50823600874D0A /* BluetoothManagerView.swift in Sources */,
-				A9C17DEC2B5F1ED500976924 /* HealthThermometerDevice.swift in Sources */,
 				2F64EA882A86B36C006789D0 /* TestApp.swift in Sources */,
 				A95542B42B5E3E210066646D /* BluetoothModuleView.swift in Sources */,
 			);

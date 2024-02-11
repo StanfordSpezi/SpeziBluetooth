@@ -12,7 +12,7 @@ import SwiftUI
 
 
 @globalActor
-actor TestActor {
+actor TestActor { // TODO: used?
     let dispatchQueue = DispatchSerialQueue(label: "my.queue")
 
     nonisolated var unownedExecutor: UnownedSerialExecutor {

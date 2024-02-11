@@ -12,8 +12,7 @@ import SwiftUI
 class SurroundingScanModifiers: EnvironmentKey {
     static let defaultValue = SurroundingScanModifiers()
 
-    @MainActor
-    private var registeredModifiers: [AnyHashable: Set<UUID>] = [:]
+    @MainActor private var registeredModifiers: [AnyHashable: Set<UUID>] = [:]
 
     @MainActor
     func setModifierScanningState<Scanner: BluetoothScanner>(enabled: Bool, with scanner: Scanner, modifierId: UUID) {

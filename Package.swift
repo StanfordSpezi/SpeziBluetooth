@@ -45,9 +45,6 @@ let package = Package(
             ],
             resources: [
                 .process("Resources")
-            ],
-            swiftSettings: [
-                .enableUpcomingFeature("StrictConcurrency") // TODO: remove again!
             ]
         ),
         .target(
@@ -80,6 +77,7 @@ let package = Package(
         .testTarget(
             name: "SpeziBluetoothTests",
             dependencies: [
+                .target(name: "BluetoothServices"),
                 .target(name: "SpeziBluetooth"),
                 .target(name: "XCTBluetooth"),
                 .product(name: "NIO", package: "swift-nio")

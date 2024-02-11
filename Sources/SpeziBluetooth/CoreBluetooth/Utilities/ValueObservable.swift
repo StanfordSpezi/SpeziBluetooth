@@ -59,6 +59,7 @@ class ValueObservationRegistrar<Observable: ValueObservable> {
 
 /// A model with value observable properties.
 protocol ValueObservable: AnyObject {
+    // swiftlint:disable:next identifier_name
     var _$simpleRegistrar: ValueObservationRegistrar<Self> { get set }
 
     func onChange<Value>(of keyPath: KeyPath<Self, Value>, perform closure: @escaping (Value) -> Void)

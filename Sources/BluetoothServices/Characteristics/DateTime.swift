@@ -91,6 +91,13 @@ public struct DateTime {
     }
 }
 
+
+extension DateTime.Month: Equatable {}
+
+
+extension DateTime: Equatable {}
+
+
 extension DateTime.Month: ByteCodable {
     public init?(from byteBuffer: inout ByteBuffer) {
         guard let value = UInt8(from: &byteBuffer) else {

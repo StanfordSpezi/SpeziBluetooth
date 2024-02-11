@@ -19,6 +19,9 @@ public enum MeasurementInterval {
 }
 
 
+extension MeasurementInterval: Equatable {}
+
+
 extension MeasurementInterval: RawRepresentable {
     public var rawValue: UInt16 {
         switch self {

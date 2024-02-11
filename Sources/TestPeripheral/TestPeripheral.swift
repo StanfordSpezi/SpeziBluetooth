@@ -6,13 +6,14 @@
 // SPDX-License-Identifier: MIT
 //
 
-@_spi(TestingSupport) import BluetoothServices
+@_spi(TestingSupport)
+import BluetoothServices
 import CoreBluetooth
 import OSLog
 import SpeziBluetooth
 
-// TODO: how to we test remote disconnects? => characteristic stopping advertising for a few seconds?
 
+// TODO: how to we test remote disconnects? => characteristic stopping advertising for a few seconds?
 class TestService {
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "TestService")
 
@@ -20,17 +21,41 @@ class TestService {
     let service: CBMutableService
 
     let eventLog: CBMutableCharacteristic
-    // TODO: private let readCharacteristic: CBMutableCharacteristic
-    // TODO: private let writeCharacteristic: CBMutableCharacteristic
-    // TODO: private let readWriteCharacteristic: CBMutableCharacteristic
+    /// We only provide the value.
+    let readString: CBMutableCharacteristic
+    /// We only receive a value.
+    let writeString: CBMutableCharacteristic
+    /// Bidirectional storage value.
+    let readWriteString: CBMutableCharacteristic
+
+    private var readStringCount: UInt = 1
+    private var readStringValue: String {
+        defer {
+            readStringCount += 1
+        }
+        return "Hello World (\(readStringCount))"
+    }
+
+    private var lastEvent: EventLog = .none
+    private var readWriteStringValue: String
 
     init(peripheral: TestPeripheral) {
         self.peripheral = peripheral
         self.service = CBMutableService(type: .testService, primary: true)
 
-        self.eventLog = CBMutableCharacteristic(type: .eventLogCharacteristic, properties: [.indicate], value: nil, permissions: [])
+        self.readWriteStringValue = "Hello World"
 
-        service.characteristics = [eventLog]
+        self.eventLog = CBMutableCharacteristic(type: .eventLogCharacteristic, properties: [.indicate, .read], value: nil, permissions: [.readable])
+        self.readString = CBMutableCharacteristic(type: .readStringCharacteristic, properties: [.read], value: nil, permissions: [.readable])
+        self.writeString = CBMutableCharacteristic(type: .writeStringCharacteristic, properties: [.write], value: nil, permissions: [.writeable])
+        self.readWriteString = CBMutableCharacteristic(
+            type: .readWriteStringCharacteristic,
+            properties: [.read, .write],
+            value: nil,
+            permissions: [.readable, .writeable]
+        )
+
+        service.characteristics = [eventLog, readString, writeString, readWriteString]
     }
 
 
@@ -41,7 +66,52 @@ class TestService {
             return
         }
 
+        logger.info("Logging event \(event)")
+        self.lastEvent = event
         await peripheral.updateValue(event, for: eventLog)
+    }
+
+    @MainActor
+    func handleRead(for request: CBATTRequest) -> CBATTError.Code {
+        switch request.characteristic.uuid {
+        case eventLog.uuid:
+            request.value = self.lastEvent.encode()
+        case writeString.uuid:
+            return .readNotPermitted
+        case readString.uuid:
+            let value = readStringValue
+            request.value = value.encode()
+        case readWriteString.uuid:
+            request.value = readWriteStringValue.encode()
+        default:
+            return .attributeNotFound
+        }
+
+        // TODO: test returning an error as well?
+        return .success
+    }
+
+    @MainActor
+    func handleWrite(for request: CBATTRequest) -> CBATTError.Code {
+        guard let value = request.value else {
+            return .attributeNotFound
+        }
+
+        switch request.characteristic.uuid {
+        case eventLog.uuid, readString.uuid:
+            return .writeNotPermitted
+        case writeString.uuid:
+            break // we don't store the value anywhere, so we can just discard it :)
+        case readWriteString.uuid:
+            guard let string = String(data: value) else {
+                return .unlikelyError
+            }
+            readWriteStringValue = string
+        default:
+            return .attributeNotFound
+        }
+
+        return .success
     }
 }
 
@@ -51,7 +121,7 @@ class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "TestPeripheral")
     private let dispatchQueue = DispatchQueue(label: "edu.stanford.spezi.bluetooth-peripheral", qos: .userInitiated)
 
-    private var peripheralManager: CBPeripheralManager!
+    private var peripheralManager: CBPeripheralManager! // swiftlint:disable:this implicitly_unwrapped_optional
 
     private(set) var testService: TestService?
     private(set) var state: CBManagerState = .unknown
@@ -60,13 +130,18 @@ class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
 
     override init() {
         super.init()
-        peripheralManager = CBPeripheralManager(delegate: self, queue: dispatchQueue)
+        peripheralManager = CBPeripheralManager(delegate: self, queue: DispatchQueue.main)
     }
 
-    static func main() {
+    static func main() async {
         let peripheral = TestPeripheral()
         peripheral.logger.info("Initialized")
-        while true {}
+        // while true {}
+
+        var cont: CheckedContinuation<Void, Never>?
+        await withCheckedContinuation { continuation in
+            cont = continuation
+        }
     }
 
     func startAdvertising() {
@@ -77,7 +152,7 @@ class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
 
         let advertisementData: [String: Any] = [
             CBAdvertisementDataServiceUUIDsKey: [testService.service.uuid],
-            CBAdvertisementDataLocalNameKey: "SpeziBluetooth TestPeripheral"
+            CBAdvertisementDataLocalNameKey: "Spezi Peripheral"
         ]
         peripheralManager.startAdvertising(advertisementData)
     }
@@ -90,37 +165,33 @@ class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
 
     @MainActor
     func updateValue<Value: ByteEncodable>(_ value: Value, for characteristic: CBMutableCharacteristic, for centrals: [CBCentral]? = nil) async {
-        while !queuedUpdates.isEmpty {
-            await withCheckedContinuation { continuation in
-                queuedUpdates.append(continuation)
-            }
-        }
+        // swiftlint:disable:previous discouraged_optional_collection
 
         let data = value.encode()
+        characteristic.value = data
 
-        await withCheckedContinuation { continuation in
-            queuedUpdates.append(continuation)
-            peripheralManager.updateValue(data, for: characteristic, onSubscribedCentrals: centrals)
+        while !peripheralManager.updateValue(data, for: characteristic, onSubscribedCentrals: centrals) {
+            // if false is returned, queue is full and we need to wait for flush signal.
+            await withCheckedContinuation { continuation in
+                logger.warning("Peripheral update failed!")
+                queuedUpdates.append(continuation)
+            }
         }
     }
 
     @MainActor
     private func receiveManagerIsReady() {
-        guard let first = queuedUpdates.first else {
-            return
-        }
-        queuedUpdates.removeFirst()
-        first.resume()
+        logger.debug("Received manager is ready.")
+        let elements = queuedUpdates
+        queuedUpdates.removeAll()
 
-        guard let queued = queuedUpdates.first else {
-            return
+        for element in elements {
+            element.resume()
         }
-        queuedUpdates.removeFirst()
-        queued.resume()
     }
 
     private func addServices() {
-        peripheralManager.removeAllServices() // TODO: required?
+        peripheralManager.removeAllServices()
 
         let service = TestService(peripheral: self)
         self.testService = service
@@ -189,24 +260,31 @@ class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
     func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveRead request: CBATTRequest) {
         guard let testService else {
             logger.error("Service was not available within \(#function)")
-            return // TODO: respond
+            peripheral.respond(to: request, withResult: .attributeNotFound)
+            return
+        }
+
+        guard request.characteristic.service?.uuid == testService.service.uuid else {
+            logger.error("Received request for unexpected service \(request.characteristic.service?.uuid)")
+            peripheral.respond(to: request, withResult: .attributeNotFound)
+            return
         }
 
         Task { @MainActor in
-            await testService.logEvent(.receivedRead(request.characteristic.uuid)) // TODO: log response?
+            await testService.logEvent(.receivedRead(request.characteristic.uuid))
         }
 
         guard request.offset == 0 else {
+            logger.error("Characteristic read requested a non-zero offset \(request.offset) for \(request.characteristic.uuid)!")
             // we currently don't support that on the test device, no clue how it works. We don't need it.
             peripheral.respond(to: request, withResult: .invalidOffset)
             return
         }
 
-
-        // TODO: set request.data (as the response)
-        // TODO: check: request.characteristic
-        request.value = Data()
-        peripheral.respond(to: request, withResult: .success) // TODO: test error code as well?
+        Task { @MainActor in
+            let result = testService.handleRead(for: request)
+            peripheral.respond(to: request, withResult: result)
+        }
     }
 
     func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]) {
@@ -217,7 +295,16 @@ class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
 
         guard let testService else {
             logger.error("Service was not available within \(#function)")
-            return // TODO: respond
+            peripheral.respond(to: first, withResult: .attributeNotFound)
+            return
+        }
+
+        for request in requests {
+            guard request.characteristic.service?.uuid == testService.service.uuid else {
+                logger.error("Received request for unexpected service \(request.characteristic.service?.uuid)")
+                peripheral.respond(to: first, withResult: .attributeNotFound)
+                return
+            }
         }
 
         for request in requests {
@@ -231,16 +318,28 @@ class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
         }
 
         guard requests.allSatisfy({ $0.offset == 0 }) else {
+            logger.error("Characteristic write requested a non-zero offset!")
             // we currently don't support that on the test device, no clue how it works. We don't need it.
             peripheral.respond(to: first, withResult: .invalidOffset)
             return
         }
 
-        // TODO: treat it as multi reuqest otherwise!
-        // TODO: if you can't fulfill a single, don't fullfil any of them!
 
-        // TODO: check offset?
+        Task { @MainActor in
+            // The following is mentioned in the docs:
+            // Always respond with the first request.
+            // Treat it as a multi request otherwise.
+            // If you can't fulfill a single one, don't fulfill any of them (we are not exactly supporting the transactions part of that).
+            for request in requests {
+                let result = testService.handleWrite(for: request)
 
-        // TODO: just pass in the first request o the response(to:) method????
+                if result != .success {
+                    peripheral.respond(to: first, withResult: result)
+                    return
+                }
+            }
+
+            peripheral.respond(to: first, withResult: .success)
+        }
     }
 }

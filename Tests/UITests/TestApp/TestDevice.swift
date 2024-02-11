@@ -1,11 +1,12 @@
 //
 // This source file is part of the Stanford Spezi open-source project
 //
-// SPDX-FileCopyrightText: 2022 Stanford University and the project authors (see CONTRIBUTORS.md)
+// SPDX-FileCopyrightText: 2024 Stanford University and the project authors (see CONTRIBUTORS.md)
 //
 // SPDX-License-Identifier: MIT
 //
 
+@_spi(TestingSupport)
 import BluetoothServices
 import Foundation
 import SpeziBluetooth
@@ -38,13 +39,19 @@ class TestDevice: BluetoothDevice, Identifiable, SomePeripheral {
     var disconnect
 
     @Service var deviceInformation = DeviceInformationService()
+    @Service var testService = TestService()
 
     required init() {
         $state.onChange { state in
+            print("Test state is now \(state)")
             // TODO: assert that we are running on the bluetooth actor by default?
         }
-        deviceInformation.$pnpID.onChange { _ in
+        //deviceInformation.$pnpID.onChange { _ in
             // TODO: assert that we are running on the bluetooth actor by default? (this closure here does not make sense!)
+        //}
+
+        testService.$eventLog.onChange { event in
+            print("Received a raised event \(event)")
         }
     }
 

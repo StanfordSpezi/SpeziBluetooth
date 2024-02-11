@@ -10,7 +10,6 @@ import CoreBluetooth
 import Foundation
 
 
-
 /// Declare a characteristic within a Bluetooth service.
 ///
 /// This property wrapper can be used to declare a Bluetooth characteristic within a ``BluetoothService``.
