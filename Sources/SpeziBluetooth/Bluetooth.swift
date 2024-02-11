@@ -382,6 +382,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
 
     /// If scanning, toggle the auto-connect feature.
     /// - Parameter autoConnect: Flag to turn on or off auto-connect
+    @_documentation(visibility: internal)
     public func setAutoConnect(_ autoConnect: Bool) {
         bluetoothManager.assumeIsolated { manager in
             manager.setAutoConnect(autoConnect)

@@ -14,10 +14,14 @@ import Observation
 /// This property wrapper can be used within your ``BluetoothDevice`` or ``BluetoothService`` models to
 /// get access to the state of your Bluetooth peripheral.
 ///
+/// - Note: Every `DeviceState` is [Observable](https://developer.apple.com/documentation/Observation) out of the box.
+///     You can easily use the state value within your SwiftUI view and the view will be automatically re-rendered
+///     when the state value is updated.
+///
 /// Below is a short code example that demonstrate the usage of the `DeviceState` property wrapper to retrieve the name and current ``BluetoothState``
 /// of a device.
 ///
-/// - Important: The `@DeviceState` property wrapper can only be accessed after the initializer returned. Accessing within the initializer will result in a runtime crash.
+/// - Important: The  `wrappedValue` of the property wrapper can only be safely accessed after the initializer returned. Accessing within the initializer will result in a runtime crash.
 ///
 /// ```swift
 /// class ExampleDevice: BluetoothDevice {
@@ -77,7 +81,7 @@ import Observation
 /// - ``DeviceStateAccessor``
 @Observable
 @propertyWrapper
-public class DeviceState<Value> {
+public final class DeviceState<Value>: @unchecked Sendable {
     private let keyPath: KeyPath<BluetoothPeripheral, Value>
     private(set) var injection: DeviceStatePeripheralInjection<Value>?
     private var _injectedValue = ObservableBox<Value?>(nil)
@@ -157,7 +161,7 @@ extension DeviceState {
         case \.advertisementData:
             AdvertisementData(advertisementData: [:])
         case \.rssi:
-            UInt8.max
+            Int(UInt8.max)
         case \.services:
             Optional<[GATTService]>.none as Any
         default:

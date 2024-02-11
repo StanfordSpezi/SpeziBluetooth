@@ -18,7 +18,7 @@ import Foundation
 /// If your device is connected, the characteristic value is automatically updated upon a characteristic read or a notify.
 ///
 /// - Note: Every `Characteristic` is [Observable](https://developer.apple.com/documentation/Observation) out of the box.
-///     So you can easily use the characteristic value within your SwiftUI view and it will be automatically re-rendered
+///     You can easily use the characteristic value within your SwiftUI view and the view will be automatically re-rendered
 ///     when the characteristic value is updated.
 ///
 /// The below code example demonstrates declaring the Firmware Revision characteristic of the Device Information service.
@@ -43,6 +43,9 @@ import Foundation
 /// The below code example uses the [Bluetooth Heart Rate Service](https://www.bluetooth.com/specifications/specs/heart-rate-service-1-0)
 /// to demonstrate the automatic notifications feature for the Heart Rate Measurement characteristic.
 ///
+/// - Important: This closure is called from the Bluetooth Serial Executor, if you don't pass in an async method
+///     that has an annotated actor isolation (e.g., `@MainActor` or actor isolated methods).
+///
 /// ```swift
 /// class HeartRateService: BluetoothService {
 ///    static let id = CBUUID(string: "180D")
@@ -55,10 +58,7 @@ import Foundation
 ///     }
 ///
 ///     func processMeasurement(_ measurement: HeartRateMeasurement) {
-///         // make sure not to block the bluetooth task with heavy operations.
-///         Task {
-///             // process measurements ...
-///         }
+///         // process measurements ...
 ///     }
 /// }
 /// ```
@@ -148,7 +148,7 @@ import Foundation
 /// - ``projectedValue``
 /// - ``CharacteristicAccessor``
 @propertyWrapper
-public class Characteristic<Value> {
+public final class Characteristic<Value>: @unchecked Sendable {
     class Configuration {
         let id: CBUUID
         let discoverDescriptors: Bool

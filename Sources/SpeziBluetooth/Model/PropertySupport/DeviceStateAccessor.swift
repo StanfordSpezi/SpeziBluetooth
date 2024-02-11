@@ -31,6 +31,9 @@ public struct DeviceStateAccessor<Value> {
 
     /// Perform action whenever the state value changes.
     ///
+    /// - Important: This closure is called from the Bluetooth Serial Executor, if you don't pass in an async method
+    ///     that has an annotated actor isolation (e.g., `@MainActor` or actor isolated methods).
+    ///
     /// - Note: It is perfectly fine if you capture strongly self within your closure. The framework will
     ///     resolve any reference cycles for you.
     /// - Parameter perform: The change handler to register.

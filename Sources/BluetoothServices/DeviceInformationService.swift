@@ -23,7 +23,7 @@ import SpeziBluetooth
 /// ### Structures
 /// - ``PnPID``
 /// - ``VendorIDSource``
-public class DeviceInformationService: BluetoothService {
+public final class DeviceInformationService: BluetoothService, @unchecked Sendable {
     public static let id = CBUUID(string: "180A")
 
     /// The manufacturer name string.

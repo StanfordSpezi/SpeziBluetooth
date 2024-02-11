@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
-import CoreBluetooth
+@preconcurrency import CoreBluetooth
 import NIO
 @_spi(TestingSupport)
 import SpeziBluetooth
@@ -16,7 +16,7 @@ import SpeziBluetooth
 ///
 /// Those events always imply to happen on characteristics of the `TestService`.
 @_spi(TestingSupport)
-public enum EventLog {
+public enum EventLog: Sendable {
     /// No event happened yet.
     case none
     /// Central subscribed to the notifications of the given characteristic.

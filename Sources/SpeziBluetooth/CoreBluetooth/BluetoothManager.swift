@@ -46,7 +46,7 @@ import OSLog
 /// ### Searching for nearby devices
 ///
 /// You can scan for nearby devices using the ``scanNearbyDevices(autoConnect:)`` and stop scanning with ``stopScanning()``.
-/// All discovered peripherals will be populated through the ``nearbyPeripherals`` or ``nearbyPeripheralsView`` properties.
+/// All discovered peripherals will be populated through the ``nearbyPeripherals`` properties.
 ///
 /// Refer to the documentation of ``BluetoothPeripheral`` on how to interact with a Bluetooth peripheral.
 ///
@@ -67,7 +67,6 @@ import OSLog
 ///
 /// ### Discovering nearby Peripherals
 /// - ``nearbyPeripherals``
-/// - ``nearbyPeripheralsView``
 /// - ``scanNearbyDevices(autoConnect:)``
 /// - ``stopScanning()``
 public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable:this type_body_length
@@ -258,7 +257,7 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
     /// Scan for nearby bluetooth devices.
     ///
     /// Scans on nearby devices based on the ``DeviceDescription`` provided in the initializer.
-    /// All discovered devices can be accessed through the ``nearbyPeripherals`` or ``nearbyPeripheralsView`` property.
+    /// All discovered devices can be accessed through the ``nearbyPeripherals`` property.
     ///
     /// - Tip: Scanning for nearby devices can easily be managed via the ``SwiftUI/View/scanNearbyDevices(enabled:with:autoConnect:)``
     ///     modifier.
@@ -286,6 +285,7 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
 
     /// If scanning, toggle the auto-connect feature.
     /// - Parameter autoConnect: Flag to turn on or off auto-connect
+    @_documentation(visibility: internal)
     public func setAutoConnect(_ autoConnect: Bool) {
         if self.shouldBeScanning {
             self.autoConnect = autoConnect
@@ -477,8 +477,8 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
             }
             clearDiscoveredPeripheral(forKey: device.id)
         } else {
-            // we will keep discarded devices for 500ms before the stale timer kicks off
-            let interval = max(0, advertisementStaleInterval - 0.5)
+            // we will keep discarded devices for max 2s before the stale timer kicks off
+            let interval = max(0, advertisementStaleInterval - 2)
 
             device.assumeIsolated { device in
                 device.markLastActivity(.now - interval)
@@ -498,7 +498,7 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
     deinit {
         // we must do it blocking to not lose reference to self.
         bluetoothQueue.sync {
-            self.assumeIsolated { manager in
+            let closure = { (manager: isolated BluetoothManager) in
                 manager.stopScanning()
                 manager.staleTimer?.cancel()
                 manager.autoConnectItem?.cancel()
@@ -510,6 +510,12 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
 
                 manager.logger.debug("BluetoothManager destroyed")
             }
+
+            // This is a trick `assumeIsolated` uses as well. We know that we are on the Bluetooth Queue
+            // so this is kind of safe.
+            // Refer to https://github.com/apple/swift/blob/e0fda801d7572291961a4c17d8bbbd4614ca6ad9/stdlib/public/Concurrency/ExecutorAssertions.swift#L351-L373.
+            let rawClosure = unsafeBitCast(closure, to: ((BluetoothManager) -> Void).self)
+            rawClosure(self)
         }
     }
 }

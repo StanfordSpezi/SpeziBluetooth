@@ -7,20 +7,7 @@
 //
 
 import Spezi
-import SpeziBluetooth
 import SwiftUI
-
-
-@globalActor
-actor TestActor { // TODO: used?
-    let dispatchQueue = DispatchSerialQueue(label: "my.queue")
-
-    nonisolated var unownedExecutor: UnownedSerialExecutor {
-        dispatchQueue.asUnownedSerialExecutor()
-    }
-
-    static let shared = TestActor()
-}
 
 
 @main
@@ -36,7 +23,7 @@ struct UITestsApp: App {
                     NavigationLink("Nearby Devices") {
                         BluetoothManagerView()
                     }
-                    NavigationLink("Auto Connect Device") {
+                    NavigationLink("Test Peripheral") {
                         BluetoothModuleView()
                     }
                 }

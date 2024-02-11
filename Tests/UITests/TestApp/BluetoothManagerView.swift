@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
+import BluetoothViews
 import SpeziBluetooth
 import SwiftUI
 
@@ -15,38 +16,20 @@ struct BluetoothManagerView: View {
 
     var body: some View {
         List {
-            Section("State") { // TODO: can we reuse this section somehow?
-                HStack {
-                    Text("Scanning")
-                    Spacer()
-                    Text(bluetooth.isScanning ? "Yes" : "No")
-                        .foregroundColor(.secondary)
-                }
-                .accessibilityElement(children: .combine)
-                HStack {
-                    Text("State")
-                    Spacer()
-                    Text(bluetooth.state.description)
-                        .foregroundColor(.secondary)
-                }
-                .accessibilityElement(children: .combine)
-            }
+            BluetoothStateSection(state: bluetooth.state, isScanning: bluetooth.isScanning)
 
-            let peripherals = bluetooth.nearbyPeripherals // TODO: persistence state!
-            if peripherals.isEmpty {
-                SearchingNearbyDevicesView()
-            } else {
-                Section {
-                    ForEach(peripherals) { peripheral in
-                        DeviceRowView(peripheral: peripheral)
-                    }
-                } header: {
-                    DevicesHeader(loading: bluetooth.isScanning)
+            Section {
+                ForEach(bluetooth.nearbyPeripherals) { peripheral in
+                    DeviceRowView(peripheral: peripheral)
                 }
+            } header: {
+                LoadingSectionHeaderView(verbatim: "Devices", loading: bluetooth.isScanning)
+            } footer: {
+                Text(verbatim: "This is a list of nearby Bluetooth peripherals.")
             }
         }
-                .scanNearbyDevices(with: bluetooth)
-                .navigationTitle("Nearby Devices")
+            .scanNearbyDevices(with: bluetooth)
+            .navigationTitle("Nearby Devices")
     }
 }
 

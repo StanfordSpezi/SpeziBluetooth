@@ -21,7 +21,7 @@ import SpeziBluetooth
 /// - ``TemperatureType``
 /// - ``MeasurementInterval``
 /// - ``DateTime``
-public class HealthThermometerService: BluetoothService {
+public final class HealthThermometerService: BluetoothService, @unchecked Sendable {
     public static let id = CBUUID(string: "1809")
 
     /// Receive temperature measurements.

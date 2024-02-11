@@ -8,6 +8,7 @@
 
 @testable @_spi(TestingSupport)
 import BluetoothServices
+import CoreBluetooth
 import NIO
 @testable @_spi(TestingSupport)
 import SpeziBluetooth
@@ -15,7 +16,7 @@ import XCTBluetooth
 import XCTest
 
 
-final class BluetoothServicesCodingTests: XCTestCase {
+final class BluetoothServicesTests: XCTestCase {
     func testDateTime() throws {
         try testIdentity(from: DateTime(year: 2005, month: .december, day: 27, hours: 12, minutes: 31, seconds: 40))
         try testIdentity(from: DateTime(hours: 23, minutes: 50, seconds: 40))
@@ -60,8 +61,14 @@ final class BluetoothServicesCodingTests: XCTestCase {
         try testIdentity(from: EventLog.receivedWrite(.writeStringCharacteristic, value: "Hello World".data(using: .utf8)!))
     }
 
-    func testCharacteristics() {
-        _ = DeviceInformationService()
+    func testCharacteristics() async throws {
         _ = TestService()
+        _ = HealthThermometerService()
+        let info = DeviceInformationService()
+        try await info.retrieveDeviceInformation()
+    }
+
+    func testUUID() {
+        XCTAssertEqual(CBUUID.toCustomShort(.testService), "F001")
     }
 }

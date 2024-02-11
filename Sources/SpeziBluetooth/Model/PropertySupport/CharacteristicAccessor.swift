@@ -92,10 +92,13 @@ extension CharacteristicAccessor where Value: ByteDecodable {
 
     /// Perform action whenever the characteristic value changes.
     ///
+    /// - Important: This closure is called from the Bluetooth Serial Executor, if you don't pass in an async method
+    ///     that has an annotated actor isolation (e.g., `@MainActor` or actor isolated methods).
+    ///
     /// - Note: It is perfectly fine if you capture strongly self within your closure. The framework will
     ///     resolve any reference cycles for you.
     /// - Parameter perform: The change handler to register.
-    public func onChange(perform: @escaping (Value) -> Void) {
+    public func onChange(perform: @escaping (Value) async -> Void) {
         guard let injection else {
             guard let closures = ClosureRegistrar.writeableView else {
                 Bluetooth.logger.warning(

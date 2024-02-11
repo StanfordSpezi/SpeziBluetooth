@@ -18,7 +18,7 @@ import XCTest
 /// decodes it back into the value and asserts its equality using `XCTAssertEqual`.
 ///
 /// - Parameter value: The value to encode and decode.
-/// - Throws: Failed test.
+/// - Throws: Failed to decode.
 public func testIdentity<T: ByteCodable & Equatable>(from value: T) throws {
     let data = value.encode()
 
@@ -37,7 +37,7 @@ public func testIdentity<T: ByteCodable & Equatable>(from value: T) throws {
 /// - Parameters:
 ///   - type: The type to test.
 ///   - data: The data representation to decode.
-/// - Throws: Failed test.
+/// - Throws: Failed to decode.
 public func testIdentity<T: ByteCodable>(of type: T.Type, from data: Data) throws {
     var decodingBuffer = ByteBuffer(data: data)
 

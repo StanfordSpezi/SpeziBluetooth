@@ -4,17 +4,13 @@
 #
 # This source file is part of the Stanford Spezi open source project
 #
-# SPDX-FileCopyrightText: 2022 Stanford University and the project authors (see CONTRIBUTORS.md)
+# SPDX-FileCopyrightText: 2024 Stanford University and the project authors (see CONTRIBUTORS.md)
 #
 # SPDX-License-Identifier: MIT
-#       
+#
 -->
 
 Connect and communicate with Bluetooth devices using modern programming paradigms.
-
-```swift
-//  TODO: there should be a article on the Thread-model!
-```
 
 ## Overview
 
@@ -189,6 +185,19 @@ struct MyView: View {
 }
 ```
 
+### Thread Model
+
+Every instance of ``BluetoothManager`` (or ``Bluetooth``) creates an `SerialExecutor` to dispatch any Bluetooth related action.
+All state is manipulated from this executor. This serial executor is shared with `CoreBluetooth` as well.
+All ``BluetoothPeripheral`` actors (or your ``BluetoothDevice`` implementation) share the `SerialExecutor` from the respective Bluetooth Manager as well.
+
+Note that this includes all state within your ``Characteristic``, ``Service`` or ``DeviceState`` properties as well.
+
+> Tip: To ensure that values stay consistent over a certain operation (e.g., within a view body) you need to establish those guarantees yourself.
+
+For example, when displaying nearby devices, store the result of ``Bluetooth/nearbyDevices(for:)`` once and use it for all your computation
+(e.g., check for non emptiness and then displaying them). Two consecutive calls to ``Bluetooth/nearbyDevices(for:)`` might deliver different results
+due to their async nature.
 
 ## Topics
 

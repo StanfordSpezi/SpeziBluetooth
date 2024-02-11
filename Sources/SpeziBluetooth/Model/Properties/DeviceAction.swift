@@ -49,11 +49,13 @@
 ///
 /// ### Property wrapper access
 /// - ``wrappedValue``
+/// - ``projectedValue``
+/// - ``DeviceActionAccessor``
 ///
 /// ### Device Actions
 /// - ``DeviceActions``
 @propertyWrapper
-public class DeviceAction<Action: _BluetoothPeripheralAction> {
+public final class DeviceAction<Action: _BluetoothPeripheralAction>: @unchecked Sendable {
     private var peripheral: BluetoothPeripheral?
     /// Support injection of closures for testing support.
     private let _injectedClosure = Box<Action.ClosureType?>(nil)

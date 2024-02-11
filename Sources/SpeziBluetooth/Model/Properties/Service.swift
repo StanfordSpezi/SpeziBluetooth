@@ -38,7 +38,7 @@ import CoreBluetooth
 /// - ``projectedValue``
 /// - ``ServiceAccessor``
 @propertyWrapper
-public class Service<S: BluetoothService> {
+public final class Service<S: BluetoothService>: @unchecked Sendable {
     var id: CBUUID {
         S.id
     }

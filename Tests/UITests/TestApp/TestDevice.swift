@@ -12,17 +12,6 @@ import Foundation
 import SpeziBluetooth
 
 
-protocol SomePeripheral {
-    var id: UUID { get }
-    var name: String? { get }
-    var state: PeripheralState { get }
-    var rssi: Int { get }
-
-    func connect() async
-    func disconnect() async
-}
-
-
 class TestDevice: BluetoothDevice, Identifiable, SomePeripheral {
     @DeviceState(\.id)
     var id
@@ -41,19 +30,7 @@ class TestDevice: BluetoothDevice, Identifiable, SomePeripheral {
     @Service var deviceInformation = DeviceInformationService()
     @Service var testService = TestService()
 
-    required init() {
-        $state.onChange { state in
-            print("Test state is now \(state)")
-            // TODO: assert that we are running on the bluetooth actor by default?
-        }
-        //deviceInformation.$pnpID.onChange { _ in
-            // TODO: assert that we are running on the bluetooth actor by default? (this closure here does not make sense!)
-        //}
-
-        testService.$eventLog.onChange { event in
-            print("Received a raised event \(event)")
-        }
-    }
+    required init() {}
 
 
     func connect() async {

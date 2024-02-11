@@ -16,9 +16,12 @@
 		A92802B72B5081F200874D0A /* SpeziBluetooth in Frameworks */ = {isa = PBXBuildFile; productRef = A92802B62B5081F200874D0A /* SpeziBluetooth */; };
 		A92802B92B50823600874D0A /* BluetoothManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A92802B82B50823600874D0A /* BluetoothManagerView.swift */; };
 		A92802BD2B51CBBE00874D0A /* DeviceRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A92802BC2B51CBBE00874D0A /* DeviceRowView.swift */; };
+		A93B82D42B78C20700C5DF3D /* BluetoothStateSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A93B82D32B78C20700C5DF3D /* BluetoothStateSection.swift */; };
+		A93B82D62B78C2D100C5DF3D /* DeviceInformationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A93B82D52B78C2D100C5DF3D /* DeviceInformationView.swift */; };
+		A93B82D82B78C31E00C5DF3D /* TestServiceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A93B82D72B78C31E00C5DF3D /* TestServiceView.swift */; };
+		A93B82DA2B78D0D200C5DF3D /* TestDeviceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A93B82D92B78D0D200C5DF3D /* TestDeviceView.swift */; };
 		A95542B42B5E3E210066646D /* BluetoothModuleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A95542B32B5E3E210066646D /* BluetoothModuleView.swift */; };
 		A95542B92B5E3F490066646D /* SearchingNearbyDevicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A95542B82B5E3F490066646D /* SearchingNearbyDevicesView.swift */; };
-		A95542BB2B5E3F7B0066646D /* DevicesHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A95542BA2B5E3F7B0066646D /* DevicesHeader.swift */; };
 		A95542BD2B5E40DF0066646D /* TestDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = A95542BC2B5E40DF0066646D /* TestDevice.swift */; };
 		A9C17DEA2B5F1EAA00976924 /* BluetoothServices in Frameworks */ = {isa = PBXBuildFile; productRef = A9C17DE92B5F1EAA00976924 /* BluetoothServices */; };
 /* End PBXBuildFile section */
@@ -58,9 +61,12 @@
 		A92802B82B50823600874D0A /* BluetoothManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothManagerView.swift; sourceTree = "<group>"; };
 		A92802BA2B5085BE00874D0A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		A92802BC2B51CBBE00874D0A /* DeviceRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceRowView.swift; sourceTree = "<group>"; };
+		A93B82D32B78C20700C5DF3D /* BluetoothStateSection.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BluetoothStateSection.swift; sourceTree = "<group>"; };
+		A93B82D52B78C2D100C5DF3D /* DeviceInformationView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DeviceInformationView.swift; sourceTree = "<group>"; };
+		A93B82D72B78C31E00C5DF3D /* TestServiceView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TestServiceView.swift; sourceTree = "<group>"; };
+		A93B82D92B78D0D200C5DF3D /* TestDeviceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestDeviceView.swift; sourceTree = "<group>"; };
 		A95542B32B5E3E210066646D /* BluetoothModuleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothModuleView.swift; sourceTree = "<group>"; };
 		A95542B82B5E3F490066646D /* SearchingNearbyDevicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchingNearbyDevicesView.swift; sourceTree = "<group>"; };
-		A95542BA2B5E3F7B0066646D /* DevicesHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicesHeader.swift; sourceTree = "<group>"; };
 		A95542BC2B5E40DF0066646D /* TestDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestDevice.swift; sourceTree = "<group>"; };
 		A9C17DEF2B5F566200976924 /* TestApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TestApp.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -111,15 +117,16 @@
 		2F6D139428F5F384007C25D6 /* TestApp */ = {
 			isa = PBXGroup;
 			children = (
+				A95542B72B5E3F260066646D /* Views */,
 				A9C17DEF2B5F566200976924 /* TestApp.entitlements */,
 				A92802BA2B5085BE00874D0A /* Info.plist */,
 				A92802B82B50823600874D0A /* BluetoothManagerView.swift */,
 				A95542B32B5E3E210066646D /* BluetoothModuleView.swift */,
 				2F64EA872A86B36C006789D0 /* TestApp.swift */,
 				2F64EA812A86B346006789D0 /* TestAppDelegate.swift */,
-				2F6D139928F5F386007C25D6 /* Assets.xcassets */,
-				A95542B72B5E3F260066646D /* Utiltities */,
 				A95542BC2B5E40DF0066646D /* TestDevice.swift */,
+				2F6D139928F5F386007C25D6 /* Assets.xcassets */,
+				A93B82D92B78D0D200C5DF3D /* TestDeviceView.swift */,
 			);
 			path = TestApp;
 			sourceTree = "<group>";
@@ -139,14 +146,16 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		A95542B72B5E3F260066646D /* Utiltities */ = {
+		A95542B72B5E3F260066646D /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				A93B82D72B78C31E00C5DF3D /* TestServiceView.swift */,
+				A93B82D52B78C2D100C5DF3D /* DeviceInformationView.swift */,
+				A93B82D32B78C20700C5DF3D /* BluetoothStateSection.swift */,
 				A92802BC2B51CBBE00874D0A /* DeviceRowView.swift */,
-				A95542BA2B5E3F7B0066646D /* DevicesHeader.swift */,
 				A95542B82B5E3F490066646D /* SearchingNearbyDevicesView.swift */,
 			);
-			path = Utiltities;
+			path = Views;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -260,9 +269,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A93B82D82B78C31E00C5DF3D /* TestServiceView.swift in Sources */,
+				A93B82DA2B78D0D200C5DF3D /* TestDeviceView.swift in Sources */,
 				A95542B92B5E3F490066646D /* SearchingNearbyDevicesView.swift in Sources */,
 				2F64EA852A86B347006789D0 /* TestAppDelegate.swift in Sources */,
-				A95542BB2B5E3F7B0066646D /* DevicesHeader.swift in Sources */,
+				A93B82D42B78C20700C5DF3D /* BluetoothStateSection.swift in Sources */,
+				A93B82D62B78C2D100C5DF3D /* DeviceInformationView.swift in Sources */,
 				A95542BD2B5E40DF0066646D /* TestDevice.swift in Sources */,
 				A92802BD2B51CBBE00874D0A /* DeviceRowView.swift in Sources */,
 				A92802B92B50823600874D0A /* BluetoothManagerView.swift in Sources */,

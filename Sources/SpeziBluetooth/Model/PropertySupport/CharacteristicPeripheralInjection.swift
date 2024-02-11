@@ -108,7 +108,7 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
     }
 
 
-    func setOnChangeClosure(_ closure: @escaping (Value) -> Void) {
+    func setOnChangeClosure(_ closure: @escaping (Value) async -> Void) {
         if case .cleared = onChangeClosure {
             // object is about to be cleared. Make sure we don't create a self reference last minute.
             return
