@@ -620,6 +620,25 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
         }
     }
 
+    private func discovered(services: [CBService]) {
+        // ids of currently maintained ids
+        let existingServices = Set(self.services?.map { $0.uuid } ?? [])
+
+        // if we re-discover services (e.g., if ones got invalidated), services might still be present. So only add new ones
+        let addedServices = services
+            .filter { !existingServices.contains($0.uuid) }
+            .map {
+                // we will discover characteristics for all services after that.
+                GATTService(service: $0)
+            }
+
+        if let services = self.services {
+            isolatedUpdate(of: \.services, services + addedServices)
+        } else {
+            isolatedUpdate(of: \.services, addedServices)
+        }
+    }
+
     private func isolatedUpdate<Value>(of keyPath: WritableKeyPath<BluetoothPeripheral, Value>, _ value: Value) {
         var peripheral = self
         peripheral[keyPath: keyPath] = value
@@ -860,10 +879,7 @@ extension BluetoothPeripheral {
 
             Task { @SpeziBluetooth in
                 await device.isolated { device in
-                    device.isolatedUpdate(of: \.services, services.map { service in
-                        assert(service.characteristics == nil, "Discovered service \(service.uuid) came with pre-populated characteristics: \(service.characteristics ?? [])")
-                        return GATTService(service: service)
-                    })
+                    device.discovered(services: services)
 
                     logger.debug("Discovered \(services) services for peripheral \(device.peripheral.debugIdentifier)")
 

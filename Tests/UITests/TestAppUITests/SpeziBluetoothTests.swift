@@ -78,7 +78,7 @@ final class SpeziBluetoothTests: XCTestCase {
         // enter text we use for all validations
         try app.textFields["enter input"].enter(value: "Hello Bluetooth!")
 
-        XCTAssert(app.buttons["Read Current String Value (R)"].exists)
+        XCTAssert(app.buttons["Read Current String Value (R)"].waitForExistence(timeout: 2.0))
         app.buttons["Read Current String Value (R)"].tap()
         XCTAssert(app.staticTexts["Read Value, Hello World (1)"].exists)
         app.assert(event: "read", characteristic: .readStringCharacteristic)
