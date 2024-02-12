@@ -134,7 +134,8 @@ extension XCUIApplication {
     func assertMinimalSimulatorInformation() throws {
 #if targetEnvironment(simulator)
         XCTAssert(staticTexts["Scanning, No"].waitForExistence(timeout: 1.0))
-        XCTAssert(staticTexts["State, unsupported"].waitForExistence(timeout: 2.0)) // Might be unknown at start
+        XCTAssert(staticTexts["State, unsupported"].waitForExistence(timeout: 1.0)
+                  || staticTexts["State, unknown"].waitForExistence(timeout: 1.0))
         throw XCTSkip("Bluetooth tests are not supported in simulator.")
 #else
         XCTAssert(staticTexts["Scanning, Yes"].exists)
