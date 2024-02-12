@@ -27,5 +27,8 @@ public final class TestService: BluetoothService, @unchecked Sendable {
     @Characteristic(id: .readWriteStringCharacteristic)
     public var readWriteString: String?
 
+    @Characteristic(id: .resetCharacteristic)
+    public var reset: Bool? // swiftlint:disable:this discouraged_optional_boolean
+
     public init() {}
 }

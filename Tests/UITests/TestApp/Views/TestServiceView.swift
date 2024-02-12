@@ -57,8 +57,12 @@ struct EventLogView: View {
 
     private var value: String? {
         switch log {
-        case let .receivedWrite(_, value):
-            String(data: value)
+        case let .receivedWrite(characteristic, value):
+            if characteristic == .resetCharacteristic {
+                value.hexString()
+            } else {
+                String(data: value)
+            }
         default:
             nil
         }
@@ -109,7 +113,6 @@ struct TestServiceView: View {
                 await service.$eventLog.enableNotifications(newValue)
             }
         }
-
     }
 
     var body: some View {
@@ -146,6 +149,11 @@ struct TestServiceView: View {
 
         Section("Controls") {
             Toggle("EventLog Notifications", isOn: notifications)
+            AsyncButton(role: .destructive, state: $viewState, action: {
+                try await testService.$reset.write(true)
+            }) {
+                Text(verbatim: "Reset Peripheral State")
+            }
             AsyncButton(state: $viewState, action: {
                 lastRead = try await testService.$readString.read()
             }) {
@@ -164,7 +172,7 @@ struct TestServiceView: View {
             AsyncButton(state: $viewState, action: {
                 try await testService.$writeString.write(input)
             }) {
-                Text(verbatim: "Write Input to read-only")
+                Text(verbatim: "Write Input to write-only")
             }
         }
     }

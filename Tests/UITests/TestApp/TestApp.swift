@@ -9,6 +9,11 @@
 import Spezi
 import SwiftUI
 
+struct NearbyDevices: View {
+    var body: some View {
+        BluetoothManagerView() // we use this indirection to trigger BluetoothManager deinit!
+    }
+}
 
 @main
 struct UITestsApp: App {
@@ -21,7 +26,7 @@ struct UITestsApp: App {
             NavigationStack {
                 List {
                     NavigationLink("Nearby Devices") {
-                        BluetoothManagerView()
+                        NearbyDevices()
                     }
                     NavigationLink("Test Peripheral") {
                         BluetoothModuleView()

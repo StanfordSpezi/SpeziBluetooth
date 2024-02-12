@@ -48,11 +48,14 @@ class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
             return
         }
 
-        let advertisementData: [String: Any] = [
-            CBAdvertisementDataServiceUUIDsKey: [testService.service.uuid],
-            CBAdvertisementDataLocalNameKey: "Spezi Peripheral"
-        ]
-        peripheralManager.startAdvertising(advertisementData)
+        // Please read the docs of startAdvertising: https://developer.apple.com/documentation/corebluetooth/cbperipheralmanager/1393252-startadvertising.
+        // Basically: advertising is best effort and we have roughly 28 bytes in the initial advertising (shared with other apps!)
+        // >As we are using a custom UUID we take a up lot of that<
+        // Might be that the local name is moved to the scan response if it is too long.
+        peripheralManager.startAdvertising([
+            CBAdvertisementDataLocalNameKey: "Spezi",
+            CBAdvertisementDataServiceUUIDsKey: [testService.service.uuid]
+        ])
     }
 
     func stopAdvertising() {

@@ -7,8 +7,8 @@
 //
 
 import NIO
-@testable @_spi(TestingSupport)
-import SpeziBluetooth
+@_spi(TestingSupport)
+@testable import SpeziBluetooth
 import XCTBluetooth
 import XCTest
 

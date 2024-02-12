@@ -25,6 +25,8 @@ class TestService {
     let writeString: CBMutableCharacteristic
     /// Bidirectional storage value.
     let readWriteString: CBMutableCharacteristic
+    /// Reset peripheral state to default settings
+    let reset: CBMutableCharacteristic
 
     private var readStringCount: UInt = 1
     private var readStringValue: String {
@@ -41,7 +43,7 @@ class TestService {
         self.peripheral = peripheral
         self.service = CBMutableService(type: .testService, primary: true)
 
-        self.readWriteStringValue = "Hello World"
+        self.readWriteStringValue = ""
 
         self.eventLog = CBMutableCharacteristic(type: .eventLogCharacteristic, properties: [.indicate, .read], value: nil, permissions: [.readable])
         self.readString = CBMutableCharacteristic(type: .readStringCharacteristic, properties: [.read], value: nil, permissions: [.readable])
@@ -52,8 +54,16 @@ class TestService {
             value: nil,
             permissions: [.readable, .writeable]
         )
+        self.reset = CBMutableCharacteristic(type: .resetCharacteristic, properties: [.write], value: nil, permissions: [.writeable])
 
-        service.characteristics = [eventLog, readString, writeString, readWriteString]
+        service.characteristics = [eventLog, readString, writeString, readWriteString, reset]
+
+        resetState()
+    }
+
+    private func resetState() {
+        self.readStringCount = 1
+        self.readWriteStringValue = "Hello Spezi"
     }
 
 
@@ -74,7 +84,7 @@ class TestService {
         switch request.characteristic.uuid {
         case eventLog.uuid:
             request.value = self.lastEvent.encode()
-        case writeString.uuid:
+        case writeString.uuid, reset.uuid:
             return .readNotPermitted
         case readString.uuid:
             let value = readStringValue
@@ -99,6 +109,8 @@ class TestService {
             return .writeNotPermitted
         case writeString.uuid:
             break // we don't store the value anywhere, so we can just discard it :)
+        case reset.uuid:
+            self.resetState()
         case readWriteString.uuid:
             guard let string = String(data: value) else {
                 return .unlikelyError

@@ -18,7 +18,7 @@ struct DeviceInformationView: View {
 
 
     var body: some View {
-        Section("Device Information") {
+        Section("Device Information") { // swiftlint:disable:this closure_body_length
             if let manufacturerName = deviceInformation.manufacturerName {
                 ListRow("Manufacturer") {
                     Text(manufacturerName)

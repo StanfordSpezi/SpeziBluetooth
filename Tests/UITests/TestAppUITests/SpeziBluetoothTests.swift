@@ -1,25 +1,26 @@
 //
 // This source file is part of the Stanford Spezi open-source project
 //
-// SPDX-FileCopyrightText: 2022 Stanford University and the project authors (see CONTRIBUTORS.md)
+// SPDX-FileCopyrightText: 2024 Stanford University and the project authors (see CONTRIBUTORS.md)
 //
 // SPDX-License-Identifier: MIT
 //
 
+@_spi(TestingSupport)
+import BluetoothServices
+import CoreBluetooth
 import XCTest
 import XCTestExtensions
 
 
-// TODO: last manually connected doesn't work! (longer timeout when removing disconnected devices!)
-//  => resolved?
-// TODO: how to we test remote disconnects? => characteristic stopping advertising for a few seconds?
-// => // TODO: https://stackoverflow.com/questions/51576340/corebluetooth-stopadvertising-does-not-stop
-//        // => remove all services?
-
-// TODO: test returning an error as well?
-
 final class SpeziBluetoothTests: XCTestCase {
-    func testTestPeripheral() throws {
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+
+        continueAfterFailure = false
+    }
+
+    func testTestPeripheral() throws { // swiftlint:disable:this function_body_length
         let app = XCUIApplication()
         app.launch()
 
@@ -28,80 +29,124 @@ final class SpeziBluetoothTests: XCTestCase {
         XCTAssert(app.buttons["Test Peripheral"].exists)
         app.buttons["Test Peripheral"].tap()
 
-        assertMinimalSimulatorInformation(app)
+        XCTAssert(app.navigationBars.staticTexts["Nearby Devices"].waitForExistence(timeout: 2.0))
+        try app.assertMinimalSimulatorInformation()
 
-        // TODO: assert device names? (this worked once?) check with local name?
-        // TODO: assert connecting
-
-        // TODO: assert connected
+        // wait till the device is automatically connected.
+        XCTAssert(app.staticTexts["Spezi"].waitForExistence(timeout: 1.0)) // our peripheral name
+        XCTAssert(app.staticTexts["connected"].waitForExistence(timeout: 10.0))
 
         XCTAssert(app.buttons["Test Interactions"].exists)
         app.buttons["Test Interactions"].tap()
 
         XCTAssert(app.navigationBars.staticTexts["Interactions"].waitForExistence(timeout: 2.0))
 
-        // TODO: assert device information.
+        XCTAssert(app.staticTexts["Manufacturer, Apple Inc."].exists)
+        XCTAssert(app.staticTexts["Model"].exists) // we just check for existence of the model row
 
-        // TODO: check "Event" exists (notifications is enabled)!
+        // by checking if event row is there to verify auto notify enabled.
+        XCTAssert(app.staticTexts["Event"].exists)
 
-        // TODO: toggle notifications of + assert notifications off
-        // TODO: toggle notifications on + assert event log
+        // reset state
+        XCTAssert(app.buttons["Reset Peripheral State"].exists)
+        app.buttons["Reset Peripheral State"].tap()
+        app.assert(event: "write", characteristic: .resetCharacteristic, value: "01")
 
-        // TODO: enter input + dismiss keyboard (input should be random!)
+        // disable events and re-enable
+        #if os(macOS)
+        XCTAssert(app.checkBoxes["EventLog Notifications"].exists)
+        XCTAssertEqual(app.checkBoxes["EventLog Notifications"].value as? String, "1")
+        app.checkBoxes["EventLog Notifications"].tap()
+        XCTAssert(app.staticTexts["Notifications, Off"].waitForExistence(timeout: 2.0))
 
-        // TODO: read current string value + assert increment??? + assert equal (non existent of warning!)
-        // TODO: assert event
+        app.checkBoxes["EventLog Notifications"].tap()
+        app.assert(event: "subscribed", characteristic: .eventLogCharacteristic)
+        #else
+        XCTAssert(app.switches["EventLog Notifications"].exists)
+        XCTAssertEqual(app.switches["EventLog Notifications"].value as? String, "1")
+        app.switches["EventLog Notifications"]
+            .coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5))
+            .tap()
+        XCTAssert(app.staticTexts["Notifications, Off"].waitForExistence(timeout: 2.0))
+
+        app.switches["EventLog Notifications"]
+            .coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5))
+            .tap()
+        app.assert(event: "subscribed", characteristic: .eventLogCharacteristic)
+        #endif
+
+        // enter text we use for all validations
+        try app.textFields["enter input"].enter(value: "Hello Bluetooth!")
+
+        XCTAssert(app.buttons["Read Current String Value (R)"].exists)
+        app.buttons["Read Current String Value (R)"].tap()
+        XCTAssert(app.staticTexts["Read Value, Hello World (1)"].exists)
+        app.assert(event: "read", characteristic: .readStringCharacteristic)
+        XCTAssertFalse(app.staticTexts["Read value differs"].waitForExistence(timeout: 2.0)) // ensure it is consistent
+
+        app.buttons["Read Current String Value (R)"].tap()
+        XCTAssert(app.staticTexts["Read Value, Hello World (2)"].exists)
+        app.assert(event: "read", characteristic: .readStringCharacteristic)
+        XCTAssertFalse(app.staticTexts["Read value differs"].waitForExistence(timeout: 2.0)) // ensure it is consistent
 
 
-        // TODO: write to write-only (assert event)
+        XCTAssert(app.buttons["Write Input to write-only"].exists)
+        app.buttons["Write Input to write-only"].tap()
+        app.assert(event: "write", characteristic: .writeStringCharacteristic, value: "Hello Bluetooth!")
 
-        // TODO: write input value to RW + assert value
-        // TODO: assert event
-        // TODO: read RW + assert value
-        // TODO: assert event
+        XCTAssert(app.buttons["Write Input to read-write"].exists)
+        app.buttons["Write Input to read-write"].tap()
+        XCTAssert(app.staticTexts["RW Value, Hello Bluetooth!"].exists) // ensure write values are saved in the property wrapper
+        app.assert(event: "write", characteristic: .readWriteStringCharacteristic, value: "Hello Bluetooth!")
+
+        // check if the value stays the same if we read the characteristic
+        XCTAssert(app.buttons["Read Current String Value (RW)"].exists)
+        app.buttons["Read Current String Value (RW)"].tap()
+        XCTAssert(app.staticTexts["RW Value, Hello Bluetooth!"].exists)
+        app.assert(event: "read", characteristic: .readWriteStringCharacteristic)
 
 
-        // TODO: navigate back
-        // TODO: navigate home screen and back to nearby devices + assert that device is still connected!
-        // TODO: tap disconnect + and wait 5s that it doesn't automatically connect again!
-    }
+        XCTAssert(app.navigationBars.buttons["Nearby Devices"].exists)
+        app.navigationBars.buttons["Nearby Devices"].tap()
+        try app.assertMinimalSimulatorInformation() // ensure we are back to scanning!
 
-    func testSpeziBluetooth() throws {
-        // TODO: just test nearby devices here!
-        let app = XCUIApplication()
-        app.launch()
-        
-        XCTAssert(app.staticTexts["Spezi Bluetooth"].waitForExistence(timeout: 2))
-
-        XCTAssert(app.buttons["Nearby Devices"].exists)
-        XCTAssert(app.buttons["Test Peripheral"].exists)
-
-        app.buttons["Nearby Devices"].tap()
-
-        XCTAssert(app.navigationBars.staticTexts["Nearby Devices"].waitForExistence(timeout: 2.0))
-        assertMinimalSimulatorInformation(app)
-
-        XCTAssert(app.navigationBars.buttons["Spezi Bluetooth"].exists)
+        XCTAssert(app.navigationBars.buttons["Spezi Bluetooth"].waitForExistence(timeout: 2.0))
         app.navigationBars.buttons["Spezi Bluetooth"].tap()
 
         XCTAssert(app.buttons["Test Peripheral"].waitForExistence(timeout: 2.0))
-        app.buttons["Test Peripheral"].tap()
+        app.buttons["Test Peripheral"].tap() // check that the device is still there if we go back
 
-        XCTAssert(app.navigationBars.staticTexts["Nearby Devices"].waitForExistence(timeout: 2.0))
-        assertMinimalSimulatorInformation(app)
+        XCTAssert(app.staticTexts["connected"].waitForExistence(timeout: 2.0))
+        try app.assertMinimalSimulatorInformation() // ensure we are scanning
 
-        XCTAssert(app.navigationBars.buttons["Spezi Bluetooth"].exists)
-        app.navigationBars.buttons["Spezi Bluetooth"].tap()
+        // manually disconnect device and ensure it doesn't automatically reconnect to manually disconnected devices
+        app.staticTexts["connected"].tap()
+
+        XCTAssert(app.staticTexts["disconnected"].waitForExistence(timeout: 2.0))
+        sleep(5)
+        // check that it stays disconnected
+        XCTAssert(app.staticTexts["disconnected"].waitForExistence(timeout: 2.0))
+    }
+}
+
+
+extension XCUIApplication {
+    func assertMinimalSimulatorInformation() throws {
+#if targetEnvironment(simulator)
+        XCTAssert(staticTexts["Scanning, No"].exists)
+        XCTAssert(staticTexts["State, unsupported"].exists)
+        throw XCTSkip("Bluetooth tests are not supported in simulator.")
+#else
+        XCTAssert(staticTexts["Scanning, Yes"].exists)
+        XCTAssert(staticTexts["State, poweredOn"].exists)
+#endif
     }
 
-    private func assertMinimalSimulatorInformation(_ app: XCUIApplication) {
-        #if targetEnvironment(simulator)
-        XCTAssert(app.staticTexts["Scanning, No"].exists)
-        XCTAssert(app.staticTexts["State, unsupported"].exists)
-        XCTAssert(app.staticTexts["Searching for nearby devices ..."].exists)
-        #else
-        XCTAssert(app.staticTexts["Scanning, Yes"].exists)
-        XCTAssert(app.staticTexts["State, poweredOn"].exists)
-        #endif
+    func assert(event: String, characteristic: CBUUID, value: String? = nil) {
+        XCTAssert(staticTexts["Event, \(event)"].waitForExistence(timeout: 2.0))
+        XCTAssert(staticTexts["Characteristic, \(CBUUID.toCustomShort(characteristic))"].waitForExistence(timeout: 2.0))
+        if let value {
+            XCTAssert(staticTexts["Value, \(value)"].waitForExistence(timeout: 2.0))
+        }
     }
 }

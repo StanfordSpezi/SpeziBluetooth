@@ -496,27 +496,21 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
     }
 
     deinit {
-        // we must do it blocking to not lose reference to self.
-        bluetoothQueue.sync {
-            let closure = { (manager: isolated BluetoothManager) in
-                manager.stopScanning()
-                manager.staleTimer?.cancel()
-                manager.autoConnectItem?.cancel()
+        staleTimer?.cancel()
+        autoConnectItem?.cancel()
 
-                manager.state = .unknown
-
-                manager.discoveredPeripherals = [:]
-                manager.centralDelegate = nil
-
-                manager.logger.debug("BluetoothManager destroyed")
-            }
-
-            // This is a trick `assumeIsolated` uses as well. We know that we are on the Bluetooth Queue
-            // so this is kind of safe.
-            // Refer to https://github.com/apple/swift/blob/e0fda801d7572291961a4c17d8bbbd4614ca6ad9/stdlib/public/Concurrency/ExecutorAssertions.swift#L351-L373.
-            let rawClosure = unsafeBitCast(closure, to: ((BluetoothManager) -> Void).self)
-            rawClosure(self)
+        // non-isolated workaround for calling stopScanning()
+        if isScanning {
+            isScanning = false
+            _centralManager.wrappedValue.stopScan()
+            logger.debug("Scanning stopped")
         }
+
+        state = .unknown
+        _storage.discoveredPeripherals = [:]
+        centralDelegate = nil
+
+        logger.debug("BluetoothManager destroyed")
     }
 }
 
@@ -554,7 +548,7 @@ extension BluetoothManager {
     /// Set of default values used within the Bluetooth Manager
     public enum Defaults {
         /// The default timeout after which stale advertisements are removed.
-        public static let defaultStaleTimeout: TimeInterval = 6
+        public static let defaultStaleTimeout: TimeInterval = 8
         /// The minimum rssi of a peripheral to consider it for discovery.
         public static let defaultMinimumRSSI = -80
         /// The default time in seconds after which we check for auto connectable devices after the initial advertisement.

@@ -6,12 +6,12 @@
 // SPDX-License-Identifier: MIT
 //
 
-@testable @_spi(TestingSupport)
-import BluetoothServices
+@_spi(TestingSupport)
+@testable import BluetoothServices
 import CoreBluetooth
 import NIO
-@testable @_spi(TestingSupport)
-import SpeziBluetooth
+@_spi(TestingSupport)
+@testable import SpeziBluetooth
 import XCTBluetooth
 import XCTest
 
@@ -58,7 +58,7 @@ final class BluetoothServicesTests: XCTestCase {
         try testIdentity(from: EventLog.subscribedToNotification(.eventLogCharacteristic))
         try testIdentity(from: EventLog.unsubscribedToNotification(.eventLogCharacteristic))
         try testIdentity(from: EventLog.receivedRead(.readStringCharacteristic))
-        try testIdentity(from: EventLog.receivedWrite(.writeStringCharacteristic, value: "Hello World".data(using: .utf8)!))
+        try testIdentity(from: EventLog.receivedWrite(.writeStringCharacteristic, value: "Hello World".encode()))
     }
 
     func testCharacteristics() async throws {

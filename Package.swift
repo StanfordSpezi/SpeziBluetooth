@@ -16,7 +16,8 @@ let package = Package(
     defaultLocalization: "en",
     platforms: [
         .iOS(.v17),
-        .macCatalyst(.v17)
+        .macCatalyst(.v17),
+        .macOS(.v14)
     ],
     products: [
         .library(name: "BluetoothServices", targets: ["BluetoothServices"]),
