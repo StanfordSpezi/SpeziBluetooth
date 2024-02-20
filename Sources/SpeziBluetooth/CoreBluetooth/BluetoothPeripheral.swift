@@ -451,7 +451,7 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
             return
         }
 
-        if characteristic.properties.contains(.notify) || characteristic.properties.contains(.indicate) {
+        if characteristic.properties.supportsNotifications {
             peripheral.setNotifyValue(notify, for: characteristic.underlyingCharacteristic)
         }
     }
@@ -683,7 +683,7 @@ extension BluetoothPeripheral {
             }
 
             // enable notifications if registered
-            if characteristic.properties.contains(.notify) || characteristic.properties.contains(.indicate) {
+            if characteristic.properties.supportsNotifications {
                 let locator = CharacteristicLocator(serviceId: service.uuid, characteristicId: characteristic.uuid)
 
                 if notifyRequested.contains(locator) {
