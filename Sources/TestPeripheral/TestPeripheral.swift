@@ -30,16 +30,11 @@ class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
         peripheralManager = CBPeripheralManager(delegate: self, queue: DispatchQueue.main)
     }
 
-    static func main() async {
+    static func main() {
         let peripheral = TestPeripheral()
         peripheral.logger.info("Initialized")
-        // while true {}
 
-        var cont: CheckedContinuation<Void, Never>?
-        await withCheckedContinuation { continuation in
-            cont = continuation
-        }
-        cont?.resume() // silence warning
+        RunLoop.main.run()
     }
 
     func startAdvertising() {

@@ -153,7 +153,6 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
         }
         set {
             _storage.update(state: newValue)
-            logger.debug("Peripheral state is now \(newValue)")
         }
     }
 

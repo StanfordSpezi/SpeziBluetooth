@@ -15,6 +15,8 @@ private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifie
     private let scanner: Scanner
     private let autoConnect: Bool
 
+    @Environment(\.scenePhase)
+    private var scenePhase
     @Environment(\.surroundingScanModifiers)
     private var surroundingModifiers
 
@@ -26,16 +28,17 @@ private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifie
         self.autoConnect = autoConnect
     }
 
-
     func body(content: Content) -> some View {
         content
             .onAppear(perform: onForeground)
             .onDisappear(perform: onBackground)
-            .onReceive(NotificationCenter.default.publisher(for: UIScene.willEnterForegroundNotification)) { _ in
-                onForeground() // onAppear is coupled with view rendering only and won't get fired when putting app into the foreground
-            }
-            .onReceive(NotificationCenter.default.publisher(for: UIScene.didEnterBackgroundNotification)) { _ in
-                onBackground() // onDisappear is coupled with view rendering only and won't get fired when putting app into the background
+            .onChange(of: scenePhase) { previous, _ in
+                if scenePhase == .background {
+                    onBackground() // app switched into the background
+                } else if previous == .background {
+                    onForeground() // app got out of the background again
+                }
+                // we don't care about active <-> inactive transition (e.g., happens when pulling down notification center)
             }
             .onChange(of: enabled, initial: false) {
                 if enabled {
