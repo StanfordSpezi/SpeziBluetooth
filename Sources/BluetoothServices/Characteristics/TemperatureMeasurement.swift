@@ -12,6 +12,8 @@ import SpeziBluetooth
 
 
 /// A temperature measurement.
+///
+/// Refer to GATT Specification Supplement, 3.216 Temperature Measurement.
 public struct TemperatureMeasurement {
     /// The temperature value encoded as `medfloat32`.
     public enum Value {

@@ -11,6 +11,8 @@ import SpeziBluetooth
 
 
 /// Bluetooth Vendor ID Source.
+///
+/// Refer to GATT Specification Supplement, 3.170.1 Vendor ID Source field.
 public enum VendorIDSource {
     /// Assigned Company Identifier value from the Bluetooth SIG Assigned Numbers.
     case bluetoothSIGAssigned
@@ -34,6 +36,8 @@ public enum VendorIDSource {
 
 
 /// The Plug and Play (PnP) Vendor ID and Product ID.
+///
+/// Refer to GATT Specification Supplement, 3.170 PnP ID.
 public struct PnPID {
     /// The vendor id source.
     public let vendorIdSource: VendorIDSource

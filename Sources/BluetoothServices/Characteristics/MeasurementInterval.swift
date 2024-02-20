@@ -11,6 +11,8 @@ import SpeziBluetooth
 
 
 /// Represents the time between measurements.
+///
+/// Refer to GATT Specification Supplement, 3.150 Measurement Interval.
 public enum MeasurementInterval {
     /// No periodic measurement
     case noPeriodicMeasurement

@@ -12,7 +12,7 @@ import SpeziBluetooth
 
 /// Date Time characteristic to represent date and time.
 ///
-/// Refer to GATT Specification Supplement, 3.70 Date Time
+/// Refer to GATT Specification Supplement, 3.70 Date Time.
 public struct DateTime {
     public enum Month: UInt8 {
         /// Unknown month.

@@ -11,6 +11,8 @@ import SpeziBluetooth
 
 
 /// The location of a temperature measurement.
+///
+/// Refer to GATT Specification Supplement, 3.219 Temperature Type.
 public enum TemperatureType: UInt8, CaseIterable {
     /// Reserved for future use.
     case reserved
