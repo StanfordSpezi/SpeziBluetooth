@@ -27,15 +27,26 @@ jobs:
     name: Build and Test iOS
     uses: StanfordSpezi/.github/.github/workflows/xcodebuild-or-fastlane.yml@v2
     with:
+      runsonlabels: '["macOS", "self-hosted"]'
+      setupSimulators: true
+      path: 'Tests/UITests'
+      scheme: TestApp
+      artifactname: TestApp-iOS.xcresult
+      resultBundle: TestApp-iOS.xcresult
+  macos:
+    name: Build and Test macOS
+    uses: StanfordSpezi/.github/.github/workflows/xcodebuild-or-fastlane.yml@v2
+    with:
       runsonlabels: '["macOS", "self-hosted", "bluetooth"]'
       setupSimulators: true
       path: 'Tests/UITests'
       scheme: TestApp
       destination: 'platform=macOS,arch=arm64,variant=Mac Catalyst'
-      artifactname: TestApp.xcresult
+      artifactname: TestApp-macOS.xcresult
+      resultBundle: TestApp-macOS.xcresult
   uploadcoveragereport:
     name: Upload Coverage Report
-    needs: [packageios, ios]
+    needs: [packageios, ios, macos]
     uses: StanfordSpezi/.github/.github/workflows/create-and-upload-coverage-report.yml@v2
     with:
-      coveragereports: SpeziBluetooth-Package.xcresult TestApp.xcresult
+      coveragereports: SpeziBluetooth-Package.xcresult TestApp-iOS.xcresult TestApp-macOS.xcresult
