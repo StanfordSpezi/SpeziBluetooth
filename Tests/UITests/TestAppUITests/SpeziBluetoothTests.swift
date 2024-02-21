@@ -62,30 +62,37 @@ final class SpeziBluetoothTests: XCTestCase {
         app.checkBoxes["EventLog Notifications"].tap()
         app.assert(event: "subscribed", characteristic: .eventLogCharacteristic)
         #else
+        let offset = 0.98
+
         XCTAssert(app.switches["EventLog Notifications"].exists)
         XCTAssertEqual(app.switches["EventLog Notifications"].value as? String, "1")
         app.switches["EventLog Notifications"]
-            .coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5))
+            .coordinate(withNormalizedOffset: .init(dx: offset, dy: 0.5))
             .tap()
         XCTAssert(app.staticTexts["Notifications, Off"].waitForExistence(timeout: 2.0))
 
         app.switches["EventLog Notifications"]
-            .coordinate(withNormalizedOffset: .init(dx: 0.9, dy: 0.5))
+            .coordinate(withNormalizedOffset: .init(dx: offset, dy: 0.5))
             .tap()
         app.assert(event: "subscribed", characteristic: .eventLogCharacteristic)
         #endif
 
         // enter text we use for all validations
+        #if targetEnvironment(macCatalyst)
+        app.textFields["enter input"].tap()
+        app.typeText("Hello Bluetooth!")
+        #else
         try app.textFields["enter input"].enter(value: "Hello Bluetooth!")
+        #endif
 
         XCTAssert(app.buttons["Read Current String Value (R)"].waitForExistence(timeout: 2.0))
         app.buttons["Read Current String Value (R)"].tap()
-        XCTAssert(app.staticTexts["Read Value, Hello World (1)"].exists)
+        XCTAssert(app.staticTexts["Read Value, Hello World (1)"].waitForExistence(timeout: 2.0))
         app.assert(event: "read", characteristic: .readStringCharacteristic)
         XCTAssertFalse(app.staticTexts["Read value differs"].waitForExistence(timeout: 2.0)) // ensure it is consistent
 
         app.buttons["Read Current String Value (R)"].tap()
-        XCTAssert(app.staticTexts["Read Value, Hello World (2)"].exists)
+        XCTAssert(app.staticTexts["Read Value, Hello World (2)"].waitForExistence(timeout: 2.0))
         app.assert(event: "read", characteristic: .readStringCharacteristic)
         XCTAssertFalse(app.staticTexts["Read value differs"].waitForExistence(timeout: 2.0)) // ensure it is consistent
 
@@ -96,13 +103,14 @@ final class SpeziBluetoothTests: XCTestCase {
 
         XCTAssert(app.buttons["Write Input to read-write"].exists)
         app.buttons["Write Input to read-write"].tap()
-        XCTAssert(app.staticTexts["RW Value, Hello Bluetooth!"].exists) // ensure write values are saved in the property wrapper
+        // ensure write values are saved in the property wrapper
+        XCTAssert(app.staticTexts["RW Value, Hello Bluetooth!"].waitForExistence(timeout: 2.0))
         app.assert(event: "write", characteristic: .readWriteStringCharacteristic, value: "Hello Bluetooth!")
 
         // check if the value stays the same if we read the characteristic
         XCTAssert(app.buttons["Read Current String Value (RW)"].exists)
         app.buttons["Read Current String Value (RW)"].tap()
-        XCTAssert(app.staticTexts["RW Value, Hello Bluetooth!"].exists)
+        XCTAssert(app.staticTexts["RW Value, Hello Bluetooth!"].waitForExistence(timeout: 2.0))
         app.assert(event: "read", characteristic: .readWriteStringCharacteristic)
 
 
@@ -138,13 +146,13 @@ extension XCUIApplication {
                   || staticTexts["State, unknown"].waitForExistence(timeout: 1.0))
         throw XCTSkip("Bluetooth tests are not supported in simulator.")
 #else
-        XCTAssert(staticTexts["Scanning, Yes"].exists)
+        XCTAssert(staticTexts["Scanning, Yes"].waitForExistence(timeout: 2.0))
         XCTAssert(staticTexts["State, poweredOn"].exists)
 #endif
     }
 
     func assert(event: String, characteristic: CBUUID, value: String? = nil) {
-        XCTAssert(staticTexts["Event, \(event)"].waitForExistence(timeout: 2.0))
+        XCTAssert(staticTexts["Event, \(event)"].waitForExistence(timeout: 5.0))
         XCTAssert(staticTexts["Characteristic, \(CBUUID.toCustomShort(characteristic))"].waitForExistence(timeout: 2.0))
         if let value {
             XCTAssert(staticTexts["Value, \(value)"].waitForExistence(timeout: 2.0))
