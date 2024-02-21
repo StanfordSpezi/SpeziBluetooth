@@ -43,6 +43,7 @@ class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
             return
         }
 
+        print("Starting to advertise service...")
         // Please read the docs of startAdvertising: https://developer.apple.com/documentation/corebluetooth/cbperipheralmanager/1393252-startadvertising.
         // Basically: advertising is best effort and we have roughly 28 bytes in the initial advertising (shared with other apps!)
         // >As we are using a custom UUID we take a up lot of that<
@@ -96,7 +97,7 @@ class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
     // MARK: - CBPeripheralManagerDelegate
 
     func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
-        logger.debug("PeripheralManager state is now \("\(peripheral.state)")")
+        print("PeripheralManager state is now \("\(peripheral.state)")")
         state = peripheral.state
 
         if case .poweredOn = state {
@@ -110,6 +111,7 @@ class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
             return
         }
 
+        print("Service \(service.uuid) was added!")
         startAdvertising()
     }
 
@@ -117,7 +119,7 @@ class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
         if let error = error {
             logger.error("Error starting advertising: \(error.localizedDescription)")
         } else {
-            logger.info("Peripheral advertising started successfully!")
+            print("Peripheral advertising started successfully!")
         }
     }
 

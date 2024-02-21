@@ -61,6 +61,7 @@ public struct BluetoothStateHint: View {
             } actions: {
                 switch state {
                 case .poweredOff, .unauthorized:
+                    #if os(iOS) || os(visionOS) || os(tvOS)
                     Button(action: {
                         if let url = URL(string: UIApplication.openSettingsURLString) {
                             UIApplication.shared.open(url)
@@ -68,6 +69,9 @@ public struct BluetoothStateHint: View {
                     }) {
                         Text("Open Settings", bundle: .module)
                     }
+                    #else
+                    EmptyView()
+                    #endif
                 default:
                     EmptyView()
                 }
