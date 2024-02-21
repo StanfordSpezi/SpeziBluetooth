@@ -28,6 +28,9 @@ This guides provides an overview on how to deploy the test peripheral as a launc
 5. Move the `TestPeripheral` binary into the `/Applications` folder. 
 
 
+> Important: Make sure to run the TestPeripheral manually once.
+    You might need to navigate to `Settings > Privacy & Security` to allow TestPeripheral to bypass your notarization settings.
+
 ### Setup as a Service
 
 We provide a small script to run the test peripheral as a service using `launchd` on macOS.#
@@ -49,6 +52,8 @@ To load the service into launchd run the following command:
 ```
 ./bin/service-launchd.sh start
 ```
+
+>Tip: If the peripheral doesn't show up, toggle Bluetooth off and on again as a troubleshooting step.
 
 #### Stop Service
 
