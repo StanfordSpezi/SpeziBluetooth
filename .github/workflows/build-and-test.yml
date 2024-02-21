@@ -20,14 +20,14 @@ jobs:
     name: Build and Test Swift Package iOS
     uses: StanfordSpezi/.github/.github/workflows/xcodebuild-or-fastlane.yml@v2
     with:
-      runsonlabels: '["macOS", "self-hosted"]'
+      runsonlabels: '["macOS", "self-hosted", "spezi"]'
       scheme: SpeziBluetooth-Package
       artifactname: SpeziBluetooth-Package.xcresult
   ios:
     name: Build and Test iOS
     uses: StanfordSpezi/.github/.github/workflows/xcodebuild-or-fastlane.yml@v2
     with:
-      runsonlabels: '["macOS", "self-hosted"]'
+      runsonlabels: '["macOS", "self-hosted", "spezi"]'
       setupSimulators: true
       path: 'Tests/UITests'
       scheme: TestApp
