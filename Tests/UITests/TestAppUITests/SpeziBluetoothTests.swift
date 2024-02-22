@@ -78,12 +78,7 @@ final class SpeziBluetoothTests: XCTestCase {
         #endif
 
         // enter text we use for all validations
-        #if targetEnvironment(macCatalyst)
-        app.textFields["enter input"].tap()
-        app.typeText("Hello Bluetooth!")
-        #else
         try app.textFields["enter input"].enter(value: "Hello Bluetooth!")
-        #endif
 
         XCTAssert(app.buttons["Read Current String Value (R)"].waitForExistence(timeout: 2.0))
         app.buttons["Read Current String Value (R)"].tap()
