@@ -85,3 +85,14 @@ To completely uninstall the launchd launch agent, run the following command:
 ```
 ./bin/service-launchd.sh uninstall
 ```
+
+
+### UI Test Setup
+
+When trying to run SpeziBluetooth UI tests on a macOS runner with the test peripheral running nearby,
+there are a few things to consider:
+
+1. You need to setup signing for the TestApp.
+2. Run the UI tests manually once (or observe the first run) to a) allow UI automation testing and b) allow Bluetooth access for the TestApp.
+3. Disable anything interfering with the runner (e.g., disabling screen saver).
+
