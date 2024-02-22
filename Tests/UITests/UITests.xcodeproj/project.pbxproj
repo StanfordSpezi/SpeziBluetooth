@@ -503,7 +503,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = edu.stanford.spezi.bluetooth.testapplication;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "Stanford Spezi Bluetooth TestApp";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "Stanford Spezi Bluetooth TestApp GitHub Runner 3";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator xros xrsimulator";
 				SUPPORTS_MACCATALYST = YES;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
@@ -555,7 +555,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "Stanford Spezi Bluetooth UITests";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "Stanford Spezi Bluetooth UITests GitHub Runner 3";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = YES;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
@@ -662,7 +662,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = edu.stanford.spezi.bluetooth.testapplication;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "Stanford Spezi Bluetooth TestApp";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "Stanford Spezi Bluetooth TestApp GitHub Runner 3";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator xros xrsimulator";
 				SUPPORTS_MACCATALYST = YES;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
@@ -690,7 +690,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE = "";
 				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "Stanford Spezi Bluetooth UITests";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*]" = "Stanford Spezi Bluetooth UITests GitHub Runner 3";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = YES;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
