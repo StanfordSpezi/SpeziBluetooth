@@ -94,5 +94,6 @@ there are a few things to consider:
 
 1. You need to setup signing for the TestApp.
 2. Run the UI tests manually once (or observe the first run) to a) allow UI automation testing and b) allow Bluetooth access for the TestApp.
-3. Disable anything interfering with the runner (e.g., disabling screen saver).
+3. Always allow UI automation testing by running `automationmodetool enable-automationmode-without-authentication`.
+4. Disable anything interfering with the runner (e.g., disabling screen saver).
 
