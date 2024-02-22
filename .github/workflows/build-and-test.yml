@@ -36,6 +36,8 @@ jobs:
   macos:
     name: Build and Test macOS
     uses: StanfordSpezi/.github/.github/workflows/xcodebuild-or-fastlane.yml@v2
+    permissions:
+      contents: read
     with:
       runsonlabels: '["macOS", "self-hosted", "bluetooth"]'
       setupsigning: true
@@ -43,6 +45,7 @@ jobs:
       artifactname: TestApp-macOS.xcresult
       resultBundle: TestApp-macOS.xcresult
       customcommand: "set -o pipefail && xcodebuild test -scheme 'TestApp' -configuration Debug -destination 'platform=macOS,arch=arm64,variant=Mac Catalyst' -derivedDataPath '.derivedData' -resultBundlePath 'TestApp-macOS.xcresult' CODE_SIGN_IDENTITY='Apple Distribution: Paul Schmiedmayer (637867499T)' PROVISIONING_PROFILE_SPECIFIER='Stanford Spezi Bluetooth TestApp' | xcpretty"
+    secrets: inherit
   # uploadcoveragereport:
   #   name: Upload Coverage Report
   #   needs: [packageios, ios, macos]
