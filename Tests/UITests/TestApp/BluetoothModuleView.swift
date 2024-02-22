@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
-
+import BluetoothViews
 import SpeziBluetooth
 import SwiftUI
 
@@ -19,38 +19,35 @@ struct BluetoothModuleView: View {
 
     var body: some View {
         List {
-            BluetoothStateSection(scanner: bluetooth)
+            BluetoothStateSection(state: bluetooth.state, isScanning: bluetooth.isScanning)
 
             let nearbyDevices = bluetooth.nearbyDevices(for: TestDevice.self)
 
-            if nearbyDevices.isEmpty {
-                SearchingNearbyDevicesView()
-            } else {
-                Section {
-                    ForEach(nearbyDevices) { device in
-                        DeviceRowView(peripheral: device)
-                    }
-                } header: {
-                    DevicesHeader(loading: bluetooth.isScanning)
+            Section {
+                ForEach(nearbyDevices) { device in
+                    DeviceRowView(peripheral: device)
                 }
+            } header: {
+                LoadingSectionHeaderView(verbatim: "Devices", loading: bluetooth.isScanning)
+            } footer: {
+                Text(verbatim: "This is a list of nearby test peripherals. Auto connect is enabled.")
             }
 
             if let device {
-                Section {
-                    Text("Device State: \(device.state.description)")
-                    Text("RSSI: \(device.rssi)")
+                NavigationLink("Test Interactions") {
+                    TestDeviceView(device: device)
                 }
             }
         }
             .scanNearbyDevices(with: bluetooth, autoConnect: true)
-            .navigationTitle("Auto Connect Device")
+            .navigationTitle("Nearby Devices")
     }
 }
 
 
 #Preview {
     NavigationStack {
-        BluetoothManagerView()
+        BluetoothModuleView()
             .previewWith {
                 Bluetooth {
                     Discover(TestDevice.self, by: .advertisedService("FFF0"))

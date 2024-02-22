@@ -18,44 +18,60 @@ import CoreBluetooth
 /// Below is a short code example on how you would declare your [Bluetooth Heart Rate Service](https://www.bluetooth.com/specifications/specs/heart-rate-service-1-0)
 /// implementation within your Bluetooth device.
 /// 
-/// ``swift
+/// ```swift
 /// class MyDevice: BluetoothDevice {
-///     @Service(id: "180D")
-///     var heartRate = HeartRateService()
+///     @Service var heartRate = HeartRateService()
 /// }
 /// ```
 ///
 /// ## Topics
 ///
 /// ### Declaring a Service
-/// - ``init(wrappedValue:id:)-2mo8b``
-/// - ``init(wrappedValue:id:)-1if8d``
+/// - ``init(wrappedValue:)``
+///
+/// ### Inspecting a Service
+/// - ``ServiceAccessor/isPresent``
+/// - ``ServiceAccessor/isPrimary``
 ///
 /// ### Property wrapper access
 /// - ``wrappedValue``
+/// - ``projectedValue``
+/// - ``ServiceAccessor``
 @propertyWrapper
-public class Service<S: BluetoothService> {
-    let id: CBUUID
+public final class Service<S: BluetoothService>: @unchecked Sendable {
+    var id: CBUUID {
+        S.id
+    }
+    private var injection: ServicePeripheralInjection?
 
     /// Access the service instance.
     public let wrappedValue: S
 
-
-    /// Declare a service.
-    /// - Parameters:
-    ///   - wrappedValue: The service instance.
-    ///   - id: The service id.
-    public convenience init(wrappedValue: S, id: String) {
-        self.init(wrappedValue: wrappedValue, id: CBUUID(string: id))
+    /// Retrieve a temporary accessors instance.
+    ///
+    /// This type allows you to interact with a Service's properties.
+    ///
+    /// - Note: The accessor captures the service instance upon creation. Within the same `ServiceAccessor` instance
+    ///     the view on the service is consistent. However, if you project a new `ServiceAccessor` instance right
+    ///     after your access, the view on the service might have changed due to the asynchronous nature of SpeziBluetooth.
+    public var projectedValue: ServiceAccessor {
+        ServiceAccessor(id: id, injection: injection)
     }
 
     /// Declare a service.
     /// - Parameters:
     ///   - wrappedValue: The service instance.
-    ///   - id: The service id.
-    public init(wrappedValue: S, id: CBUUID) {
+    public init(wrappedValue: S) {
         self.wrappedValue = wrappedValue
-        self.id = id
+    }
+
+
+    func inject(peripheral: BluetoothPeripheral, service: GATTService?) {
+        let injection = ServicePeripheralInjection(peripheral: peripheral, serviceId: id, service: service)
+        self.injection = injection
+        injection.assumeIsolated { injection in
+            injection.setup()
+        }
     }
 }
 

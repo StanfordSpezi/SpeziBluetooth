@@ -18,13 +18,15 @@ import Foundation
 /// If your device is connected, the characteristic value is automatically updated upon a characteristic read or a notify.
 ///
 /// - Note: Every `Characteristic` is [Observable](https://developer.apple.com/documentation/Observation) out of the box.
-///     So you can easily use the characteristic value within your SwiftUI view and it will be automatically re-rendered
+///     You can easily use the characteristic value within your SwiftUI view and the view will be automatically re-rendered
 ///     when the characteristic value is updated.
 ///
 /// The below code example demonstrates declaring the Firmware Revision characteristic of the Device Information service.
 ///
 /// ```swift
 /// class DeviceInformationService: BluetoothService {
+///    static let id = CBUUID(string: "180A")
+///
 ///     @Characteristic(id: "2A26")
 ///     var firmwareRevision: String?
 /// }
@@ -35,22 +37,36 @@ import Foundation
 /// If your characteristic supports notifications, you can automatically subscribe to characteristic notifications
 /// by supplying the `notify` initializer argument.
 ///
+/// - Tip: If you want to react to every change of the characteristic value, you can use
+///     ``CharacteristicAccessor/onChange(perform:)`` to set up your action.
+///
 /// The below code example uses the [Bluetooth Heart Rate Service](https://www.bluetooth.com/specifications/specs/heart-rate-service-1-0)
 /// to demonstrate the automatic notifications feature for the Heart Rate Measurement characteristic.
 ///
+/// - Important: This closure is called from the Bluetooth Serial Executor, if you don't pass in an async method
+///     that has an annotated actor isolation (e.g., `@MainActor` or actor isolated methods).
+///
 /// ```swift
 /// class HeartRateService: BluetoothService {
+///    static let id = CBUUID(string: "180D")
+///
 ///     @Characteristic(id: "2A37", notify: true)
 ///     var heartRateMeasurement: HeartRateMeasurement?
 ///
-///     init() {}
+///     init() {
+///         $heartRateMeasurement.onChange(perform: processMeasurement)
+///     }
+///
+///     func processMeasurement(_ measurement: HeartRateMeasurement) {
+///         // process measurements ...
+///     }
 /// }
 /// ```
 ///
 /// ### Characteristic Interactions
 ///
 /// To interact with a characteristic to read or write a value or enable or disable notifications,
-/// you can use the ``projectedValue`` (`$` notation) to retrieve a temporary ``CharacteristicAccessors`` instance.
+/// you can use the ``projectedValue`` (`$` notation) to retrieve a temporary ``CharacteristicAccessor`` instance.
 ///
 /// Do demonstrate this functionality, we completed the implementation of our Heart Rate Service
 /// according to its [Specification](https://www.bluetooth.com/specifications/specs/heart-rate-service-1-0).
@@ -59,6 +75,8 @@ import Foundation
 ///
 /// ```swift
 /// class HeartRateService: BluetoothService {
+///    static let id = CBUUID(string: "180D")
+///
 ///     @Characteristic(id: "2A37", notify: true)
 ///     var heartRateMeasurement: HeartRateMeasurement?
 ///     @Characteristic(id: "2A38")
@@ -107,87 +125,101 @@ import Foundation
 /// - ``init(wrappedValue:id:notify:discoverDescriptors:)-9zex3``
 ///
 /// ### Inspecting a Characteristic
-/// - ``CharacteristicAccessors/isPresent``
-/// - ``CharacteristicAccessors/properties``
-/// - ``CharacteristicAccessors/descriptors``
+/// - ``CharacteristicAccessor/isPresent``
+/// - ``CharacteristicAccessor/properties``
+/// - ``CharacteristicAccessor/descriptors``
 ///
 /// ### Reading a value
-/// - ``CharacteristicAccessors/read()``
-///
-/// ### Controlling notifications
-/// - ``CharacteristicAccessors/isNotifying``
-/// - ``CharacteristicAccessors/enableNotifications(_:)``
+/// - ``CharacteristicAccessor/read()``
 ///
 /// ### Writing a value
-/// - ``CharacteristicAccessors/write(_:)``
-/// - ``CharacteristicAccessors/writeWithoutResponse(_:)``
+/// - ``CharacteristicAccessor/write(_:)``
+/// - ``CharacteristicAccessor/writeWithoutResponse(_:)``
+///
+/// ### Controlling notifications
+/// - ``CharacteristicAccessor/isNotifying``
+/// - ``CharacteristicAccessor/enableNotifications(_:)``
+///
+/// ### Get notified about changes
+/// - ``CharacteristicAccessor/onChange(perform:)``
 ///
 /// ### Property wrapper access
 /// - ``wrappedValue``
 /// - ``projectedValue``
-/// - ``CharacteristicAccessors``
-@Observable
+/// - ``CharacteristicAccessor``
 @propertyWrapper
-public class Characteristic<Value> {
-    private let id: CBUUID
-    private let discoverDescriptors: Bool
+public final class Characteristic<Value>: @unchecked Sendable {
+    class Configuration {
+        let id: CBUUID
+        let discoverDescriptors: Bool
 
-    private let defaultValue: Value?
-    private let defaultNotify: Bool
+        var defaultNotify: Bool
+
+        /// Memory address as an identifier for this Characteristic instance.
+        var objectId: ObjectIdentifier {
+            ObjectIdentifier(self)
+        }
+
+        init(id: CBUUID, discoverDescriptors: Bool, defaultNotify: Bool) {
+            self.id = id
+            self.discoverDescriptors = discoverDescriptors
+            self.defaultNotify = defaultNotify
+        }
+    }
+
+    let configuration: Configuration
+    private let _value: ObservableBox<Value?>
+    private(set) var injection: CharacteristicPeripheralInjection<Value>?
 
     var description: CharacteristicDescription {
-        CharacteristicDescription(id: id, discoverDescriptors: discoverDescriptors)
+        CharacteristicDescription(id: configuration.id, discoverDescriptors: configuration.discoverDescriptors)
     }
 
     /// Access the current characteristic value.
     ///
     /// This is either the last read value or the latest notified value.
     public var wrappedValue: Value? {
-        guard let context else {
-            return defaultValue
-        }
-        return context.value
+        _value.value
     }
 
     /// Retrieve a temporary accessors instance.
-    public var projectedValue: CharacteristicAccessors<Value> {
-        guard let context else {
-            preconditionFailure(
-                """
-                Failed to access bluetooth characteristic. Make sure your @Characteristic is only declared within your bluetooth device class \
-                that is managed by SpeziBluetooth.
-                """
-            )
-        }
-        return CharacteristicAccessors(id: id, context: context)
+    ///
+    /// This type allows you to interact with a Characteristic.
+    ///
+    /// - Note: The accessor captures the characteristic instance upon creation. Within the same `CharacteristicAccessor` instance
+    ///     the view on the characteristic is consistent (characteristic exists vs. it doesn't, the underlying values themselves might still change).
+    ///     However, if you project a new `CharacteristicAccessor` instance right after your access,
+    ///     the view on the characteristic might have changed due to the asynchronous nature of SpeziBluetooth.
+    public var projectedValue: CharacteristicAccessor<Value> {
+        CharacteristicAccessor(configuration: configuration, injection: injection, value: _value)
     }
-
-    private var context: CharacteristicContext<Value>?
 
     fileprivate init(wrappedValue: Value? = nil, characteristic: CBUUID, notify: Bool, discoverDescriptors: Bool = false) {
         // swiftlint:disable:previous function_default_parameter_at_end
-        self.defaultValue = wrappedValue
-        self.id = characteristic
-        self.defaultNotify = notify
-        self.discoverDescriptors = discoverDescriptors
+        self.configuration = .init(id: characteristic, discoverDescriptors: discoverDescriptors, defaultNotify: notify)
+        self._value = ObservableBox(wrappedValue)
     }
 
 
-    @MainActor
-    func inject(peripheral: BluetoothPeripheral, serviceId: CBUUID, service: CBService?) {
-        let characteristic = service?.characteristics?.first(where: { $0.uuid == self.id })
+    func inject(peripheral: BluetoothPeripheral, serviceId: CBUUID, service: GATTService?) {
+        let characteristic = service?.getCharacteristic(id: configuration.id)
 
-        let context = CharacteristicContext<Value>(
+        // Any potential onChange closure registration that happened within the initializer. Forward them to the injection.
+        let onChangeClosure = ClosureRegistrar.readableView?.retrieve(for: configuration.objectId, value: Value.self)
+
+        let injection = CharacteristicPeripheralInjection<Value>(
             peripheral: peripheral,
             serviceId: serviceId,
-            characteristicId: self.id,
-            characteristic: characteristic
+            characteristicId: configuration.id,
+            value: _value,
+            characteristic: characteristic,
+            onChangeClosure: onChangeClosure
         )
 
-        self.context = context
-
-        Task {
-            await context.setup(defaultNotify: defaultNotify)
+        // mutual access with `CharacteristicAccessor/enableNotifications`
+        self.injection = injection
+        injection.assumeIsolated { injection in
+            injection.setup(defaultNotify: configuration.defaultNotify)
         }
     }
 }

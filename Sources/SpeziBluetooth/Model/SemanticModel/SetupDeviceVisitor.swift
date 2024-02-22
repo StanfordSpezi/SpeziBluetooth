@@ -12,17 +12,15 @@ import CoreBluetooth
 private struct SetupServiceVisitor: ServiceVisitor {
     private let peripheral: BluetoothPeripheral
     private let serviceId: CBUUID
-    private let service: CBService?
+    private let service: GATTService?
 
 
-    init(peripheral: BluetoothPeripheral, serviceId: CBUUID, service: CBService?) {
+    init(peripheral: BluetoothPeripheral, serviceId: CBUUID, service: GATTService?) {
         self.peripheral = peripheral
         self.serviceId = serviceId
         self.service = service
     }
 
-
-    @MainActor
     func visit<Value>(_ characteristic: Characteristic<Value>) {
         characteristic.inject(peripheral: peripheral, serviceId: serviceId, service: service)
     }
@@ -47,9 +45,10 @@ private struct SetupDeviceVisitor: DeviceVisitor {
 
 
     func visit<S: BluetoothService>(_ service: Service<S>) {
-        let cbService = peripheral.services?.first(where: { $0.uuid == service.id })
+        let blService = peripheral.assumeIsolated { $0.getService(id: service.id) }
+        service.inject(peripheral: peripheral, service: blService)
 
-        var visitor = SetupServiceVisitor(peripheral: peripheral, serviceId: service.id, service: cbService)
+        var visitor = SetupServiceVisitor(peripheral: peripheral, serviceId: service.id, service: blService)
         service.wrappedValue.accept(&visitor)
     }
 
@@ -65,6 +64,7 @@ private struct SetupDeviceVisitor: DeviceVisitor {
 
 extension BluetoothDevice {
     func inject(peripheral: BluetoothPeripheral) {
+        peripheral.bluetoothQueue.assertIsolated("SetupDeviceVisitor must be called within the Bluetooth SerialExecutor!")
         var visitor = SetupDeviceVisitor(peripheral: peripheral)
         accept(&visitor)
     }

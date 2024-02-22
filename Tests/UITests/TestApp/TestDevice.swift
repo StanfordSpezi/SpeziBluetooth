@@ -1,24 +1,15 @@
 //
 // This source file is part of the Stanford Spezi open-source project
 //
-// SPDX-FileCopyrightText: 2022 Stanford University and the project authors (see CONTRIBUTORS.md)
+// SPDX-FileCopyrightText: 2024 Stanford University and the project authors (see CONTRIBUTORS.md)
 //
 // SPDX-License-Identifier: MIT
 //
 
+@_spi(TestingSupport)
+import BluetoothServices
 import Foundation
 import SpeziBluetooth
-
-
-protocol SomePeripheral {
-    var id: UUID { get }
-    var name: String? { get }
-    var state: PeripheralState { get }
-    var rssi: Int { get }
-
-    func connect() async
-    func disconnect() async
-}
 
 
 class TestDevice: BluetoothDevice, Identifiable, SomePeripheral {
@@ -35,6 +26,9 @@ class TestDevice: BluetoothDevice, Identifiable, SomePeripheral {
     var connect
     @DeviceAction(\.disconnect)
     var disconnect
+
+    @Service var deviceInformation = DeviceInformationService()
+    @Service var testService = TestService()
 
     required init() {}
 

@@ -15,7 +15,7 @@
 /// Below is a short code example that demonstrates the usage of the `DeviceAction` property wrapper to
 /// execute the connect and disconnect actions of a device.
 ///
-/// - Note: The `@DeviceAction` property wrapper can only be accessed after the initializer returned. Accessing within the initializer will result in a runtime crash.
+/// - Important: The `@DeviceAction` property wrapper can only be accessed after the initializer returned. Accessing within the initializer will result in a runtime crash.
 ///
 /// ```swift
 /// class ExampleDevice: BluetoothDevice {
@@ -39,24 +39,35 @@
 ///
 /// ## Topics
 ///
+/// ### Declaring a device action
+/// - ``init(_:)``
+///
 /// ### Available Device Actions
 /// - ``DeviceActions/connect``
 /// - ``DeviceActions/disconnect``
 /// - ``DeviceActions/readRSSI``
 ///
-/// ### Declaring a device action
-/// - ``init(_:)``
-///
 /// ### Property wrapper access
 /// - ``wrappedValue``
+/// - ``projectedValue``
+/// - ``DeviceActionAccessor``
 ///
 /// ### Device Actions
 /// - ``DeviceActions``
 @propertyWrapper
-public class DeviceAction<Action: _BluetoothPeripheralAction> {
+public final class DeviceAction<Action: _BluetoothPeripheralAction>: @unchecked Sendable {
+    private var peripheral: BluetoothPeripheral?
+    /// Support injection of closures for testing support.
+    private let _injectedClosure = Box<Action.ClosureType?>(nil)
+
+
     /// Access the device action.
     public var wrappedValue: Action {
         guard let peripheral else {
+            if let injectedClosure = _injectedClosure.value {
+                return Action(.injected(injectedClosure))
+            }
+
             preconditionFailure(
                 """
                 Failed to access bluetooth device action. Make sure your @DeviceAction is only declared within your bluetooth device class \
@@ -64,10 +75,13 @@ public class DeviceAction<Action: _BluetoothPeripheralAction> {
                 """
             )
         }
-        return Action(from: peripheral)
+        return Action(.peripheral(peripheral))
     }
 
-    private var peripheral: BluetoothPeripheral?
+    /// Retrieve a temporary accessors instance.
+    public var projectedValue: DeviceActionAccessor<Action.ClosureType> {
+        DeviceActionAccessor(_injectedClosure)
+    }
 
 
     /// Provide a `KeyPath` to the device action you want to access.

@@ -39,7 +39,8 @@ extension PeripheralState: CustomStringConvertible, Sendable {
 
 
 extension PeripheralState {
-    init(from state: CBPeripheralState) {
+    /// Derive peripheral state from CoreBluetooth
+    public init(from state: CBPeripheralState) {
         switch state {
         case .disconnected:
             self = .disconnected

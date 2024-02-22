@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
+import OrderedCollections
 import OSLog
 import Spezi
 
@@ -29,6 +30,8 @@ import Spezi
 ///
 /// ```swift
 /// class DeviceInformationService: BluetoothService {
+///    static let id = CBUUID(string: "180A")
+///
 ///     @Characteristic(id: "2A29")
 ///     var manufacturer: String?
 ///     @Characteristic(id: "2A26")
@@ -50,8 +53,7 @@ import Spezi
 ///     @DeviceState(\.state)
 ///     var state: PeripheralState
 ///
-///     @Service(id: "180A")
-///     var deviceInformation = DeviceInformationService()
+///     @Service var deviceInformation = DeviceInformationService()
 ///
 ///     @DeviceAction(\.connect)
 ///     var connect
@@ -75,7 +77,7 @@ import Spezi
 ///         Configuration {
 ///             Bluetooth {
 ///                 // Define which devices type to discover by what criteria .
-///                 // In this case we search for some custom FFF0 characteristic that is advertised.
+///                 // In this case we search for some custom FFF0 service that is advertised.
 ///                 Discover(MyDevice.self, by: .advertisedService("FFF0"))
 ///             }
 ///         }
@@ -153,12 +155,21 @@ import Spezi
 /// - ``nearbyDevices(for:)``
 /// - ``scanNearbyDevices(autoConnect:)``
 /// - ``stopScanning()``
-@Observable
-public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
+public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, BluetoothActor {
+    @Observable
+    class Storage {
+        var nearbyDevices: OrderedDictionary<UUID, BluetoothDevice> = [:]
+    }
+
     static let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "Bluetooth")
+
+    /// The Bluetooth Executor from the underlying BluetoothManager.
+    let bluetoothQueue: DispatchSerialQueue
 
     private let bluetoothManager: BluetoothManager
     private let deviceConfigurations: Set<DiscoveryConfiguration>
+
+    private let _storage = Storage()
 
     private var logger: Logger {
         Self.logger
@@ -166,27 +177,35 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
 
 
     /// Represents the current state of Bluetooth.
-    public var state: BluetoothState {
+    nonisolated public var state: BluetoothState {
         bluetoothManager.state
     }
 
     /// Whether or not we are currently scanning for nearby devices.
-    public var isScanning: Bool {
+    nonisolated public var isScanning: Bool {
         bluetoothManager.isScanning
     }
 
+    /// Support for the auto connect modifier.
     @_documentation(visibility: internal)
-    public var hasConnectedDevices: Bool {
-        connectedDevicesModel.hasConnectedDevices
+    nonisolated public var hasConnectedDevices: Bool {
+        bluetoothManager.hasConnectedDevices
     }
 
 
-    @MainActor private var nearbyDevices: [UUID: BluetoothDevice] = [:]
+    private var nearbyDevices: OrderedDictionary<UUID, BluetoothDevice> {
+        get {
+            _storage.nearbyDevices
+        }
+        set {
+            _storage.nearbyDevices = newValue
+        }
+    }
 
     /// Stores the connected device instance for every configured ``BluetoothDevice`` type.
-    @Model @ObservationIgnored  private var connectedDevicesModel = ConnectedDevices()
+    @Model private var connectedDevicesModel = ConnectedDevices()
     /// Injects the ``BluetoothDevice`` instances from the `ConnectedDevices` model into the SwiftUI environment.
-    @Modifier @ObservationIgnored private var devicesInjector: ConnectedDevicesEnvironmentModifier
+    @Modifier private var devicesInjector: ConnectedDevicesEnvironmentModifier
 
 
     /// Configure the Bluetooth Module.
@@ -196,7 +215,7 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
     ///
     /// ```swift
     /// Bluetooth {
-    ///     Discover(ExampleDevice.self, by: .advertisedService("..."))
+    ///     Discover(ExampleDevice.self, by: .advertisedService(MyExampleService.self))
     /// }
     /// ```
     ///
@@ -208,30 +227,46 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
     public init(
         minimumRSSI: Int = BluetoothManager.Defaults.defaultMinimumRSSI,
         advertisementStaleInterval: TimeInterval = BluetoothManager.Defaults.defaultStaleTimeout,
-        @DiscoveryConfigurationBuilder _ devices: () -> Set<DiscoveryConfiguration>
+        @DiscoveryConfigurationBuilder _ devices: @Sendable () -> Set<DiscoveryConfiguration>
     ) {
         let configuration = devices()
         let deviceTypes = configuration.deviceTypes
 
-        self.bluetoothManager = BluetoothManager(
-            devices: configuration.parseDeviceDescription(),
+        let devices = ClosureRegistrar.$writeableView.withValue(.init()) {
+            // we provide a closure registrar just to silence any out-of-band usage warnings!
+            configuration.parseDeviceDescription()
+        }
+
+        let bluetoothManager = BluetoothManager(
+            devices: devices,
             minimumRSSI: minimumRSSI,
             advertisementStaleInterval: advertisementStaleInterval
         )
+
+        self.bluetoothQueue = bluetoothManager.bluetoothQueue
+        self.bluetoothManager = bluetoothManager
         self.deviceConfigurations = configuration
         self._devicesInjector = Modifier(wrappedValue: ConnectedDevicesEnvironmentModifier(configuredDeviceTypes: deviceTypes))
 
-        observeNearbyDevices() // register observation tracking
+        Task {
+            await self.observeDiscoveredDevices()
+        }
     }
 
-    private func observeNearbyDevices() {
-        withObservationTracking {
-            _ = bluetoothManager.discoveredPeripherals
-        } onChange: { [weak self] in
-            Task { @MainActor [weak self] in
-                self?.handleNearbyDevicesChange()
+    private func observeDiscoveredDevices() {
+        self.assertIsolated("This didn't move to the actor even if it should.")
+        bluetoothManager.assumeIsolated { manager in
+            manager.onChange(of: \.discoveredPeripherals) { [weak self] discoveredDevices in
+                guard let self = self else {
+                    return
+                }
+
+                self.assertIsolated("BluetoothManager peripherals change closure was unexpectedly not called on the Bluetooth SerialExecutor.")
+                self.assumeIsolated { bluetooth in
+                    bluetooth.observeDiscoveredDevices()
+                    bluetooth.handleUpdatedNearbyDevicesChange(discoveredDevices)
+                }
             }
-            self?.observeNearbyDevices()
         }
     }
 
@@ -239,46 +274,54 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
         // We must make sure that we don't capture the `peripheral` within the `onChange` closure as otherwise
         // this would require a reference cycle within the `BluetoothPeripheral` class.
         // Therefore, we have this indirection via the uuid here.
-        guard let peripheral = bluetoothManager.discoveredPeripherals[uuid] else {
+        guard let peripheral = bluetoothManager.assumeIsolated({ $0.discoveredPeripherals[uuid] }) else {
             return
         }
 
-        withObservationTracking {
-            _ = peripheral.state
-        } onChange: { [weak self] in
-            Task { @MainActor [weak self] in
-                self?.handlePeripheralStateChange()
-            }
+        peripheral.assumeIsolated { peripheral in
+            peripheral.onChange(of: \.state) { [weak self] _ in
+                guard let self = self else {
+                    return
+                }
 
-            self?.observePeripheralState(of: uuid)
+                self.assumeIsolated { bluetooth in
+                    bluetooth.observePeripheralState(of: uuid)
+                    bluetooth.handlePeripheralStateChange()
+                }
+            }
         }
     }
 
-    @MainActor
-    private func handleNearbyDevicesChange() {
-        let discoveredDevices = bluetoothManager.discoveredPeripherals
-
+    private func handleUpdatedNearbyDevicesChange(_ discoveredDevices: OrderedDictionary<UUID, BluetoothPeripheral>) {
         var checkForConnected = false
 
         // remove all delete keys
         for key in nearbyDevices.keys where discoveredDevices[key] == nil {
             checkForConnected = true
-            nearbyDevices.removeValue(forKey: key)
+            let device = nearbyDevices.removeValue(forKey: key)
+            device?.clearState(isolatedTo: self)
         }
 
         // add devices for new keys
         for (uuid, peripheral) in discoveredDevices where nearbyDevices[uuid] == nil {
-            guard let configuration = deviceConfigurations.find(for: peripheral.advertisementData, logger: logger) else {
+            let advertisementData = peripheral.advertisementData
+            guard let configuration = deviceConfigurations.find(for: advertisementData, logger: logger) else {
                 logger.warning("Ignoring peripheral \(peripheral.debugDescription) that cannot be mapped to a device class.")
                 continue
             }
 
-            let device = configuration.anyDeviceType.init()
-            device.inject(peripheral: peripheral)
-            nearbyDevices[uuid] = device
+
+            let closures = ClosureRegistrar()
+            let device = ClosureRegistrar.$writeableView.withValue(closures) {
+                configuration.anyDeviceType.init()
+            }
+            ClosureRegistrar.$readableView.withValue(closures) {
+                device.inject(peripheral: peripheral)
+                nearbyDevices[uuid] = device
+            }
 
             checkForConnected = true
-            observePeripheralState(of: uuid)
+            observePeripheralState(of: uuid) // register \.state onChange closure
         }
 
         if checkForConnected {
@@ -287,12 +330,11 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
         }
     }
 
-    @MainActor
     private func handlePeripheralStateChange() {
         // check for active connected device
-        let connectedDevices = bluetoothManager.discoveredPeripherals
+        let connectedDevices = bluetoothManager.assumeIsolated { $0.discoveredPeripherals }
             .filter { _, value in
-                value.state == .connected
+                value.assumeIsolated { $0.state } == .connected
             }
             .compactMap { key, _ in
                 (key, nearbyDevices[key]) // map them to their devices class
@@ -301,7 +343,10 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
                 result[tuple.0] = tuple.1
             }
 
-        self.connectedDevicesModel.update(with: connectedDevices)
+        let connectedDevicesModel = connectedDevicesModel
+        Task { @MainActor in
+            connectedDevicesModel.update(with: connectedDevices)
+        }
     }
 
     /// Retrieve nearby devices.
@@ -310,9 +355,8 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
     /// return nearby devices that are of the provided ``BluetoothDevice`` type.
     /// - Parameter device: The device type to filter for.
     /// - Returns: A list of nearby devices of a given ``BluetoothDevice`` type.
-    @MainActor
-    public func nearbyDevices<Device: BluetoothDevice>(for device: Device.Type = Device.self) -> [Device] {
-        nearbyDevices.values.compactMap { device in
+    public nonisolated func nearbyDevices<Device: BluetoothDevice>(for device: Device.Type = Device.self) -> [Device] {
+        _storage.nearbyDevices.values.compactMap { device in
             device as? Device
         }
     }
@@ -330,12 +374,25 @@ public class Bluetooth: Module, EnvironmentAccessible, BluetoothScanner {
     ///
     /// - Parameter autoConnect: If enabled, the bluetooth manager will automatically connect to
     ///     the nearby device if only one is found for a given time threshold.
-    public func scanNearbyDevices(autoConnect: Bool = false) async {
-        await bluetoothManager.scanNearbyDevices(autoConnect: autoConnect)
+    public func scanNearbyDevices(autoConnect: Bool = false) {
+        bluetoothManager.assumeIsolated { manager in
+            manager.scanNearbyDevices(autoConnect: autoConnect)
+        }
+    }
+
+    /// If scanning, toggle the auto-connect feature.
+    /// - Parameter autoConnect: Flag to turn on or off auto-connect
+    @_documentation(visibility: internal)
+    public func setAutoConnect(_ autoConnect: Bool) {
+        bluetoothManager.assumeIsolated { manager in
+            manager.setAutoConnect(autoConnect)
+        }
     }
 
     /// Stop scanning for nearby bluetooth devices.
-    public func stopScanning() async {
-        await bluetoothManager.stopScanning()
+    public func stopScanning() {
+        bluetoothManager.assumeIsolated { manager in
+            manager.stopScanning()
+        }
     }
 }

@@ -15,6 +15,12 @@ private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifie
     private let scanner: Scanner
     private let autoConnect: Bool
 
+    @Environment(\.scenePhase)
+    private var scenePhase
+    @Environment(\.surroundingScanModifiers)
+    private var surroundingModifiers
+
+    @State private var modifierId = UUID()
 
     init(enabled: Bool, scanner: Scanner, autoConnect: Bool) {
         self.enabled = enabled
@@ -22,22 +28,36 @@ private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifie
         self.autoConnect = autoConnect
     }
 
-
     func body(content: Content) -> some View {
         content
             .onAppear(perform: onForeground)
             .onDisappear(perform: onBackground)
-            .onReceive(NotificationCenter.default.publisher(for: UIScene.willEnterForegroundNotification)) { _ in
-                onForeground() // onAppear is coupled with view rendering only and won't get fired when putting app into the foreground
+            .onChange(of: scenePhase) { previous, _ in
+                if scenePhase == .background {
+                    onBackground() // app switched into the background
+                } else if previous == .background {
+                    onForeground() // app got out of the background again
+                }
+                // we don't care about active <-> inactive transition (e.g., happens when pulling down notification center)
             }
-            .onReceive(NotificationCenter.default.publisher(for: UIScene.didEnterBackgroundNotification)) { _ in
-                onBackground() // onDisappear is coupled with view rendering only and won't get fired when putting app into the background
+            .onChange(of: enabled, initial: false) {
+                if enabled {
+                    onForeground()
+                } else {
+                    onBackground()
+                }
+            }
+            .onChange(of: autoConnect, initial: false) {
+                Task {
+                    await scanner.setAutoConnect(autoConnect)
+                }
             }
     }
 
     @MainActor
     private func onForeground() {
         if enabled {
+            surroundingModifiers.setModifierScanningState(enabled: true, with: scanner, modifierId: modifierId)
             Task {
                 await scanner.scanNearbyDevices(autoConnect: autoConnect)
             }
@@ -46,6 +66,12 @@ private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifie
 
     @MainActor
     private func onBackground() {
+        surroundingModifiers.setModifierScanningState(enabled: false, with: scanner, modifierId: modifierId)
+
+        if surroundingModifiers.hasPersistentInterest(for: scanner) {
+            return // don't stop scanning if a surrounding modifier is expecting a scan to continue
+        }
+
         Task {
             await scanner.stopScanning()
         }

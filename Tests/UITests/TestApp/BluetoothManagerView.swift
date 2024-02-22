@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
+import BluetoothViews
 import SpeziBluetooth
 import SwiftUI
 
@@ -15,22 +16,20 @@ struct BluetoothManagerView: View {
 
     var body: some View {
         List {
-            BluetoothStateSection(scanner: bluetooth)
+            BluetoothStateSection(state: bluetooth.state, isScanning: bluetooth.isScanning)
 
-            if bluetooth.nearbyPeripheralsView.isEmpty {
-                SearchingNearbyDevicesView()
-            } else {
-                Section {
-                    ForEach(bluetooth.nearbyPeripheralsView) { peripheral in
-                        DeviceRowView(peripheral: peripheral)
-                    }
-                } header: {
-                    DevicesHeader(loading: bluetooth.isScanning)
+            Section {
+                ForEach(bluetooth.nearbyPeripherals) { peripheral in
+                    DeviceRowView(peripheral: peripheral)
                 }
+            } header: {
+                LoadingSectionHeaderView(verbatim: "Devices", loading: bluetooth.isScanning)
+            } footer: {
+                Text(verbatim: "This is a list of nearby Bluetooth peripherals.")
             }
         }
-                .scanNearbyDevices(with: bluetooth)
-                .navigationTitle("Nearby Devices")
+            .scanNearbyDevices(with: bluetooth)
+            .navigationTitle("Nearby Devices")
     }
 }
 

@@ -9,8 +9,8 @@
 
 @propertyWrapper
 class Lazy<Value> {
-    private let initializer: () -> Value
-    private let onCleanup: () -> Void
+    private var initializer: (() -> Value)?
+    private var onCleanup: (() -> Void)?
 
     private var storedValue: Value?
 
@@ -20,6 +20,10 @@ class Lazy<Value> {
             return storedValue
         }
 
+        guard let initializer else {
+            preconditionFailure("Forgot to initialize \(Self.self) lazy property!")
+        }
+
         let value = initializer()
         storedValue = value
         return value
@@ -27,14 +31,15 @@ class Lazy<Value> {
 
 
     /// Support lazy initialization of lazy property.
-    convenience init() {
-        self.init {
-            preconditionFailure("Forgot to initialize \(Self.self) lazy property!")
-        }
-    }
+    init() {}
 
 
     init(initializer: @escaping () -> Value, onCleanup: @escaping () -> Void = {}) {
+        self.initializer = initializer
+        self.onCleanup = onCleanup
+    }
+
+    func supply(initializer: @escaping () -> Value, onCleanup: @escaping () -> Void = {}) {
         self.initializer = initializer
         self.onCleanup = onCleanup
     }
@@ -43,7 +48,7 @@ class Lazy<Value> {
     func destroy() {
         let wasStored = storedValue != nil
         storedValue = nil
-        if wasStored {
+        if wasStored, let onCleanup {
             onCleanup()
         }
     }

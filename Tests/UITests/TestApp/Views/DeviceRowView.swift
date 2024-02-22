@@ -6,8 +6,20 @@
 // SPDX-License-Identifier: MIT
 //
 
+@_spi(TestingSupport)
 import SpeziBluetooth
 import SwiftUI
+
+
+protocol SomePeripheral {
+    var id: UUID { get }
+    var name: String? { get }
+    var state: PeripheralState { get }
+    var rssi: Int { get }
+
+    func connect() async
+    func disconnect() async
+}
 
 
 struct DeviceRowView<Peripheral: SomePeripheral>: View {
@@ -18,20 +30,20 @@ struct DeviceRowView<Peripheral: SomePeripheral>: View {
             VStack {
                 HStack {
                     if let name = peripheral.name {
-                        Text("\(name)")
+                        Text(verbatim: "\(name)")
                     } else {
-                        Text("unknown")
+                        Text(verbatim: "unknown")
                             .italic()
                     }
                     Spacer()
-                    Text("\(peripheral.rssi) dB")
+                    Text(verbatim: "\(peripheral.rssi) dB")
                         .foregroundColor(.secondary)
                 }
                     .foregroundColor(.primary)
                 HStack {
                     Text(peripheral.id.uuidString)
                     Spacer()
-                    Text("\(peripheral.state.description)")
+                    Text(peripheral.state.description)
                 }
                     .font(.caption2)
                     .foregroundColor(.secondary)
@@ -55,5 +67,18 @@ struct DeviceRowView<Peripheral: SomePeripheral>: View {
                 await self.peripheral.disconnect()
             }
         }
+    }
+}
+
+
+#Preview {
+    let testDevice = TestDevice()
+    testDevice.$id.inject(UUID())
+    testDevice.$name.inject("Test Device")
+    testDevice.$rssi.inject(-46)
+    testDevice.$state.inject(.connected)
+
+    return List {
+        DeviceRowView(peripheral: testDevice)
     }
 }

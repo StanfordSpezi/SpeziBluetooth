@@ -7,7 +7,8 @@
 //
 
 import NIO
-@testable @_spi(TestingSupport) import SpeziBluetooth // swiftlint:disable:this attributes
+@_spi(TestingSupport)
+@testable import SpeziBluetooth
 import XCTBluetooth
 import XCTest
 
@@ -17,6 +18,9 @@ final class ByteCodableTests: XCTestCase {
         let data = try XCTUnwrap(Data(hex: "0xAABBCCDDEE"))
 
         try testIdentity(of: Data.self, from: data)
+
+        let data0 = Data(data: data)
+        XCTAssertEqual(data0, data)
     }
 
     func testBoolean() throws {
@@ -79,5 +83,17 @@ final class ByteCodableTests: XCTestCase {
     func testUInt64() throws {
         try testIdentity(from: UInt64.max)
         try testIdentity(from: UInt64.min)
+    }
+
+    func testFloat32() throws {
+        try testIdentity(from: Float32.pi)
+        try testIdentity(from: Float32.infinity)
+        try testIdentity(from: Float32(17.2783912))
+    }
+
+    func testFloat64() throws {
+        try testIdentity(from: Float64.pi)
+        try testIdentity(from: Float64.infinity)
+        try testIdentity(from: Float64(23712.2123123))
     }
 }

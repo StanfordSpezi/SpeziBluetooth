@@ -7,24 +7,28 @@
 //
 
 import Spezi
-import SpeziBluetooth
 import SwiftUI
 
+struct NearbyDevices: View {
+    var body: some View {
+        BluetoothManagerView() // we use this indirection to trigger BluetoothManager deinit!
+    }
+}
 
 @main
 struct UITestsApp: App {
     @UIApplicationDelegateAdaptor(TestAppDelegate.self)
     var appDelegate
     
-    
+
     var body: some Scene {
         WindowGroup {
             NavigationStack {
                 List {
                     NavigationLink("Nearby Devices") {
-                        BluetoothManagerView()
+                        NearbyDevices()
                     }
-                    NavigationLink("Auto Connect Device") {
+                    NavigationLink("Test Peripheral") {
                         BluetoothModuleView()
                     }
                 }

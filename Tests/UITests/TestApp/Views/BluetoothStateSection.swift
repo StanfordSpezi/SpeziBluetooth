@@ -10,30 +10,35 @@ import SpeziBluetooth
 import SwiftUI
 
 
-struct BluetoothStateSection<Scanner: BluetoothScanner>: View {
-    private let scanner: BluetoothScanner
+struct BluetoothStateSection: View {
+    private let state: BluetoothState
+    private let isScanning: Bool
+
 
     var body: some View {
-        Section("State") {
+        Section {
             HStack {
-                Text("Scanning")
+                Text(verbatim: "Scanning")
                 Spacer()
-                Text(scanner.isScanning ? "Yes" : "No")
+                Text(verbatim: isScanning ? "Yes" : "No")
                     .foregroundColor(.secondary)
             }
                 .accessibilityElement(children: .combine)
             HStack {
-                Text("State")
+                Text(verbatim: "State")
                 Spacer()
-                Text(scanner.state.description)
+                Text(state.description)
                     .foregroundColor(.secondary)
             }
                 .accessibilityElement(children: .combine)
+        } header: {
+            Text(verbatim: "State")
         }
     }
 
 
-    init(scanner: Scanner) {
-        self.scanner = scanner
+    init(state: BluetoothState, isScanning: Bool) {
+        self.state = state
+        self.isScanning = isScanning
     }
 }

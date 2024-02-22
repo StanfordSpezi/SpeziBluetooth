@@ -105,8 +105,7 @@ class MyDevice: BluetoothDevice {
     @DeviceState(\.state)
     var state: PeripheralState
 
-    @Service(id: "180A")
-    var deviceInformation = DeviceInformationService()
+    @Service var deviceInformation = DeviceInformationService()
 
     @DeviceAction(\.connect)
     var connect
@@ -130,7 +129,7 @@ class ExampleDelegate: SpeziAppDelegate {
         Configuration {
             Bluetooth {
                 // Define which devices type to discover by what criteria .
-                // In this case we search for some custom FFF0 characteristic that is advertised.
+                // In this case we search for some custom FFF0 service that is advertised.
                 Discover(MyDevice.self, by: .advertisedService("FFF0"))
             }
         }

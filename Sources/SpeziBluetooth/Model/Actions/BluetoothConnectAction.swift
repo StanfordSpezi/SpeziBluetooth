@@ -11,15 +11,22 @@
 ///
 /// For more information refer to ``DeviceActions/connect``
 public struct BluetoothConnectAction: _BluetoothPeripheralAction {
-    private let peripheral: BluetoothPeripheral
+    public typealias ClosureType = () async -> Void
+
+    private let content: _PeripheralActionContent<ClosureType>
 
     @_documentation(visibility: internal)
-    public init(from peripheral: BluetoothPeripheral) {
-        self.peripheral = peripheral
+    public init(_ content: _PeripheralActionContent<ClosureType>) {
+        self.content = content
     }
 
 
     public func callAsFunction() async {
-        await peripheral.connect()
+        switch content {
+        case let .peripheral(peripheral):
+            await peripheral.connect()
+        case let .injected(closure):
+            await closure()
+        }
     }
 }

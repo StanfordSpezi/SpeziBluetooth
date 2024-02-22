@@ -6,6 +6,8 @@
 // SPDX-License-Identifier: MIT
 //
 
+@_spi(TestingSupport)
+import BluetoothServices
 import Spezi
 import SpeziBluetooth
 import SwiftUI
@@ -15,7 +17,7 @@ class TestAppDelegate: SpeziAppDelegate {
     override var configuration: Configuration {
         Configuration {
             Bluetooth {
-                Discover(TestDevice.self, by: .advertisedService("FFF0"))
+                Discover(TestDevice.self, by: .advertisedService(TestService.self))
             }
         }
     }
