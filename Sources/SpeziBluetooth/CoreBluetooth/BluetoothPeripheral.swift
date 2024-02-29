@@ -9,6 +9,7 @@
 import CoreBluetooth
 import Foundation
 import OSLog
+import SpeziFoundation
 
 
 enum CharacteristicOnChangeHandler {
