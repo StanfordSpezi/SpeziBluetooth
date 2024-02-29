@@ -6,9 +6,9 @@
 // SPDX-License-Identifier: MIT
 //
 
+import ByteCoding
 import Foundation
 import NIO
-import ByteCoding
 
 
 /// A temperature measurement.

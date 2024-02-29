@@ -6,8 +6,8 @@
 // SPDX-License-Identifier: MIT
 //
 
-import NIO
 import ByteCoding
+import NIO
 
 
 /// Bluetooth Vendor ID Source.

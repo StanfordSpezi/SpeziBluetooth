@@ -6,8 +6,8 @@
 // SPDX-License-Identifier: MIT
 //
 
-import NIO
 import ByteCoding
+import NIO
 
 
 /// Represents the time between measurements.
