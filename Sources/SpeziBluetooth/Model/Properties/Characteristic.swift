@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
+import ByteCoding
 import CoreBluetooth
 import Foundation
 

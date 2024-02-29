@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
+import ByteCoding
 import CoreBluetooth
 
 
@@ -206,7 +207,7 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
 extension CharacteristicPeripheralInjection: DecodableCharacteristic where Value: ByteDecodable {
     func handleUpdateValueAssumingIsolation(_ data: Data?) {
         if let data {
-            guard let value = Value(data: data) else {
+            guard let value = Value(data: data, preferredEndianness: .little) else {
                 Bluetooth.logger.error("Could decode updated value for characteristic \(self.characteristic?.debugDescription ?? self.characteristicId.uuidString). Invalid format!")
                 return
             }
@@ -232,7 +233,7 @@ extension CharacteristicPeripheralInjection where Value: ByteDecodable {
         }
 
         let data = try await peripheral.read(characteristic: characteristic)
-        guard let value = Value(data: data) else {
+        guard let value = Value(data: data, preferredEndianness: .little) else {
             throw BluetoothError.incompatibleDataFormat
         }
 
@@ -247,7 +248,7 @@ extension CharacteristicPeripheralInjection where Value: ByteEncodable {
             throw BluetoothError.notPresent(service: serviceId, characteristic: characteristicId)
         }
 
-        let requestData = value.encode()
+        let requestData = value.encode(preferredEndianness: .little)
         try await peripheral.write(data: requestData, for: characteristic)
         self.value = value
     }
@@ -257,7 +258,7 @@ extension CharacteristicPeripheralInjection where Value: ByteEncodable {
             throw BluetoothError.notPresent(service: serviceId, characteristic: characteristicId)
         }
 
-        let data = value.encode()
+        let data = value.encode(preferredEndianness: .little)
         await peripheral.writeWithoutResponse(data: data, for: characteristic)
         self.value = value
     }

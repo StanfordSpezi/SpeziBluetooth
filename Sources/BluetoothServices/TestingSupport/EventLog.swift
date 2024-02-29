@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
+import ByteCoding
 @preconcurrency import CoreBluetooth
 import NIO
 @_spi(TestingSupport)
@@ -78,8 +79,8 @@ extension EventLog: ByteCodable {
         }
     }
 
-    public init?(from byteBuffer: inout ByteBuffer) {
-        guard let rawValue = UInt8(from: &byteBuffer),
+    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
+        guard let rawValue = UInt8(from: &byteBuffer, preferredEndianness: endianness),
               let type = EventType(rawValue: rawValue) else {
             return nil
         }
@@ -114,19 +115,19 @@ extension EventLog: ByteCodable {
         }
     }
 
-    public func encode(to byteBuffer: inout ByteBuffer) {
-        type.rawValue.encode(to: &byteBuffer)
+    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
+        type.rawValue.encode(to: &byteBuffer, preferredEndianness: endianness)
         switch self {
         case .none:
             break
         case let .subscribedToNotification(characteristic):
-            characteristic.data.encode(to: &byteBuffer)
+            characteristic.data.encode(to: &byteBuffer, preferredEndianness: endianness)
         case let .unsubscribedToNotification(characteristic):
-            characteristic.data.encode(to: &byteBuffer)
+            characteristic.data.encode(to: &byteBuffer, preferredEndianness: endianness)
         case let .receivedRead(characteristic):
-            characteristic.data.encode(to: &byteBuffer)
+            characteristic.data.encode(to: &byteBuffer, preferredEndianness: endianness)
         case let .receivedWrite(characteristic, value):
-            characteristic.data.encode(to: &byteBuffer)
+            characteristic.data.encode(to: &byteBuffer, preferredEndianness: endianness)
             byteBuffer.writeData(value)
         }
     }

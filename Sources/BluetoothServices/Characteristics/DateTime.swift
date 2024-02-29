@@ -7,7 +7,7 @@
 //
 
 import NIO
-import SpeziBluetooth
+import ByteCoding
 
 
 /// Date Time characteristic to represent date and time.
@@ -99,40 +99,40 @@ extension DateTime: Equatable {}
 
 
 extension DateTime.Month: ByteCodable {
-    public init?(from byteBuffer: inout ByteBuffer) {
-        guard let value = UInt8(from: &byteBuffer) else {
+    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
+        guard let value = UInt8(from: &byteBuffer, preferredEndianness: endianness) else {
             return nil
         }
 
         self.init(rawValue: value)
     }
 
-    public func encode(to byteBuffer: inout ByteBuffer) {
-        rawValue.encode(to: &byteBuffer)
+    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
+        rawValue.encode(to: &byteBuffer, preferredEndianness: endianness)
     }
 }
 
 
 extension DateTime: ByteCodable {
-    public init?(from byteBuffer: inout ByteBuffer) {
-        guard let year = UInt16(from: &byteBuffer),
-              let month = Month(from: &byteBuffer),
-              let day = UInt8(from: &byteBuffer),
-              let hours = UInt8(from: &byteBuffer),
-              let minutes = UInt8(from: &byteBuffer),
-              let seconds = UInt8(from: &byteBuffer) else {
+    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
+        guard let year = UInt16(from: &byteBuffer, preferredEndianness: endianness),
+              let month = Month(from: &byteBuffer, preferredEndianness: endianness),
+              let day = UInt8(from: &byteBuffer, preferredEndianness: endianness),
+              let hours = UInt8(from: &byteBuffer, preferredEndianness: endianness),
+              let minutes = UInt8(from: &byteBuffer, preferredEndianness: endianness),
+              let seconds = UInt8(from: &byteBuffer, preferredEndianness: endianness) else {
             return nil
         }
 
         self.init(year: year, month: month, day: day, hours: hours, minutes: minutes, seconds: seconds)
     }
 
-    public func encode(to byteBuffer: inout ByteBuffer) {
-        year.encode(to: &byteBuffer)
-        month.encode(to: &byteBuffer)
-        day.encode(to: &byteBuffer)
-        hours.encode(to: &byteBuffer)
-        minutes.encode(to: &byteBuffer)
-        seconds.encode(to: &byteBuffer)
+    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
+        year.encode(to: &byteBuffer, preferredEndianness: endianness)
+        month.encode(to: &byteBuffer, preferredEndianness: endianness)
+        day.encode(to: &byteBuffer, preferredEndianness: endianness)
+        hours.encode(to: &byteBuffer, preferredEndianness: endianness)
+        minutes.encode(to: &byteBuffer, preferredEndianness: endianness)
+        seconds.encode(to: &byteBuffer, preferredEndianness: endianness)
     }
 }

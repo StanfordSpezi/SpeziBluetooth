@@ -221,12 +221,6 @@ due to their async nature.
 - ``DeviceState``
 - ``DeviceAction``
 
-### Coding
-
-- ``ByteCodable``
-- ``ByteEncodable``
-- ``ByteDecodable``
-
 ### Core Bluetooth 
 
 - ``BluetoothManager``
