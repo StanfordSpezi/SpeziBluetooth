@@ -26,8 +26,7 @@ let package = Package(
         .library(name: "XCTBluetooth", targets: ["XCTBluetooth"])
     ],
     dependencies: [
-        // .package(url: "https://github.com/StanfordSpezi/SpeziFoundation", from: "1.0.0"),
-        .package(url: "https://github.com/StanfordSpezi/SpeziFoundation", branch: "feat/async-semaphore"),
+        .package(url: "https://github.com/StanfordSpezi/SpeziFoundation", from: "1.0.4"),
         .package(url: "https://github.com/StanfordSpezi/Spezi", from: "1.2.0"),
         .package(url: "https://github.com/StanfordSpezi/SpeziViews", from: "1.3.0"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.59.0"),
