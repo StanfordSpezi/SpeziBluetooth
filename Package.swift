@@ -39,13 +39,8 @@ let package = Package(
                 .product(name: "Spezi", package: "Spezi"),
                 .product(name: "NIO", package: "swift-nio"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
-<<<<<<< HEAD
-                // We have an issue in Xcode projects when importing XCTBluetooth in a test target that it fails
-                // to link with SpeziFoundation.
-                .product(name: "SpeziFoundation", package: "SpeziFoundation")
-=======
+                .product(name: "SpeziFoundation", package: "SpeziFoundation"),
                 .product(name: "ByteCoding", package: "SpeziFileFormats")
->>>>>>> 0b2cbbb (Move ByteCodable to SpeziFileFormats package)
             ],
             resources: [
                 .process("Resources")
