@@ -12,6 +12,9 @@ authors:
 - family-names: "Schmiedmayer"
   given-names: "Paul"
   orcid: "https://orcid.org/0000-0002-8607-9148"
+- family-names: "Bauer"
+  given-names: "Andreas"
+  orcid: "https://orcid.org/0000-0002-1680-237X"
 title: "SpeziBluetooth"
 doi: 10.5281/zenodo.10020080
 url: "https://github.com/StanfordSpezi/SpeziBluetooth"

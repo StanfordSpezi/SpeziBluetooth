@@ -27,7 +27,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/StanfordSpezi/SpeziFoundation", from: "1.0.4"),
         .package(url: "https://github.com/StanfordSpezi/Spezi", from: "1.2.0"),
-        .package(url: "https://github.com/StanfordSpezi/SpeziFileFormats", from: "1.0.0"),
+        .package(url: "https://github.com/StanfordSpezi/SpeziFileFormats", branch: "feature/edf-file"),
         .package(url: "https://github.com/StanfordSpezi/SpeziViews", from: "1.3.0"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.59.0"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.0.4")
