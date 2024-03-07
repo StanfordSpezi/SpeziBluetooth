@@ -69,7 +69,10 @@ The below code examples demonstrate how you can implement your own Bluetooth dev
 
 First of all we define our Bluetooth service by implementing a ``BluetoothService``.
 We use the ``Characteristic`` property wrapper to declare its characteristics.
-Note that the value types needs to be optional and conform to ``ByteEncodable``, ``ByteDecodable`` or ``ByteCodable`` respectively.
+Note that the value types needs to be optional and conform to
+[`ByteEncodable`](https://swiftpackageindex.com/stanfordspezi/spezifileformats/documentation/bytecoding/byteencodable),
+[`ByteDecodable`](https://swiftpackageindex.com/stanfordspezi/spezifileformats/1.0.0/documentation/bytecoding/bytedecodable) or
+[`ByteCodable`](https://swiftpackageindex.com/stanfordspezi/spezifileformats/documentation/bytecoding/bytecodable) respectively.
 
 ```swift
 class DeviceInformationService: BluetoothService {

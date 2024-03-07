@@ -14,7 +14,10 @@ import Foundation
 /// Declare a characteristic within a Bluetooth service.
 ///
 /// This property wrapper can be used to declare a Bluetooth characteristic within a ``BluetoothService``.
-/// The value type of your property needs to be optional and conform to ``ByteEncodable``, ``ByteDecodable`` or ``ByteCodable`` respectively.
+/// The value type of your property needs to be optional and conform to
+/// [`ByteEncodable`](https://swiftpackageindex.com/stanfordspezi/spezifileformats/documentation/bytecoding/byteencodable),
+/// [`ByteDecodable`](https://swiftpackageindex.com/stanfordspezi/spezifileformats/1.0.0/documentation/bytecoding/bytedecodable) or
+/// [`ByteCodable`](https://swiftpackageindex.com/stanfordspezi/spezifileformats/documentation/bytecoding/bytecodable) respectively.
 ///
 /// If your device is connected, the characteristic value is automatically updated upon a characteristic read or a notify.
 ///
@@ -118,12 +121,12 @@ import Foundation
 /// ## Topics
 ///
 /// ### Declaring a Characteristic
-/// - ``init(wrappedValue:id:notify:discoverDescriptors:)-8r34a``
-/// - ``init(wrappedValue:id:notify:discoverDescriptors:)-bev4``
-/// - ``init(wrappedValue:id:discoverDescriptors:)-6xq7e``
-/// - ``init(wrappedValue:id:discoverDescriptors:)-2esyb``
-/// - ``init(wrappedValue:id:notify:discoverDescriptors:)-4tg93``
-/// - ``init(wrappedValue:id:notify:discoverDescriptors:)-9zex3``
+/// - ``init(wrappedValue:id:notify:discoverDescriptors:)-322p2``
+/// - ``init(wrappedValue:id:notify:discoverDescriptors:)-6jfpk``
+/// - ``init(wrappedValue:id:discoverDescriptors:)-1nome``
+/// - ``init(wrappedValue:id:discoverDescriptors:)-1gflb``
+/// - ``init(wrappedValue:id:notify:discoverDescriptors:)-6c95d``
+/// - ``init(wrappedValue:id:notify:discoverDescriptors:)-6296j``
 ///
 /// ### Inspecting a Characteristic
 /// - ``CharacteristicAccessor/isPresent``
