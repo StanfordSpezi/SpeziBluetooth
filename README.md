@@ -80,7 +80,10 @@ The below code examples demonstrate how you can implement your own Bluetooth dev
 
 First of all we define our Bluetooth service by implementing a [`BluetoothService`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetoothservice).
 We use the [`Characteristic`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/characteristic) property wrapper to declare its characteristics.
-Note that the value types needs to be optional and conform to [`ByteEncodable`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/byteencodable), [`ByteDecodable`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bytedecoable) or [`ByteCodable`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bytecodable) respectively.
+Note that the value types needs to be optional and conform to
+[`ByteEncodable`](https://swiftpackageindex.com/stanfordspezi/spezifileformats/documentation/bytecoding/byteencodable),
+[`ByteDecodable`](https://swiftpackageindex.com/stanfordspezi/spezifileformats/1.0.0/documentation/bytecoding/bytedecodable) or
+[`ByteCodable`](https://swiftpackageindex.com/stanfordspezi/spezifileformats/documentation/bytecoding/bytecodable) respectively.
 
 ```swift
 class DeviceInformationService: BluetoothService {
@@ -204,7 +207,7 @@ Contributions to this project are welcome. Please make sure to read the [contrib
 
 ## License
 
-This project is licensed under the MIT License. See [Licenses](https://github.com/StanfordSpezi/SpeziContact/tree/main/LICENSES) for more information.
+This project is licensed under the MIT License. See [Licenses](https://github.com/StanfordSpezi/SpeziBluetooth/tree/main/LICENSES) for more information.
 
 ![Spezi Footer](https://raw.githubusercontent.com/StanfordSpezi/.github/main/assets/FooterLight.png#gh-light-mode-only)
 ![Spezi Footer](https://raw.githubusercontent.com/StanfordSpezi/.github/main/assets/FooterDark.png#gh-dark-mode-only)

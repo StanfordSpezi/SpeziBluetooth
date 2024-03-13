@@ -6,8 +6,8 @@
 // SPDX-License-Identifier: MIT
 //
 
+import ByteCoding
 import NIO
-import SpeziBluetooth
 
 
 /// The location of a temperature measurement.
@@ -41,15 +41,15 @@ extension TemperatureType: Equatable {}
 
 
 extension TemperatureType: ByteCodable {
-    public init?(from byteBuffer: inout ByteBuffer) {
-        guard let value = UInt8(from: &byteBuffer) else {
+    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
+        guard let value = UInt8(from: &byteBuffer, preferredEndianness: endianness) else {
             return nil
         }
 
         self.init(rawValue: value)
     }
 
-    public func encode(to byteBuffer: inout ByteBuffer) {
-        rawValue.encode(to: &byteBuffer)
+    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
+        rawValue.encode(to: &byteBuffer, preferredEndianness: endianness)
     }
 }

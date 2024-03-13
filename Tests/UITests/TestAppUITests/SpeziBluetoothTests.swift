@@ -141,7 +141,7 @@ extension XCUIApplication {
                   || staticTexts["State, unknown"].waitForExistence(timeout: 1.0))
         throw XCTSkip("Bluetooth tests are not supported in simulator.")
 #else
-        XCTAssert(staticTexts["Scanning, Yes"].waitForExistence(timeout: 2.0))
+        XCTAssert(staticTexts["Scanning, Yes"].waitForExistence(timeout: 5.0))
         XCTAssert(staticTexts["State, poweredOn"].exists)
 #endif
     }

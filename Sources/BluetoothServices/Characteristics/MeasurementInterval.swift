@@ -6,8 +6,8 @@
 // SPDX-License-Identifier: MIT
 //
 
+import ByteCoding
 import NIO
-import SpeziBluetooth
 
 
 /// Represents the time between measurements.
@@ -46,15 +46,15 @@ extension MeasurementInterval: RawRepresentable {
 
 
 extension MeasurementInterval: ByteCodable {
-    public init?(from byteBuffer: inout ByteBuffer) {
-        guard let value = UInt16(from: &byteBuffer) else {
+    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
+        guard let value = UInt16(from: &byteBuffer, preferredEndianness: endianness) else {
             return nil
         }
 
         self.init(rawValue: value)
     }
 
-    public func encode(to byteBuffer: inout ByteBuffer) {
-        rawValue.encode(to: &byteBuffer)
+    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
+        rawValue.encode(to: &byteBuffer, preferredEndianness: endianness)
     }
 }

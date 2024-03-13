@@ -12,7 +12,7 @@ import CoreBluetooth
 import NIO
 @_spi(TestingSupport)
 @testable import SpeziBluetooth
-import XCTBluetooth
+import XCTByteCoding
 import XCTest
 
 

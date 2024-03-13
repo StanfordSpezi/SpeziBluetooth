@@ -8,6 +8,7 @@
 
 @_spi(TestingSupport)
 import BluetoothServices
+import ByteCoding
 import CoreBluetooth
 import OSLog
 import SpeziBluetooth

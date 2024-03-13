@@ -31,10 +31,10 @@ final class BluetoothManagerTests: XCTestCase {
         XCTAssert(app.navigationBars.staticTexts["Nearby Devices"].waitForExistence(timeout: 2.0))
         try app.assertMinimalSimulatorInformation()
 
-        sleep(15) // this goes through stale timer and everything!
+        sleep(10) // this goes through stale timer and everything!
 
         XCTAssert(app.navigationBars.buttons["Spezi Bluetooth"].exists)
         app.navigationBars.buttons["Spezi Bluetooth"].tap()
-        sleep(1)
+        sleep(3)
     }
 }

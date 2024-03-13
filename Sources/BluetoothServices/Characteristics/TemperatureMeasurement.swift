@@ -6,9 +6,9 @@
 // SPDX-License-Identifier: MIT
 //
 
+import ByteCoding
 import Foundation
 import NIO
-import SpeziBluetooth
 
 
 /// A temperature measurement.
@@ -70,8 +70,8 @@ extension TemperatureMeasurement: Equatable {}
 
 
 extension TemperatureMeasurement: ByteCodable {
-    public init?(from byteBuffer: inout ByteBuffer) {
-        guard let flags = UInt8(from: &byteBuffer),
+    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
+        guard let flags = UInt8(from: &byteBuffer, preferredEndianness: endianness),
               let medFloat32 = byteBuffer.readData(length: 4) else {
             return nil
         }
@@ -87,14 +87,14 @@ extension TemperatureMeasurement: ByteCodable {
         }
 
         if flags & FlagsField.isTimeStampPresent > 0 {
-            guard let dateTime = DateTime(from: &byteBuffer) else {
+            guard let dateTime = DateTime(from: &byteBuffer, preferredEndianness: endianness) else {
                 return nil
             }
             timeStamp = dateTime
         }
 
         if flags & FlagsField.isTemperatureTypePresent > 0 {
-            guard let type = TemperatureType(from: &byteBuffer) else {
+            guard let type = TemperatureType(from: &byteBuffer, preferredEndianness: endianness) else {
                 return nil
             }
             temperatureType = type
@@ -103,28 +103,28 @@ extension TemperatureMeasurement: ByteCodable {
         self.init(value: measurement, timeStamp: timeStamp, temperatureType: temperatureType)
     }
 
-    public func encode(to byteBuffer: inout ByteBuffer) {
+    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
         let flagsIndex = byteBuffer.writerIndex
         var flags: UInt8 = 0
 
-        flags.encode(to: &byteBuffer) // write for now
+        flags.encode(to: &byteBuffer, preferredEndianness: endianness) // write for now
 
         switch value {
         case let .fahrenheit(data):
             flags |= FlagsField.isFahrenheitTemperature
-            data.encode(to: &byteBuffer)
+            data.encode(to: &byteBuffer, preferredEndianness: endianness)
         case let .celsius(data):
-            data.encode(to: &byteBuffer)
+            data.encode(to: &byteBuffer, preferredEndianness: endianness)
         }
 
         if let timeStamp {
             flags |= FlagsField.isTimeStampPresent
-            timeStamp.encode(to: &byteBuffer)
+            timeStamp.encode(to: &byteBuffer, preferredEndianness: endianness)
         }
 
         if let temperatureType {
             flags |= FlagsField.isTemperatureTypePresent
-            temperatureType.encode(to: &byteBuffer)
+            temperatureType.encode(to: &byteBuffer, preferredEndianness: endianness)
         }
 
         byteBuffer.setInteger(flags, at: flagsIndex) // finally update the flags field
