@@ -66,7 +66,10 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     /// Observable state container for local state.
     private let storage: PeripheralStorage
 
-
+    /// Protecting concurrent access to an ongoing connect attempt.
+    private let connectAccess = AsyncSemaphore()
+    /// Continuation for a currently ongoing connect attempt.
+    private var connectContinuation: CheckedContinuation<Void, Error>?
     /// Ongoing accessed per characteristic.
     private var characteristicAccesses = CharacteristicAccesses()
     /// Protecting concurrent access to an ongoing write without response.
@@ -178,21 +181,29 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
         peripheral.delegate = delegate
     }
 
-    /// Establish a connection to the peripheral.
+    /// Establish a connection to the peripheral and wait until it is connected.
     ///
     /// Make a connection to the peripheral.
     ///
-    /// - Note: This method returns as soon as the request to connect was processed locally. It does
-    ///     not wait till the connection was completed successfully.
-    ///
     /// - Note: You might want to verify via the ``AdvertisementData/isConnectable`` property that the device is connectable.
-    public func connect() {
-        guard let manager else {
-            logger.warning("Tried to connect an orphaned bluetooth peripheral!")
-            return
-        }
+    public func connect() async throws {
+        try await connectAccess.waitCheckingCancellation()
 
-        manager.connect(peripheral: self)
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                assert(connectContinuation == nil, "connectContinuation was unexpectedly not nil")
+                connectContinuation = continuation
+                guard let manager = self.manager else {
+                    logger.warning("Tried to connect an orphaned bluetooth peripheral!")
+                    return
+                }
+                manager.connect(peripheral: self)
+            }
+        } onCancel: {
+            Task {
+                await disconnect()
+            }
+        }
     }
 
     /// Disconnect the ongoing connection to the peripheral.
@@ -243,14 +254,14 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
         }
         
         if let serviceIds, serviceIds.isEmpty {
-            storage.signalFullyDiscovered()
+            signalFullyDiscovered()
         } else {
             cbPeripheral.discoverServices(serviceIds.map { Array($0) })
         }
     }
 
     /// Handles a disconnect or failed connection attempt.
-    func handleDisconnect() {
+    func handleDisconnect(error: Error?) {
         // ensure that it is updated instantly.
         storage.update(state: PeripheralState(from: cbPeripheral.state))
 
@@ -262,17 +273,22 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
             self.invalidateServices(Set(services.map { $0.uuid }))
         }
 
+        connectAccess.cancelAll()
         characteristicAccesses.cancelAll()
         writeWithoutResponseAccess.cancelAll()
         rssiAccess.cancelAll()
 
+        if let connectContinuation {
+            self.connectContinuation = nil
+            connectContinuation.resume(throwing: error ?? CancellationError())
+        }
         if let writeWithoutResponseContinuation {
             self.writeWithoutResponseContinuation = nil
             writeWithoutResponseContinuation.resume()
         }
         if let rssiContinuation {
             self.rssiContinuation = nil
-            rssiContinuation.resume(throwing: CancellationError())
+            rssiContinuation.resume(throwing: error ?? CancellationError())
         }
     }
 
@@ -655,6 +671,12 @@ extension BluetoothPeripheral {
         }
     }
 
+    private func signalFullyDiscovered() {
+        storage.signalFullyDiscovered()
+        connectContinuation?.resume()
+        connectContinuation = nil
+    }
+
     private func receivedUpdatedValue(for characteristic: CBCharacteristic, result: Result<Data, Error>) {
         if let access = characteristicAccesses.retrieveAccess(for: characteristic),
            case let .read(continuation) = access.value {
@@ -854,7 +876,7 @@ extension BluetoothPeripheral {
                 }
 
                 if device.servicesAwaitingCharacteristicsDiscovery.isEmpty {
-                    device.storage.signalFullyDiscovered()
+                    device.signalFullyDiscovered()
                 }
             }
         }
@@ -872,7 +894,7 @@ extension BluetoothPeripheral {
                 // ensure we keep track of all discoveries, set .connected state
                 device.servicesAwaitingCharacteristicsDiscovery.remove(BTUUID(from: service.uuid))
                 if device.servicesAwaitingCharacteristicsDiscovery.isEmpty {
-                    device.storage.signalFullyDiscovered()
+                    device.signalFullyDiscovered()
                 }
 
                 if let error {

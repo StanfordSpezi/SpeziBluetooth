@@ -498,19 +498,19 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
         ensurePeripheralReference(device)
     }
 
-    private func discardDevice(device: BluetoothPeripheral) {
+    private func discardDevice(device: BluetoothPeripheral, error: Error?) {
         if let discoverySession, isScanning {
             // we will keep discarded devices for max 2s before the stale timer kicks off
             let backdateInterval = max(0, discoverySession.advertisementStaleInterval - 2)
 
             device.markLastActivity(.now - backdateInterval)
-            device.handleDisconnect()
+            device.handleDisconnect(error: error)
 
             // We just schedule the new timer if there is a device to schedule one for.
             discoverySession.scheduleStaleTaskForOldestActivityDevice()
         } else {
             device.markLastActivity()
-            device.handleDisconnect()
+            device.handleDisconnect(error: error)
             clearDiscoveredPeripheral(forKey: device.id)
         }
     }
@@ -738,7 +738,7 @@ extension BluetoothManager {
                 // just to make sure
                 manager.centralManager.cancelPeripheralConnection(device.cbPeripheral)
 
-                manager.discardDevice(device: device)
+                manager.discardDevice(device: device, error: error)
             }
         }
 
@@ -761,7 +761,7 @@ extension BluetoothManager {
                     logger.debug("Peripheral \(peripheral.debugIdentifier) disconnected.")
                 }
 
-                manager.discardDevice(device: device)
+                manager.discardDevice(device: device, error: error)
                 await manager.storage.cbDelegateSignal(connected: false, for: peripheral.identifier)
             }
         }

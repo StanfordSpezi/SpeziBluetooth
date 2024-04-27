@@ -227,7 +227,9 @@ extension DiscoverySession {
                 return
             }
 
-            candidate.connect()
+            Task { @SpeziBluetooth in
+                try await candidate.connect()
+            }
         }
 
         item.schedule(for: .now() + .seconds(BluetoothManager.Defaults.defaultAutoConnectDebounce))
