@@ -223,7 +223,7 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
     /// Make a connection to the peripheral.
     ///
     /// - Note: This method returns as soon as the request to connect was processed locally. It does
-    ///     not wait till the connection was completed successfully.
+    ///     not wait until the connection has been established successfully, use ``connectAndWait()`` instead, if needed.
     ///
     /// - Note: You might want to verify via the ``AdvertisementData/isConnectable`` property that the device is connectable.
     public func connect() {
@@ -234,6 +234,34 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
 
         manager.assumeIsolated { manager in
             manager.connect(peripheral: self)
+        }
+    }
+
+    /// Establish a connection to the peripheral and wait until it is connected.
+    ///
+    /// Make a connection to the peripheral.
+    ///
+    /// - Note: This method waits until the connection has been established successfully. 
+    ///     Use ``connect()`` to skip waiting instead.
+    ///
+    /// - Note: You might want to verify via the ``AdvertisementData/isConnectable`` property that the device is connectable.
+    public func connectAndWait() async throws {
+        guard let manager else {
+            logger.warning("Tried to connect an orphaned bluetooth peripheral!")
+            return
+        }
+
+        await manager.connect(peripheral: self)
+
+        while true {
+            switch await waitForChange(of: \.state) {
+            case .connected:
+                return
+            case .connecting:
+                continue
+            case .disconnecting, .disconnected:
+                throw CBError(.connectionFailed)
+            }
         }
     }
 
@@ -275,6 +303,12 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
 
     func onChange<Value>(of keyPath: KeyPath<PeripheralStorage, Value>, perform closure: @escaping (Value) -> Void) {
         _storage.onChange(of: keyPath, perform: closure)
+    }
+
+    func waitForChange<Value>(of keyPath: KeyPath<PeripheralStorage, Value>) async -> Value {
+        await withCheckedContinuation { continuation in
+            onChange(of: keyPath) { continuation.resume(returning: $0) }
+        }
     }
 
     func handleConnect(consider configuredDevices: Set<DeviceDescription>) {
