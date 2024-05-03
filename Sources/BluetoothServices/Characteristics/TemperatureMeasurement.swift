@@ -18,7 +18,7 @@ public struct TemperatureMeasurement {
     /// The temperature value encoded as `medfloat32`.
     public enum Value {
         /// The temperature value in celsius.
-        case celsius(_ medfloat32: Data)
+        case celsius(_ medfloat32: Data) // TODO: Support medfloat32
         /// The temperature value in fahrenheit.
         case fahrenheit(_ medfloat32: Data)
 
@@ -55,7 +55,7 @@ public struct TemperatureMeasurement {
 
 
 extension TemperatureMeasurement {
-    private enum FlagsField {
+    private enum FlagsField { // TODO: optionset???
         static let isFahrenheitTemperature: UInt8 = 0x01
         static let isTimeStampPresent: UInt8 = 0x02
         static let isTemperatureTypePresent: UInt8 = 0x04
@@ -63,6 +63,7 @@ extension TemperatureMeasurement {
 }
 
 
+// TODO: Sendable conformance everywhere!
 extension TemperatureMeasurement.Value: Equatable {}
 
 
