@@ -17,20 +17,23 @@ final class MedFloatTests: XCTestCase {
         XCTAssertTrue(MedFloat16.reserved0.double.isNaN)
         XCTAssertEqual(MedFloat16.infinity.double, .infinity)
         XCTAssertEqual(MedFloat16.negativeInfinity.double, -Double.infinity)
+    }
 
-        XCTAssertTrue(MedFloat16.nan.float.isNaN)
-        XCTAssertTrue(MedFloat16.nres.float.isNaN)
-        XCTAssertTrue(MedFloat16.reserved0.float.isNaN)
-        XCTAssertEqual(MedFloat16.infinity.float, .infinity)
-        XCTAssertEqual(MedFloat16.negativeInfinity.float, -Float.infinity)
+    func testDoubleConversion() {
+        XCTAssertTrue(MedFloat16(.nan).isNaN)
+        XCTAssertTrue(MedFloat16(.zero).isZero)
+        XCTAssertEqual(MedFloat16(.infinity), .infinity)
+        XCTAssertEqual(MedFloat16(-.infinity), .negativeInfinity)
 
-        print(Int64.max)
-        print(Float(integerLiteral: .max).description)
-        print(Float(integerLiteral: .max).debugDescription)
-        print(Float(integerLiteral: .max).bitPattern)
-        print(Double(integerLiteral: .max).description)
-        print(Double(integerLiteral: .max).debugDescription)
-        print(Double(integerLiteral: .max).bitPattern)
+        XCTAssertEqual(MedFloat16(123000.0), MedFloat16(exponent: 3, mantissa: 123))
+        XCTAssertEqual(MedFloat16(12.34), MedFloat16(exponent: -2, mantissa: 1234))
+        XCTAssertEqual(MedFloat16(0.0000012), MedFloat16(exponent: -7, mantissa: 12))
+
+        XCTAssertEqual(MedFloat16(1234.0), MedFloat16(exponent: 0, mantissa: 1234))
+
+        XCTAssertEqual(MedFloat16(-123000.0), MedFloat16(exponent: 3, mantissa: -123))
+        XCTAssertEqual(MedFloat16(-12.34), MedFloat16(exponent: -2, mantissa: -1234))
+        XCTAssertEqual(MedFloat16(-0.0000012), MedFloat16(exponent: -7, mantissa: -12))
     }
 
     func testBasicRepresentations() {
@@ -44,22 +47,22 @@ final class MedFloatTests: XCTestCase {
         let negSmallFloat = MedFloat16(exponent: -2, mantissa: -1234)
         let negSmallSmallFloat = MedFloat16(exponent: -7, mantissa: -12)
 
-        XCTAssertEqual(largeFloat.exponent, 3)
-        XCTAssertEqual(largeFloat.mantissa, 123)
+        XCTAssertEqual(largeFloat.exponent, 2)
+        XCTAssertEqual(largeFloat.mantissa, 1230)
         XCTAssertEqual(smallFloat.exponent, -2)
         XCTAssertEqual(smallFloat.mantissa, 1234)
-        XCTAssertEqual(smallSmallFloat.exponent, -7)
-        XCTAssertEqual(smallSmallFloat.mantissa, 12)
+        XCTAssertEqual(smallSmallFloat.exponent, -8)
+        XCTAssertEqual(smallSmallFloat.mantissa, 120)
 
         XCTAssertEqual(zeroExponentFloat.exponent, 0)
         XCTAssertEqual(zeroExponentFloat.mantissa, 1234)
 
-        XCTAssertEqual(negLargeFloat.exponent, 3)
-        XCTAssertEqual(negLargeFloat.mantissa, -123)
+        XCTAssertEqual(negLargeFloat.exponent, 2)
+        XCTAssertEqual(negLargeFloat.mantissa, -1230)
         XCTAssertEqual(negSmallFloat.exponent, -2)
         XCTAssertEqual(negSmallFloat.mantissa, -1234)
-        XCTAssertEqual(negSmallSmallFloat.exponent, -7)
-        XCTAssertEqual(negSmallSmallFloat.mantissa, -12)
+        XCTAssertEqual(negSmallSmallFloat.exponent, -8)
+        XCTAssertEqual(negSmallSmallFloat.mantissa, -120)
 
         XCTAssertTrue(largeFloat.isFinite)
         XCTAssertTrue(smallFloat.isFinite)
@@ -91,5 +94,30 @@ final class MedFloatTests: XCTestCase {
         XCTAssertEqual(negLargeFloat.description, "-123000.0")
         XCTAssertEqual(negSmallFloat.description, "-12.34")
         XCTAssertEqual(negSmallSmallFloat.description, "-0.0000012")
+    }
+
+    func testEquality() {
+        XCTAssertNotEqual(MedFloat16.nan, .nan)
+        XCTAssertNotEqual(MedFloat16.nan, .nres)
+        XCTAssertNotEqual(MedFloat16.nan, .infinity)
+        XCTAssertNotEqual(MedFloat16.nan, MedFloat16(123))
+        XCTAssertNotEqual(MedFloat16.nres, .nres)
+
+
+        let float0 = MedFloat16(exponent: -1, mantissa: 130)
+        let float1 = MedFloat16(exponent: 0, mantissa: 13)
+        let float2 = MedFloat16(exponent: -2, mantissa: 1300)
+
+        XCTAssertEqual(float0, float1)
+        XCTAssertEqual(float0, float2)
+        XCTAssertEqual(float1, float2)
+        XCTAssertEqual(float0.description, float1.description)
+        XCTAssertEqual(float1.description, float2.description)
+
+        let float3 = MedFloat16(exponent: 1, mantissa: 10)
+        let float4 = MedFloat16(exponent: 0, mantissa: 100)
+
+        XCTAssertEqual(float3, float4)
+        XCTAssertEqual(float3.description, float4.description)
     }
 }

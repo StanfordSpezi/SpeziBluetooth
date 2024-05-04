@@ -21,7 +21,7 @@ public enum MeasurementInterval {
 }
 
 
-extension MeasurementInterval: Equatable {}
+extension MeasurementInterval: Hashable, Sendable {}
 
 
 extension MeasurementInterval: RawRepresentable {

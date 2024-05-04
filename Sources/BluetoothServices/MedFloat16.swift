@@ -12,8 +12,6 @@ import NIOCore
 
 // TODO: move file?? SpeziNetworking (finally?)
 
-// TODO: protocol?
-
 /// Medical 16-bit float representation using base 10.
 ///
 /// The `MedFloat16` (or SFLOAT-Type) is a 16-bit value that uses 4-bit signed exponent to base 10 and 12-bit signed mantissa.
@@ -35,7 +33,7 @@ public struct MedFloat16 {
         // We need to correct Int4 two's complement representation to Int8 two's complement:
         // If its larger than the largest positive uint4 number, we want to make sure that all upper 8 bits are flipped
         // in the int8 representation.
-        if exponentBitPattern > MedFloat16.maxInt4 {
+        if exponentBitPattern > UInt8(bitPattern: .maxInt4) {
             exponentBitPattern |= 0xF0
         }
 
@@ -49,37 +47,11 @@ public struct MedFloat16 {
         var mantissaBitPattern = bitPattern & 0x0FFF
 
         // See explanation in `exponent`. We correct Int12 two's complement representation to Int16 two's complement.
-        if mantissaBitPattern > MedFloat16.maxInt12 {
+        if mantissaBitPattern > UInt16(bitPattern: .maxInt12) {
             mantissaBitPattern |= 0xF000
         }
 
         return Int16(bitPattern: mantissaBitPattern)
-    }
-
-
-    /// Double approximation of the medfloat.
-    public var double: Double {
-        switch bitPattern {
-        case MedFloat16.nan.bitPattern, MedFloat16.nres.bitPattern, MedFloat16.reserved0.bitPattern:
-            return .nan
-        case MedFloat16.infinity.bitPattern:
-            return .infinity
-        case MedFloat16.negativeInfinity.bitPattern:
-            return -Double.infinity
-        default:
-            break
-        }
-
-        // TODO: properly convert to reserved Doubles?
-        let magnitude = pow(10.0, Double(exponent))
-
-        return Double(mantissa) * magnitude
-    }
-
-    /// Float approximation of the medfloat.
-    public var float: Float { // TODO: do we want to support that?
-        // using the double value for best precision in the conversion.
-        Float(double)
     }
 
 
@@ -107,10 +79,22 @@ public struct MedFloat16 {
     ///   - mantissa: The signed Int12 exponent of the medfloat.
     public init(exponent: Int8, mantissa: Int16) {
         // check that exponent and mantissa are not out of range.
-        if exponent > MedFloat16.maxInt4 || exponent < MedFloat16.minInt4
-            || mantissa > MedFloat16.maxInt12 || mantissa < MedFloat16.minInt12 {
+        if exponent > .maxInt4 || exponent < .minInt4
+            || mantissa > .maxInt12 || mantissa < .minInt12 {
             self = .nres // TODO: what is +- infinity used then?
             return
+        }
+
+        var exponent = exponent
+        var mantissa = mantissa
+
+        // TODO: this looses precision!, negative numbers?
+        while exponent > .minInt4
+                && !mantissa.multipliedReportingOverflow(by: 10).overflow
+                && (mantissa * 10 <= .medFloat16MantissaMax)
+                && (mantissa * 10 >= .medFloat16mantissaMin) {
+            mantissa *= 10
+            exponent -= 1
         }
 
         let exponentBitPattern = UInt8(bitPattern: exponent) & 0x0F
@@ -118,12 +102,11 @@ public struct MedFloat16 {
 
         self.init(bitPattern: (UInt16(exponentBitPattern) << 12) | mantissaBitPattern)
     }
-
-    // TODO: can we convert from a e.g., double? se bytelib implementation
 }
 
 
 extension MedFloat16 {
+    /// The zero value.
     public static let zero = MedFloat16(bitPattern: 0)
 
     /// Indicates invalid result.
@@ -132,9 +115,10 @@ extension MedFloat16 {
     /// Visual components should reflect this information by blanking the display or some other appropriate means.
     public static let nan = MedFloat16(bitPattern: 0x07FF)
 
+    /// Positive infinity.
     public static let infinity = MedFloat16(bitPattern: 0x07FE)
 
-    static let negativeInfinity = MedFloat16(bitPattern: 0x0802)
+    static let negativeInfinity = MedFloat16(bitPattern: 0x0802) // TODO: replace by unary expression?
 
     /// Value cannot be represented with the available range or resolution.
     ///
@@ -156,6 +140,9 @@ extension MedFloat16 {
         bitPattern == MedFloat16.nan.bitPattern
     }
 
+    /// Determine if float is zero.
+    ///
+    /// There are multiple representations of zero (all these, where the mantissa is set to zero, with an arbitrary combination of exponents).
     public var isZero: Bool {
         mantissa == 0
     }
@@ -204,6 +191,91 @@ extension MedFloat16 {
 }
 
 
+extension MedFloat16 {
+    /// Double approximation of the medfloat.
+    public var double: Double {
+        switch bitPattern {
+        case MedFloat16.nan.bitPattern, MedFloat16.nres.bitPattern, MedFloat16.reserved0.bitPattern:
+            return .nan
+        case MedFloat16.infinity.bitPattern:
+            return .infinity
+        case MedFloat16.negativeInfinity.bitPattern:
+            return -Double.infinity
+        default:
+            break
+        }
+
+        let magnitude = pow(10.0, Double(exponent))
+
+        return Double(mantissa) * magnitude
+    }
+
+
+    /// Creates a new instance that approximates the given value.
+    ///
+    /// The value of `other` is rounded to a representable value, if necessary.
+    /// A NaN passed as `other` results in medfloat NaN.
+    /// Values that are larger or smaller than what a medfloat16 can represent results in positive or negative infinity.
+    ///
+    /// - Parameter other: The value to use for the new instance.
+    public init(_ other: Double) {
+        if other.isNaN {
+            self = .nan
+        } else if other > .medFloat16Max {
+            self = .infinity
+        } else if other < .medFloat16Min {
+            self = .negativeInfinity
+        } else if other >= -.medFloat16Epsilon && other <= .medFloat16Epsilon {
+            self = .zero
+        } else {
+            var exponent: Int8 = 0 // to base 10
+            var mantissaTemp = abs(other) // we slowly scale up/down the exponent to have mantissa fit into 12-bit two's complement
+
+            // scale up if number is too big
+            while mantissaTemp > Double(Int16.medFloat16MantissaMax) {
+                mantissaTemp /= 10
+                exponent += 1
+
+                if exponent > .maxInt4 {
+                    preconditionFailure("Precondition check didn't properly check for infinity, medfloat16 from double \(other)")
+                }
+            }
+
+            // scale down if number is to small
+            while mantissaTemp < 1 {
+                mantissaTemp *= 10
+                exponent -= 1
+
+                if exponent < .minInt4 {
+                    preconditionFailure("Precondition check didn't properly check for epsilon, medfloat16 from double \(other)")
+                }
+            }
+
+            // scale down if number needs more precision
+            var mantissaDiff = Self.mantissaPrecisionDiff(mantissaTemp)
+            while mantissaDiff > 0.5 && exponent > .minInt4 && (mantissaTemp * 10 <= Double(Int16.medFloat16MantissaMax)) {
+                mantissaTemp *= 10
+                exponent -= 1
+
+                mantissaDiff = Self.mantissaPrecisionDiff(mantissaTemp)
+            }
+
+            let mantissa = Int16(round((other.sign == .minus ? -1 : 1) * mantissaTemp))
+
+            self.init(exponent: exponent, mantissa: mantissa)
+            assert(self.isFinite, "Double initialization failed and resulted in \(description)")
+        }
+    }
+
+    
+    private static func mantissaPrecisionDiff(_ mantissa: Double) -> Double {
+        let smantissa = round(mantissa * .medFloat16Precision)
+        let rmantissa = round(mantissa) * .medFloat16Precision
+        return abs(smantissa - rmantissa)
+    }
+}
+
+
 extension MedFloat16: Sendable {}
 
 
@@ -225,6 +297,16 @@ extension MedFloat16: Equatable {
 }
 
 
+extension MedFloat16: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        if isZero {
+            hasher.combine(MedFloat16.zero.bitPattern)
+        } else {
+            hasher.combine(bitPattern)
+        }
+    }
+}
+
 
 extension MedFloat16: CustomStringConvertible {
     public var description: String {
@@ -243,49 +325,62 @@ extension MedFloat16: CustomStringConvertible {
         let exponent = exponent
         let mantissa = mantissa
 
-        var baseDescription = mantissa.description // TODO: sign??
+        var description = mantissa.description // TODO: sign??
 
         if exponent > 0 {
-            baseDescription
+            description
                 .append(String(repeating: "0", count: Int(exponent)))
 
-            baseDescription
+            description
                 .append(".0")
         } else if exponent == 0 {
-            baseDescription
+            description
                 .append(".0")
         } else { // exponent < 0
-            let digitCount = baseDescription.count - (sign == .minus ? 1 : 0)
+            let digitCount = description.count - (sign == .minus ? 1 : 0)
 
             if -exponent < digitCount {
-                let dotIndex = baseDescription.index(baseDescription.endIndex, offsetBy: Int(exponent))
+                let dotIndex = description.index(description.endIndex, offsetBy: Int(exponent))
 
-                baseDescription.insert(".", at: dotIndex)
+                description.insert(".", at: dotIndex)
             } else {
                 let insertionIndex = sign == .minus
-                    ? baseDescription.index(after: baseDescription.startIndex) // skipping the "-"
-                    : baseDescription.startIndex
+                    ? description.index(after: description.startIndex) // skipping the "-"
+                    : description.startIndex
 
                 let zeroPrefix = String(repeating: "0", count: Int(-exponent) - digitCount)
-                baseDescription.insert(contentsOf: zeroPrefix, at: insertionIndex)
+                description.insert(contentsOf: zeroPrefix, at: insertionIndex)
 
-                baseDescription.insert(contentsOf: "0.", at: insertionIndex)
+                description.insert(contentsOf: "0.", at: insertionIndex)
+            }
+
+            // remove unnecessary trailing zeros
+            while description.last == "0" {
+                description.removeLast()
             }
         }
 
-        return baseDescription
+        return description
     }
 }
-
 
 
 extension MedFloat16: CustomDebugStringConvertible {
     public var debugDescription: String {
-        description
+        // TOOD: x.mantissa * (10 ** x.exponent)
+        "\(mantissa) * (10 ** \(exponent))"
     }
 }
-// TODO: can we provide custom number formatting?
 
+
+extension MedFloat16: ExpressibleByFloatLiteral {
+    /// Creates an instance initialized to the specified floating-point value.
+    ///
+    /// - Parameter value: The value to create.
+    public init(floatLiteral value: Double) {
+        self.init(value)
+    }
+}
 // TODO: integer literal?
 
 
@@ -307,7 +402,6 @@ extension MedFloat16: CustomDebugStringConvertible {
  */
 
 
-
 extension MedFloat16: ByteCodable {
     public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
         guard let bitPattern = UInt16(from: &byteBuffer, preferredEndianness: endianness) else {
@@ -323,11 +417,36 @@ extension MedFloat16: ByteCodable {
 }
 
 
+extension Double {
+    /// Maximum value in Double representation for a `medfloat16`.
+    ///
+    ///     (2 ** 11 - 3) * 10 ** 7
+    fileprivate static let medFloat16Max: Double = 20450000000.0
+    /// Minimum value in Double representation for a `medfloat16`.
+    ///
+    ///     -(2 ** 11 - 3) * 10 ** 7
+    fileprivate static let medFloat16Min: Double = -medFloat16Max
+    /// The minimum precision of a `medfloat16`.
+    ///
+    ///     10 ** -8
+    fileprivate static let medFloat16Epsilon: Double = 1e-8
+    /// `10 ** upper(11 * log(2) / log(10))`
+    fileprivate static let medFloat16Precision: Double = 10000
+}
 
-extension MedFloat16 {
+
+extension Int8 {
     fileprivate static let maxInt4 = Int8(bitPattern: 0x7)
     fileprivate static let minInt4 = Int8(bitPattern: 0xF8)
+}
 
+
+extension Int16 {
     fileprivate static let maxInt12 = Int16(bitPattern: 0x7FF)
     fileprivate static let minInt12 = Int16(bitPattern: 0xF800)
+    /// `(2 ** 11 - 3)`
+    /// `MedFloat16.infinity - 1`
+    fileprivate static let medFloat16MantissaMax: Int16 = 0x07FD
+    /// `MedFloat16.negativeInfinity + 1` but with most significant byte adjusted to Int16 representation.
+    fileprivate static let medFloat16mantissaMin = Int16(bitPattern: 0xF803)
 }

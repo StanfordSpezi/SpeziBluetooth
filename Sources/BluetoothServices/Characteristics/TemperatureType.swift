@@ -37,7 +37,7 @@ public enum TemperatureType: UInt8, CaseIterable {
 }
 
 
-extension TemperatureType: Equatable {}
+extension TemperatureType: Hashable, Sendable {}
 
 
 extension TemperatureType: ByteCodable {
