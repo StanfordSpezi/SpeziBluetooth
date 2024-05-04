@@ -87,7 +87,7 @@ public struct BloodPressureMeasurement {
 
     /// The associated user of the blood pressure measurement.
     ///
-    /// This value can be used to differantiate users if the device supports multiple users.
+    /// This value can be used to differentiate users if the device supports multiple users.
     /// - Note: The special value of `0xFF` (`UInt8.max`) is used to represent an unknown user.
     ///
     /// The values are left to the implementation but should be unique per device.
@@ -111,10 +111,10 @@ public struct BloodPressureMeasurement {
     ///   - pulseRate: The pulse rate in in beats per minute.
     ///     An unavailable value can be indicated using ``MedFloat16.nan``.
     ///   - userId: The associated user of the blood pressure measurement.
-    ///   - measurementStatus: Additional meatadata information of the measurement.
+    ///   - measurementStatus: Additional metadata information of the measurement.
     public init(
-        systolicValue: MedFloat16,
-        diastolicValue: MedFloat16,
+        systolic systolicValue: MedFloat16,
+        diastolic diastolicValue: MedFloat16,
         meanArterialPressure: MedFloat16,
         unit: Unit,
         timeStamp: DateTime? = nil,
