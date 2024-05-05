@@ -94,6 +94,7 @@ final class MedFloatTests: XCTestCase {
         XCTAssertEqual(negLargeFloat.description, "-123000.0")
         XCTAssertEqual(negSmallFloat.description, "-12.34")
         XCTAssertEqual(negSmallSmallFloat.description, "-0.0000012")
+
         XCTAssertEqual(MedFloat16(127).description, "127.0")
         XCTAssertEqual(MedFloat16(12).description, "12.0")
     }

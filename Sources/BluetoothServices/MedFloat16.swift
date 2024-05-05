@@ -78,10 +78,11 @@ public struct MedFloat16 {
     ///   - mantissa: The signed Int12 exponent of the medfloat.
     public init(exponent: Int8, mantissa: Int16) {
         // check that exponent and mantissa are not out of range.
-        if exponent > .maxInt4 || exponent < .minInt4
-            || mantissa > .maxInt12 || mantissa < .minInt12 {
-            // TODO: check if we can adjust the exponent?
-            self = .nres // TODO: We must use +- inf
+        if exponent > .maxInt4 || mantissa > .maxInt12 {
+            self = .infinity // TODO: check if we can adjust the exponent?
+            return
+        } else if exponent < .minInt4 || mantissa < .minInt12 {
+            self = .negativeInfinity // TODO: check if we can adjust the exponent?
             return
         }
 
@@ -121,7 +122,7 @@ extension MedFloat16 {
     /// Positive infinity.
     public static let infinity = MedFloat16(bitPattern: 0x07FE)
 
-    static let negativeInfinity = MedFloat16(bitPattern: 0x0802) // TODO: replace by unary expression?
+    static let negativeInfinity = MedFloat16(bitPattern: 0x0802)
 
     /// Value cannot be represented with the available range or resolution.
     ///
@@ -288,8 +289,7 @@ extension MedFloat16: Sendable {}
 
 
 extension MedFloat16: Equatable {
-    public static func == (lhs: MedFloat16, rhs: MedFloat16) -> Bool { // TODO: test with reserved?
-        // TODO: don't forget about reserved bit for all implementations!
+    public static func == (lhs: MedFloat16, rhs: MedFloat16) -> Bool {
         if lhs.isNaNLike || rhs.isNaNLike {
             return false // any nan-like is never equal
         }
@@ -372,7 +372,7 @@ extension MedFloat16: CustomStringConvertible {
         let exponent = exponent
         let mantissa = mantissa
 
-        var description = mantissa.description // TODO: sign??
+        var description = mantissa.description
 
         if exponent > 0 {
             description
@@ -405,6 +405,10 @@ extension MedFloat16: CustomStringConvertible {
             while description.last == "0" {
                 description.removeLast()
             }
+
+            if description.last == "." {
+                description.append("0")
+            }
         }
 
         return description
@@ -435,78 +439,15 @@ extension MedFloat16: ExpressibleByFloatLiteral {
 
 extension MedFloat16: ExpressibleByIntegerLiteral {
     public init(integerLiteral value: Int64) {
-        let doubleValue = Double(value)
-        self.init(doubleValue) // TODO: can we do better?
+        let doubleValue = Double(value) // cheap route here
+        self.init(doubleValue)
     }
 }
 
 extension MedFloat16: AdditiveArithmetic {
     public static func + (lhs: MedFloat16, rhs: MedFloat16) -> MedFloat16 {
-        if lhs.isNaNLike || rhs.isNaNLike {
-            return .nan // TODO: support reserved?? not resolution?
-        }
-
-        // handle infinities
-        switch (lhs.bitPattern, rhs.bitPattern) {
-        case (MedFloat16.infinity.bitPattern, MedFloat16.negativeInfinity.bitPattern),
-             (MedFloat16.negativeInfinity.bitPattern, MedFloat16.infinity.bitPattern):
-            return .nan
-        case (MedFloat16.infinity.bitPattern, _):
-            return .infinity
-        case (MedFloat16.negativeInfinity.bitPattern, _):
-            return .negativeInfinity
-        case (_, MedFloat16.infinity.bitPattern):
-            return .infinity
-        case (_, MedFloat16.negativeInfinity.bitPattern):
-            return .negativeInfinity
-        default:
-            break
-        }
-
-        // deal with zeros
-        if lhs.isZero {
-            return rhs
-        } else if rhs.isZero {
-            return lhs
-        }
-
-        var lhsExponent = lhs.exponent
-        var lhsMantissa = lhs.mantissa
-
-        var rhsExponent = rhs.exponent
-        var rhsMantissa = rhs.mantissa
-
-        // adjust exponents, while potentially loosing precision
-        while lhsExponent != rhsExponent {
-            if lhsExponent > rhsExponent {
-                rhsMantissa /= 10
-                rhsExponent += 1
-            } else {
-                lhsMantissa /= 10
-                lhsExponent += 1
-            }
-        }
-
-        assert(lhsExponent == rhsExponent, "Exponents weren't adjusted!")
-
-        // remove as many zeros as possible from both mantissas to avoid unnecessary overflows of below addition
-        while lhsExponent + 1 <= .maxInt4 && lhsMantissa.isMultiple(of: 10) && rhsMantissa.isMultiple(of: 10) {
-            lhsExponent += 1
-
-            lhsMantissa /= 10
-            rhsMantissa /= 10
-        }
-
-        let mantissa = lhsMantissa.addingReportingOverflow(rhsMantissa)
-
-        if mantissa.overflow { // if overflow happens here, it's game over anyways (we have 4 additional bits)
-            // TODO: +inf vs. -inf??
-            return .infinity
-        }
-
-        // TODO: check for max value?
-
-        return MedFloat16(exponent: lhsExponent, mantissa: mantissa.partialValue)
+        // We are going the cheap route here! There, is way too much to check for otherwise.
+        return MedFloat16(lhs.double + rhs.double)
     }
 
     public static func - (lhs: MedFloat16, rhs: MedFloat16) -> MedFloat16 {
@@ -565,18 +506,8 @@ extension MedFloat16: Numeric {
     }
 
     public static func * (lhs: MedFloat16, rhs: MedFloat16) -> MedFloat16 {
-        // TODO: catch special values!
-        let exponentResult = lhs.exponent.addingReportingOverflow(rhs.exponent)
-        guard !exponentResult.overflow else {
-            return .nan // TODO: what about nres?
-        }
-
-        let mantissaResult = lhs.mantissa.multipliedReportingOverflow(by: rhs.mantissa)
-        guard !mantissaResult.overflow else {
-            return .nan
-        }
-
-        return MedFloat16(exponent: exponentResult.partialValue, mantissa: mantissaResult.partialValue)
+        // We are going the cheap route here! There, is way too much to check for otherwise.
+        return MedFloat16(lhs.double * rhs.double)
     }
 
     public static func *= (lhs: inout MedFloat16, rhs: MedFloat16) {
