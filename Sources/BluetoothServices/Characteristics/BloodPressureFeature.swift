@@ -12,9 +12,6 @@ import NIOCore
 
 
 public struct BloodPressureFeature: OptionSet {
-    public var rawValue: UInt16
-
-
     /// Indicate if body movement detection is supported.
     ///
     /// If supported, use the ``BloodPressureMeasurement/Status/bodyMovementDetected`` field to indicate if
@@ -56,6 +53,7 @@ public struct BloodPressureFeature: OptionSet {
     /// Indicate if Device Time and User Facing Time reporting using Device Time Service (v1.0 or later).
     public static let userFacingTimeSupported = BloodPressureFeature(rawValue: 1 << 8)
 
+    public let rawValue: UInt16
 
     public init(rawValue: UInt16) {
         self.rawValue = rawValue

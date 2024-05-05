@@ -447,7 +447,7 @@ extension MedFloat16: ExpressibleByIntegerLiteral {
 extension MedFloat16: AdditiveArithmetic {
     public static func + (lhs: MedFloat16, rhs: MedFloat16) -> MedFloat16 {
         // We are going the cheap route here! There, is way too much to check for otherwise.
-        return MedFloat16(lhs.double + rhs.double)
+        MedFloat16(lhs.double + rhs.double)
     }
 
     public static func - (lhs: MedFloat16, rhs: MedFloat16) -> MedFloat16 {
@@ -507,7 +507,7 @@ extension MedFloat16: Numeric {
 
     public static func * (lhs: MedFloat16, rhs: MedFloat16) -> MedFloat16 {
         // We are going the cheap route here! There, is way too much to check for otherwise.
-        return MedFloat16(lhs.double * rhs.double)
+        MedFloat16(lhs.double * rhs.double)
     }
 
     public static func *= (lhs: inout MedFloat16, rhs: MedFloat16) {
@@ -591,3 +591,5 @@ extension Int16 {
     /// `MedFloat16.negativeInfinity + 1` but with most significant byte adjusted to Int16 representation.
     fileprivate static let medFloat16mantissaMin = Int16(bitPattern: 0xF803)
 }
+
+// swiftlint:disable:this file_length
