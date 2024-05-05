@@ -100,16 +100,16 @@ public struct BloodPressureMeasurement {
     /// Create a new blood pressure measurement.
     /// - Parameters:
     ///   - systolicValue: The systolic blood pressure value.
-    ///     An unavailable value can be indicated using ``MedFloat16.nan``.
+    ///     An unavailable value can be indicated using ``MedFloat16/nan``.
     ///   - diastolicValue: The diastolic blood pressure value.
-    ///     An unavailable value can be indicated using ``MedFloat16.nan``.
+    ///     An unavailable value can be indicated using ``MedFloat16/nan``.
     ///   - meanArterialPressure: The mean arterial pressure.
-    ///     An unavailable value can be indicated using ``MedFloat16.nan``.
+    ///     An unavailable value can be indicated using ``MedFloat16/nan``.
     ///   - unit: The unit for the systolic, diastolic and mean arterial pressure values.
     ///   - timeStamp: The timestamp of the measurement.
     ///     The value should be provided if the device supports storage of data.
     ///   - pulseRate: The pulse rate in in beats per minute.
-    ///     An unavailable value can be indicated using ``MedFloat16.nan``.
+    ///     An unavailable value can be indicated using ``MedFloat16/nan``.
     ///   - userId: The associated user of the blood pressure measurement.
     ///   - measurementStatus: Additional metadata information of the measurement.
     public init(
