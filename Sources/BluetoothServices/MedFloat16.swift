@@ -10,7 +10,6 @@ import ByteCoding
 import Foundation
 import NIOCore
 
-// TODO: move file?? SpeziNetworking (finally?)
 
 /// Medical 16-bit float representation using base 10.
 ///
@@ -22,7 +21,7 @@ import NIOCore
 ///         x.mantissa * (10 ** x.exponent)
 public struct MedFloat16 {
     /// The bit pattern of the medfloat.
-    public let bitPattern: UInt16
+    public private(set) var bitPattern: UInt16
 
     /// The 4-bit signed exponent.
     ///
@@ -81,14 +80,23 @@ public struct MedFloat16 {
         // check that exponent and mantissa are not out of range.
         if exponent > .maxInt4 || exponent < .minInt4
             || mantissa > .maxInt12 || mantissa < .minInt12 {
-            self = .nres // TODO: what is +- infinity used then?
+            // TODO: check if we can adjust the exponent?
+            self = .nres // TODO: We must use +- inf
             return
         }
 
         var exponent = exponent
         var mantissa = mantissa
 
-        // TODO: this looses precision!, negative numbers?
+        MedFloat16.normalize(exponent: &exponent, mantissa: &mantissa)
+
+        let exponentBitPattern = UInt8(bitPattern: exponent) & 0x0F
+        let mantissaBitPattern = UInt16(bitPattern: mantissa) & 0x0FFF
+
+        self.init(bitPattern: (UInt16(exponentBitPattern) << 12) | mantissaBitPattern)
+    }
+
+    private static func normalize(exponent: inout Int8, mantissa: inout Int16) {
         while exponent > .minInt4
                 && !mantissa.multipliedReportingOverflow(by: 10).overflow
                 && (mantissa * 10 <= .medFloat16MantissaMax)
@@ -96,11 +104,6 @@ public struct MedFloat16 {
             mantissa *= 10
             exponent -= 1
         }
-
-        let exponentBitPattern = UInt8(bitPattern: exponent) & 0x0F
-        let mantissaBitPattern = UInt16(bitPattern: mantissa) & 0x0FFF
-
-        self.init(bitPattern: (UInt16(exponentBitPattern) << 12) | mantissaBitPattern)
     }
 }
 
@@ -159,6 +162,11 @@ extension MedFloat16 {
     /// Reserved special value.
     var isReserved0: Bool {
         bitPattern == MedFloat16.reserved0.bitPattern
+    }
+
+    /// Any NaN-like value (NaN, NRes, reserved0).
+    var isNaNLike: Bool {
+        isNaN || isNRes || isReserved0
     }
 
     /// A Boolean value indicating whether this instance is finite.
@@ -280,18 +288,50 @@ extension MedFloat16: Sendable {}
 
 
 extension MedFloat16: Equatable {
-    public static func == (lhs: MedFloat16, rhs: MedFloat16) -> Bool {
-        switch (lhs.bitPattern, rhs.bitPattern) {
-        case (MedFloat16.nan.bitPattern, _),
-            (MedFloat16.nres.bitPattern, _),
-            (MedFloat16.reserved0.bitPattern, _),
-            (_, MedFloat16.nan.bitPattern),
-            (_, MedFloat16.nres.bitPattern),
-            (_, MedFloat16.reserved0.bitPattern):
+    public static func == (lhs: MedFloat16, rhs: MedFloat16) -> Bool { // TODO: test with reserved?
+        // TODO: don't forget about reserved bit for all implementations!
+        if lhs.isNaNLike || rhs.isNaNLike {
             return false // any nan-like is never equal
+        }
+
+        return lhs.bitPattern == rhs.bitPattern
+            || (lhs.isZero && rhs.isZero) // any value with zero mantissa is zero
+    }
+}
+
+
+extension MedFloat16: Comparable {
+    public static func < (lhs: MedFloat16, rhs: MedFloat16) -> Bool { // TODO: test
+        if lhs.isNaNLike || rhs.isNaNLike {
+            return false // any nan-like does never compare
+        }
+
+        switch (lhs.bitPattern, rhs.bitPattern) {
+        case let (MedFloat16.negativeInfinity.bitPattern, rhsBits):
+            // `-infinity` compares less than all values except for itself and NaN-like values
+            return rhsBits != MedFloat16.negativeInfinity.bitPattern && !rhs.isNaNLike
+        case let (lhsBits, MedFloat16.infinity.bitPattern):
+            // every value except for NaN and `+infinity` compares less than
+            return lhsBits != MedFloat16.infinity.bitPattern && !lhs.isNaNLike
+        case (_, MedFloat16.negativeInfinity.bitPattern):
+            return false // nothing is ever smaller than negative infinity
+        case (MedFloat16.infinity.bitPattern, _):
+            return false // nothing is ever greater than positive infinity
         default:
-            return lhs.bitPattern == rhs.bitPattern
-                || (lhs.isZero && rhs.isZero) // any value with zero mantissa is zero
+            break
+        }
+
+        // make sure we normalize zero representations
+        let lhsExponent = lhs.isZero ? 0 : lhs.exponent
+        let rhsExponent = rhs.isZero ? 0 : rhs.exponent
+
+        let lhsMantissa = lhs.mantissa
+        let rhsMantissa = rhs.mantissa
+
+        if lhsExponent != rhsExponent {
+            return lhsExponent < rhsExponent
+        } else {
+            return lhsMantissa < rhsMantissa
         }
     }
 }
@@ -309,7 +349,7 @@ extension MedFloat16: Hashable {
 
 
 extension MedFloat16: CustomStringConvertible {
-    public var description: String {
+    private var specialValueString: String? {
         if isNaN || isReserved0 {
             return "nan"
         } else if isNRes {
@@ -320,6 +360,13 @@ extension MedFloat16: CustomStringConvertible {
             return "-inf"
         } else if isZero {
             return "0.0" // map all zeros to same representation
+        }
+        return nil
+    }
+
+    public var description: String {
+        if let specialValueString {
+            return specialValueString
         }
 
         let exponent = exponent
@@ -367,8 +414,11 @@ extension MedFloat16: CustomStringConvertible {
 
 extension MedFloat16: CustomDebugStringConvertible {
     public var debugDescription: String {
-        // TOOD: x.mantissa * (10 ** x.exponent)
-        "\(mantissa) * (10 ** \(exponent))"
+        if let specialValueString {
+            return specialValueString
+        }
+
+        return "\(mantissa) * (10 ** \(exponent))"
     }
 }
 
@@ -381,25 +431,185 @@ extension MedFloat16: ExpressibleByFloatLiteral {
         self.init(value)
     }
 }
-// TODO: integer literal?
 
 
-// TODO: comparable?
+extension MedFloat16: ExpressibleByIntegerLiteral {
+    public init(integerLiteral value: Int64) {
+        let doubleValue = Double(value)
+        self.init(doubleValue) // TODO: can we do better?
+    }
+}
 
-// TODO: AdditiveArithmetic? SignedNumeric protocol (aka. Numeric)
-/*
- extension MedFloat16: AdditiveArithmetic {
- public static let zero = MedFloat16(bitPattern: 0) // TODO: is this true?
+extension MedFloat16: AdditiveArithmetic {
+    public static func + (lhs: MedFloat16, rhs: MedFloat16) -> MedFloat16 {
+        if lhs.isNaNLike || rhs.isNaNLike {
+            return .nan // TODO: support reserved?? not resolution?
+        }
 
- public static func + (lhs: MedFloat16, rhs: MedFloat16) -> MedFloat16 {
- <#code#>
- }
+        // handle infinities
+        switch (lhs.bitPattern, rhs.bitPattern) {
+        case (MedFloat16.infinity.bitPattern, MedFloat16.negativeInfinity.bitPattern),
+             (MedFloat16.negativeInfinity.bitPattern, MedFloat16.infinity.bitPattern):
+            return .nan
+        case (MedFloat16.infinity.bitPattern, _):
+            return .infinity
+        case (MedFloat16.negativeInfinity.bitPattern, _):
+            return .negativeInfinity
+        case (_, MedFloat16.infinity.bitPattern):
+            return .infinity
+        case (_, MedFloat16.negativeInfinity.bitPattern):
+            return .negativeInfinity
+        default:
+            break
+        }
 
- public static func - (lhs: MedFloat16, rhs: MedFloat16) -> MedFloat16 {
- <#code#>
- }
- }
- */
+        // deal with zeros
+        if lhs.isZero {
+            return rhs
+        } else if rhs.isZero {
+            return lhs
+        }
+
+        var lhsExponent = lhs.exponent
+        var lhsMantissa = lhs.mantissa
+
+        var rhsExponent = rhs.exponent
+        var rhsMantissa = rhs.mantissa
+
+        // adjust exponents, while potentially loosing precision
+        while lhsExponent != rhsExponent {
+            if lhsExponent > rhsExponent {
+                rhsMantissa /= 10
+                rhsExponent += 1
+            } else {
+                lhsMantissa /= 10
+                lhsExponent += 1
+            }
+        }
+
+        assert(lhsExponent == rhsExponent, "Exponents weren't adjusted!")
+
+        // remove as many zeros as possible from both mantissas to avoid unnecessary overflows of below addition
+        while lhsExponent + 1 <= .maxInt4 && lhsMantissa.isMultiple(of: 10) && rhsMantissa.isMultiple(of: 10) {
+            lhsExponent += 1
+
+            lhsMantissa /= 10
+            rhsMantissa /= 10
+        }
+
+        let mantissa = lhsMantissa.addingReportingOverflow(rhsMantissa)
+
+        if mantissa.overflow { // if overflow happens here, it's game over anyways (we have 4 additional bits)
+            // TODO: +inf vs. -inf??
+            return .infinity
+        }
+
+        // TODO: check for max value?
+
+        return MedFloat16(exponent: lhsExponent, mantissa: mantissa.partialValue)
+    }
+
+    public static func - (lhs: MedFloat16, rhs: MedFloat16) -> MedFloat16 {
+        lhs + (-rhs)
+    }
+}
+
+
+extension MedFloat16: Numeric {
+    public var magnitude: MedFloat16 { // basically an abs function
+        if isNaNLike || bitPattern == MedFloat16.infinity.bitPattern {
+            return self
+        } else if bitPattern == MedFloat16.negativeInfinity.bitPattern {
+            return .infinity
+        }
+
+        let mantissa = mantissa
+        if mantissa >= 0 {
+            return self
+        }
+
+        // otherwise we are negative
+        return -self
+    }
+
+
+    public init?<T: BinaryInteger>(exactly source: T) {
+        var mantissa = source
+        var exponent: Int8 = 0
+
+        while !MedFloat16.fitsMantissa(mantissa) {
+            if mantissa.isMultiple(of: 10) && exponent + 1 < .maxInt4 {
+                mantissa /= 10
+                exponent += 1
+            } else {
+                return nil // we can't adjust anymore!
+            }
+        }
+
+        self.init(exponent: exponent, mantissa: Int16(mantissa))
+    }
+
+    private static func fitsMantissa<T: BinaryInteger>(_ source: T) -> Bool {
+        let words = source.magnitude.words // words from least significant to most significant
+
+        guard let first = words.first else {
+            return true
+        }
+
+        guard words.suffix(from: 1).allSatisfy({ $0 == 0 }) else {
+            return false // ensure there aren't any more words that contain ones
+        }
+
+        // check that the exponent bytes and the most significant mantissa bit is zero of second word.
+        return first & (UInt.max << 11) == 0
+    }
+
+    public static func * (lhs: MedFloat16, rhs: MedFloat16) -> MedFloat16 {
+        // TODO: catch special values!
+        let exponentResult = lhs.exponent.addingReportingOverflow(rhs.exponent)
+        guard !exponentResult.overflow else {
+            return .nan // TODO: what about nres?
+        }
+
+        let mantissaResult = lhs.mantissa.multipliedReportingOverflow(by: rhs.mantissa)
+        guard !mantissaResult.overflow else {
+            return .nan
+        }
+
+        return MedFloat16(exponent: exponentResult.partialValue, mantissa: mantissaResult.partialValue)
+    }
+
+    public static func *= (lhs: inout MedFloat16, rhs: MedFloat16) {
+        lhs.bitPattern = (lhs * rhs).bitPattern
+    }
+}
+
+
+extension MedFloat16: SignedNumeric {
+    public prefix static func - (operand: MedFloat16) -> MedFloat16 {
+        var operand = operand
+        operand.negate()
+        return operand
+    }
+
+    public mutating func negate() {
+        switch bitPattern {
+        case MedFloat16.nan.bitPattern, MedFloat16.nres.bitPattern:
+            return
+        case MedFloat16.infinity.bitPattern:
+            bitPattern = MedFloat16.negativeInfinity.bitPattern
+        case MedFloat16.negativeInfinity.bitPattern:
+            bitPattern = MedFloat16.infinity.bitPattern
+        default:
+            let mantissa = -self.mantissa
+
+            let mantissaBits = UInt16(bitPattern: mantissa) & 0x0FFF
+
+            bitPattern &= 0xF000 // reset mantissa bits
+            bitPattern |= mantissaBits
+        }
+    }
+}
 
 
 extension MedFloat16: ByteCodable {

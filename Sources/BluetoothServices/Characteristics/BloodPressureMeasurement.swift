@@ -14,7 +14,7 @@ import NIO
 /// A blood pressure measurement.
 ///
 /// Refer to GATT Specification Supplement, 3.31 Blood Pressure Measurement.
-public struct BloodPressureMeasurement {
+public struct BloodPressureMeasurement { // TODO: characteristics tests
     fileprivate struct Flags: OptionSet {
         let rawValue: UInt8
 

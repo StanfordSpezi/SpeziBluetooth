@@ -38,10 +38,10 @@ public struct TemperatureMeasurement {
     /// The temperature value encoded as a `medfloat32`.
     ///
     /// The unit of this value is defined by the ``unit-swift.property`` property.
-    public let value: UInt32 // TODO: rename!
+    public let temperature: UInt32 // TODO: rename!
     /// The unit of the temperature value .
     ///
-    /// This property defined the unit of the ``value`` property.
+    /// This property defined the unit of the ``temperature`` property.
     public let unit: Unit
 
     /// The timestamp of the recording.
@@ -52,12 +52,12 @@ public struct TemperatureMeasurement {
 
     /// Create a new temperature measurement.
     /// - Parameters:
-    ///   - value: The measurement value as a medfloat32.
+    ///   - temperature: The measurement value as a medfloat32.
     ///   - unit: The unit of the temperature measurement.
     ///   - timeStamp: The timestamp of the measurement.
     ///   - temperatureType: The type of the measurement.
-    public init(value: UInt32, unit: Unit, timeStamp: DateTime? = nil, temperatureType: TemperatureType? = nil) {
-        self.value = value
+    public init(temperature: UInt32, unit: Unit, timeStamp: DateTime? = nil, temperatureType: TemperatureType? = nil) {
+        self.temperature = temperature
         self.unit = unit
         self.timeStamp = timeStamp
         self.temperatureType = temperatureType
@@ -87,11 +87,11 @@ extension TemperatureMeasurement.Flags: ByteCodable {
 extension TemperatureMeasurement: ByteCodable {
     public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
         guard let flags = Flags(from: &byteBuffer, preferredEndianness: endianness),
-              let value = UInt32(from: &byteBuffer, preferredEndianness: endianness) else {
+              let temperature = UInt32(from: &byteBuffer, preferredEndianness: endianness) else {
             return nil
         }
 
-        self.value = value
+        self.temperature = temperature
 
         if flags.contains(.fahrenheitUnit) {
             self.unit = .fahrenheit
@@ -125,7 +125,7 @@ extension TemperatureMeasurement: ByteCodable {
         let flagsIndex = byteBuffer.writerIndex
         flags.encode(to: &byteBuffer, preferredEndianness: endianness)
 
-        value.encode(to: &byteBuffer, preferredEndianness: endianness)
+        temperature.encode(to: &byteBuffer, preferredEndianness: endianness)
 
         if case .fahrenheit = unit {
             flags.insert(.fahrenheitUnit)

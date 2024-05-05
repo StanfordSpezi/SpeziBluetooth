@@ -94,6 +94,8 @@ final class MedFloatTests: XCTestCase {
         XCTAssertEqual(negLargeFloat.description, "-123000.0")
         XCTAssertEqual(negSmallFloat.description, "-12.34")
         XCTAssertEqual(negSmallSmallFloat.description, "-0.0000012")
+        XCTAssertEqual(MedFloat16(127).description, "127.0")
+        XCTAssertEqual(MedFloat16(12).description, "12.0")
     }
 
     func testEquality() {
@@ -119,5 +121,74 @@ final class MedFloatTests: XCTestCase {
 
         XCTAssertEqual(float3, float4)
         XCTAssertEqual(float3.description, float4.description)
+    }
+
+    // TODO: test int literal init + float literal
+    func testLiteralInits() {
+        XCTAssertEqual(MedFloat16(150000000000), .infinity)
+        XCTAssertEqual(MedFloat16(-150000000000), .negativeInfinity)
+
+        print(Float(sign: .plus, exponent: 267, significand: 0.6))
+        print(MedFloat16(150000000000).description)
+        print(MedFloat16(150000000000).debugDescription)
+    }
+
+    func testExactlyConversion() {
+        XCTAssertEqual(MedFloat16(exactly: UInt8.max), 255)
+        XCTAssertEqual(MedFloat16(exactly: Int8.max), 127)
+        XCTAssertEqual(MedFloat16(exactly: 12400), 12400)
+
+        XCTAssertNil(MedFloat16(exactly: Int16.max))
+        XCTAssertNil(MedFloat16(exactly: UInt16.max))
+        XCTAssertNil(MedFloat16(exactly: Int32.max))
+        XCTAssertNil(MedFloat16(exactly: UInt32.max))
+        XCTAssertNil(MedFloat16(exactly: Int64.max))
+        XCTAssertNil(MedFloat16(exactly: UInt64.max))
+    }
+
+    func testOrdering() {
+        // TODO: test ordering
+    }
+
+    func testAddition() { // TODO: add tests
+        XCTAssertTrue((MedFloat16.infinity + .negativeInfinity).isNaN)
+        XCTAssertTrue((MedFloat16.negativeInfinity + .infinity).isNaN)
+
+        XCTAssertTrue((MedFloat16.nan + .nan).isNaN)
+        XCTAssertTrue((MedFloat16.nres + .nres).isNaN)
+        XCTAssertTrue((MedFloat16.nan + .nres).isNaN)
+        XCTAssertTrue((MedFloat16.nres + .nan).isNaN)
+        XCTAssertTrue((MedFloat16.reserved0 + .nan).isNaN)
+        XCTAssertTrue((MedFloat16.nan + .reserved0).isNaN)
+        XCTAssertTrue((MedFloat16.nres + .reserved0).isNaN)
+        XCTAssertTrue((MedFloat16.reserved0 + .nres).isNaN)
+
+        XCTAssertEqual(MedFloat16.infinity + .infinity, .infinity)
+        XCTAssertEqual(MedFloat16.infinity + 12, .infinity)
+        XCTAssertEqual(MedFloat16.infinity + -12, .infinity)
+
+        XCTAssertEqual(MedFloat16.negativeInfinity + .negativeInfinity, .negativeInfinity)
+        XCTAssertEqual(MedFloat16.negativeInfinity + 12, .negativeInfinity)
+        XCTAssertEqual(MedFloat16.negativeInfinity + -12, .negativeInfinity)
+
+
+        XCTAssertEqual(MedFloat16(15) + 12, 27)
+        XCTAssertEqual(MedFloat16(15000000000) + 12000000000, .infinity)
+        XCTAssertEqual(MedFloat16(1500000000) + 1200000000, 2700000000)
+        XCTAssertEqual(MedFloat16(15000000) + 120000, 15120000)
+    }
+
+    func testMagnitude() {
+        XCTAssertTrue(MedFloat16.nan.magnitude.isNaN)
+        XCTAssertTrue(MedFloat16.nres.magnitude.isNRes)
+        XCTAssertTrue(MedFloat16.reserved0.magnitude.isReserved0)
+
+        XCTAssertEqual(MedFloat16.infinity.magnitude, .infinity)
+        XCTAssertEqual(MedFloat16.negativeInfinity.magnitude, .infinity)
+
+        XCTAssertEqual(MedFloat16.zero.magnitude, .zero)
+
+        XCTAssertEqual(MedFloat16(12.5).magnitude, 12.5)
+        XCTAssertEqual(MedFloat16(-12.5).magnitude, 12.5)
     }
 }

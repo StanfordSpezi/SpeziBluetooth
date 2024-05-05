@@ -28,15 +28,15 @@ final class BluetoothServicesTests: XCTestCase {
     }
 
     func testTemperatureMeasurement() throws {
-        let data = try XCTUnwrap(Data(hex: "0xAFAFAFAF")) // 4 bytes for the medfloat
+        let data: UInt32 = 0xAFAFAFAF // 4 bytes for the medfloat
         let time = DateTime(hours: 13, minutes: 12, seconds: 12)
 
-        try testIdentity(from: TemperatureMeasurement(value: .celsius(data)))
-        try testIdentity(from: TemperatureMeasurement(value: .fahrenheit(data)))
+        try testIdentity(from: TemperatureMeasurement(temperature: data, unit: .celsius))
+        try testIdentity(from: TemperatureMeasurement(temperature: data, unit: .fahrenheit))
 
-        try testIdentity(from: TemperatureMeasurement(value: .celsius(data), timeStamp: time, temperatureType: .ear))
-        try testIdentity(from: TemperatureMeasurement(value: .celsius(data), temperatureType: .ear))
-        try testIdentity(from: TemperatureMeasurement(value: .celsius(data), timeStamp: time))
+        try testIdentity(from: TemperatureMeasurement(temperature: data, unit: .celsius, timeStamp: time, temperatureType: .ear))
+        try testIdentity(from: TemperatureMeasurement(temperature: data, unit: .celsius, temperatureType: .ear))
+        try testIdentity(from: TemperatureMeasurement(temperature: data, unit: .celsius, timeStamp: time))
     }
 
     func testTemperatureType() throws {
