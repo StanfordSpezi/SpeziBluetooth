@@ -57,6 +57,46 @@ final class BluetoothServicesTests: XCTestCase {
         ))
     }
 
+    func testIntermediateCuffPressure() throws {
+        let time = DateTime(hours: 13, minutes: 12, seconds: 12)
+
+        try testIdentity(from: IntermediateCuffPressure(currentCuffPressure: 56, unit: .mmHg))
+        try testIdentity(from: IntermediateCuffPressure(currentCuffPressure: 56, unit: .kPa))
+
+        try testIdentity(from: IntermediateCuffPressure(
+            currentCuffPressure: 56,
+            unit: .mmHg,
+            timeStamp: time,
+            pulseRate: 54,
+            userId: 0x67,
+            measurementStatus: [.irregularPulse, .bodyMovementDetected]
+        ))
+    }
+
+    func testBloodPressureFeature() throws {
+        let features: BloodPressureFeature = [
+            .bodyMovementDetectionSupported,
+            .cuffFitDetectionSupported,
+            .irregularPulseDetectionSupported,
+            .pulseRateRangeDetectionSupported,
+            .measurementPositionDetectionSupported,
+            .multipleBondsSupported,
+            .e2eCrcSupported,
+            .userDataServiceSupported,
+            .userFacingTimeSupported
+        ]
+
+        XCTAssertTrue(features.contains(.bodyMovementDetectionSupported))
+        XCTAssertTrue(features.contains(.cuffFitDetectionSupported))
+        XCTAssertTrue(features.contains(.irregularPulseDetectionSupported))
+        XCTAssertTrue(features.contains(.pulseRateRangeDetectionSupported))
+        XCTAssertTrue(features.contains(.measurementPositionDetectionSupported))
+        XCTAssertTrue(features.contains(.multipleBondsSupported))
+        XCTAssertTrue(features.contains(.e2eCrcSupported))
+        XCTAssertTrue(features.contains(.userDataServiceSupported))
+        XCTAssertTrue(features.contains(.userFacingTimeSupported))
+    }
+
     func testTemperatureType() throws {
         for type in TemperatureType.allCases {
             try testIdentity(from: type)

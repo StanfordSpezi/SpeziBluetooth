@@ -36,7 +36,7 @@ final class MedFloatTests: XCTestCase {
         XCTAssertEqual(MedFloat16(-0.0000012), MedFloat16(exponent: -7, mantissa: -12))
     }
 
-    func testBasicRepresentations() {
+    func testBasicRepresentations() { // swiftlint:disable:this function_body_length
         let largeFloat = MedFloat16(exponent: 3, mantissa: 123)
         let smallFloat = MedFloat16(exponent: -2, mantissa: 1234)
         let smallSmallFloat = MedFloat16(exponent: -7, mantissa: 12)

@@ -99,7 +99,17 @@ public struct IntermediateCuffPressure {
 }
 
 
-extension IntermediateCuffPressure: Hashable, Sendable {}
+extension IntermediateCuffPressure: Hashable, Sendable {
+    public static func == (lhs: IntermediateCuffPressure, rhs: IntermediateCuffPressure) -> Bool {
+        // we need to override the implementation to avoid weird behavior with NaNs
+        lhs.currentCuffPressure == rhs.currentCuffPressure
+            && lhs.unit == rhs.unit
+            && lhs.timestamp == rhs.timestamp
+            && lhs.pulseRate == rhs.pulseRate
+            && lhs.userId == rhs.userId
+            && lhs.measurementStatus == rhs.measurementStatus
+    }
+}
 
 
 extension IntermediateCuffPressure: ByteCodable {
