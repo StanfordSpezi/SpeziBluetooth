@@ -97,6 +97,34 @@ final class MedFloatTests: XCTestCase {
 
         XCTAssertEqual(MedFloat16(127).description, "127.0")
         XCTAssertEqual(MedFloat16(12).description, "12.0")
+
+        XCTAssertEqual(MedFloat16(exponent: 45, mantissa: 23), .infinity)
+        XCTAssertEqual(MedFloat16(exponent: 2, mantissa: 23000), .infinity)
+        XCTAssertEqual(MedFloat16(exponent: 2, mantissa: -23000), .negativeInfinity)
+        XCTAssertEqual(MedFloat16(exponent: -2, mantissa: 6500), .infinity)
+        XCTAssertEqual(MedFloat16(exponent: -9, mantissa: 650), .infinity)
+        XCTAssertEqual(MedFloat16(exponent: -2, mantissa: -6500), .negativeInfinity)
+        XCTAssertEqual(MedFloat16(exponent: -9, mantissa: -650), .negativeInfinity)
+    }
+
+    func testHashable() {
+        var values: Set<MedFloat16> = []
+
+        XCTAssertTrue(values.insert(.nan).inserted)
+        XCTAssertTrue(values.insert(.nan).inserted)
+        XCTAssertTrue(values.insert(.zero).inserted)
+        XCTAssertFalse(values.insert(MedFloat16(exponent: -2, mantissa: 0)).inserted)
+        XCTAssertTrue(values.insert(2).inserted)
+        XCTAssertTrue(values.insert(4).inserted)
+        XCTAssertFalse(values.insert(4).inserted)
+        XCTAssertTrue(values.insert(.nres).inserted)
+        XCTAssertTrue(values.insert(.nres).inserted)
+        XCTAssertTrue(values.insert(.reserved0).inserted)
+        XCTAssertTrue(values.insert(.reserved0).inserted)
+
+        XCTAssertEqual(MedFloat16.nan.hashValue, MedFloat16.nan.hashValue)
+        XCTAssertEqual(MedFloat16.nres.hashValue, MedFloat16.nres.hashValue)
+        XCTAssertEqual(MedFloat16.reserved0.hashValue, MedFloat16.reserved0.hashValue)
     }
 
     func testEquality() {
@@ -121,10 +149,45 @@ final class MedFloatTests: XCTestCase {
         let float4 = MedFloat16(exponent: 0, mantissa: 100)
 
         XCTAssertEqual(float3, float4)
-        XCTAssertEqual(float3.description, float4.description)
+        XCTAssertEqual(MedFloat16.zero, MedFloat16(exponent: 3, mantissa: 0))
     }
 
-    // TODO: test int literal init + float literal
+    func testComparable() {
+        XCTAssertFalse(MedFloat16.nan < .nan)
+        XCTAssertFalse(MedFloat16.nan < .nan)
+        XCTAssertFalse(MedFloat16.nan < .nres)
+        XCTAssertFalse(MedFloat16.nan < .reserved0)
+        XCTAssertFalse(MedFloat16.nres < .nres)
+        XCTAssertFalse(MedFloat16.nres < .nan)
+        XCTAssertFalse(MedFloat16.nres < .reserved0)
+        XCTAssertFalse(MedFloat16.reserved0 < .reserved0)
+        XCTAssertFalse(MedFloat16.reserved0 < .nan)
+        XCTAssertFalse(MedFloat16.reserved0 < .nres)
+
+        XCTAssertFalse(MedFloat16.negativeInfinity < .negativeInfinity)
+        XCTAssertFalse(MedFloat16.negativeInfinity < .nan)
+        XCTAssertFalse(-503 < MedFloat16.negativeInfinity)
+        XCTAssertFalse(.nan < MedFloat16.negativeInfinity)
+        XCTAssertLessThan(MedFloat16.negativeInfinity, -503)
+        XCTAssertLessThan(MedFloat16.negativeInfinity, .infinity)
+
+        XCTAssertFalse(MedFloat16.infinity < 1234012)
+        XCTAssertFalse(MedFloat16.infinity < .nan)
+        XCTAssertFalse(MedFloat16.infinity < .infinity)
+        XCTAssertFalse(.nan < MedFloat16.infinity)
+        XCTAssertLessThan(123123, .infinity)
+
+        XCTAssertFalse(MedFloat16.zero < MedFloat16(exponent: 3, mantissa: 0))
+        XCTAssertLessThan(MedFloat16(-3), 0)
+        XCTAssertLessThan(MedFloat16(-3), 4)
+        XCTAssertLessThan(MedFloat16.zero, 4)
+        XCTAssertLessThan(MedFloat16(0.578), 4)
+        XCTAssertLessThan(MedFloat16(0.578), 4)
+        XCTAssertLessThan(MedFloat16(-0.578), 4)
+
+        XCTAssertLessThan(MedFloat16(-7.58), -0.78)
+    }
+
     func testLiteralInits() {
         XCTAssertEqual(MedFloat16(150000000000), .infinity)
         XCTAssertEqual(MedFloat16(-150000000000), .negativeInfinity)
@@ -147,11 +210,7 @@ final class MedFloatTests: XCTestCase {
         XCTAssertNil(MedFloat16(exactly: UInt64.max))
     }
 
-    func testOrdering() {
-        // TODO: test ordering
-    }
-
-    func testAddition() { // TODO: add tests
+    func testAddition() {
         XCTAssertTrue((MedFloat16.infinity + .negativeInfinity).isNaN)
         XCTAssertTrue((MedFloat16.negativeInfinity + .infinity).isNaN)
 
@@ -177,6 +236,24 @@ final class MedFloatTests: XCTestCase {
         XCTAssertEqual(MedFloat16(15000000000) + 12000000000, .infinity)
         XCTAssertEqual(MedFloat16(1500000000) + 1200000000, 2700000000)
         XCTAssertEqual(MedFloat16(15000000) + 120000, 15120000)
+    }
+
+    func testNegate() {
+        XCTAssertEqual(-MedFloat16.negativeInfinity, .infinity)
+        XCTAssertEqual(-MedFloat16.infinity, .negativeInfinity)
+        XCTAssertTrue((-MedFloat16.nan).isNaN)
+        XCTAssertTrue((-MedFloat16.nres).isNRes)
+        XCTAssertEqual(-MedFloat16(4), -4)
+    }
+
+    func testMultiply() {
+        var value: MedFloat16 = 2
+
+        value *= 10
+        XCTAssertEqual(value, 20)
+
+        value *= 0.25
+        XCTAssertEqual(value, 5)
     }
 
     func testMagnitude() {

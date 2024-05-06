@@ -38,7 +38,7 @@ public struct TemperatureMeasurement {
     /// The temperature value encoded as a `medfloat32`.
     ///
     /// The unit of this value is defined by the ``unit-swift.property`` property.
-    public let temperature: UInt32 // TODO: rename!
+    public let temperature: UInt32
     /// The unit of the temperature value .
     ///
     /// This property defined the unit of the ``temperature`` property.

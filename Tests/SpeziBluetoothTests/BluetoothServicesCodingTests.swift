@@ -39,6 +39,24 @@ final class BluetoothServicesTests: XCTestCase {
         try testIdentity(from: TemperatureMeasurement(temperature: data, unit: .celsius, timeStamp: time))
     }
 
+    func testBloodPressureMeasurement() throws {
+        let time = DateTime(hours: 13, minutes: 12, seconds: 12)
+
+        try testIdentity(from: BloodPressureMeasurement(systolic: 120.5, diastolic: 80.5, meanArterialPressure: 60, unit: .mmHg))
+        try testIdentity(from: BloodPressureMeasurement(systolic: 120.5, diastolic: 80.5, meanArterialPressure: 60, unit: .kPa))
+
+        try testIdentity(from: BloodPressureMeasurement(
+            systolic: 120.5,
+            diastolic: 80.5,
+            meanArterialPressure: 60,
+            unit: .mmHg,
+            timeStamp: time,
+            pulseRate: 54,
+            userId: 0x67,
+            measurementStatus: [.irregularPulse, .bodyMovementDetected]
+        ))
+    }
+
     func testTemperatureType() throws {
         for type in TemperatureType.allCases {
             try testIdentity(from: type)
