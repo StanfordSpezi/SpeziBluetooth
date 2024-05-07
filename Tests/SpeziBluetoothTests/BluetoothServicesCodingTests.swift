@@ -95,6 +95,13 @@ final class BluetoothServicesTests: XCTestCase {
         XCTAssertTrue(features.contains(.e2eCrcSupported))
         XCTAssertTrue(features.contains(.userDataServiceSupported))
         XCTAssertTrue(features.contains(.userFacingTimeSupported))
+
+        let features2: BloodPressureFeature = [BloodPressureFeature.bodyMovementDetectionSupported, .irregularPulseDetectionSupported]
+        let features3: BloodPressureFeature = [BloodPressureFeature.bodyMovementDetectionSupported, .userFacingTimeSupported]
+
+        try testIdentity(from: features)
+        try testIdentity(from: features2)
+        try testIdentity(from: features3)
     }
 
     func testTemperatureType() throws {
