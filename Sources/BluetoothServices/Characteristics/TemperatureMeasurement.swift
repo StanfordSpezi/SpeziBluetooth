@@ -15,25 +15,35 @@ import NIO
 ///
 /// Refer to GATT Specification Supplement, 3.216 Temperature Measurement.
 public struct TemperatureMeasurement {
-    /// The temperature value encoded as `medfloat32`.
-    public enum Value {
-        /// The temperature value in celsius.
-        case celsius(_ medfloat32: Data)
-        /// The temperature value in fahrenheit.
-        case fahrenheit(_ medfloat32: Data)
+    fileprivate struct Flags: OptionSet {
+        let rawValue: UInt8
 
-        var data: Data {
-            switch self {
-            case let .fahrenheit(data):
-                data
-            case let .celsius(data):
-                data
-            }
+        static let fahrenheitUnit = Flags(rawValue: 1 << 0)
+        static let timeStampPresent = Flags(rawValue: 1 << 1)
+        static let temperatureTypePresent = Flags(rawValue: 1 << 2)
+
+        init(rawValue: UInt8) {
+            self.rawValue = rawValue
         }
     }
 
+    /// The unit of a temperature measurement.
+    public enum Unit {
+        /// The temperature value is measured in celsius.
+        case celsius
+        /// The temperature value is measured in fahrenheit.
+        case fahrenheit
+    }
+
     /// The temperature value encoded as a `medfloat32`.
-    public let value: Value
+    ///
+    /// The unit of this value is defined by the ``unit-swift.property`` property.
+    public let temperature: UInt32
+    /// The unit of the temperature value .
+    ///
+    /// This property defined the unit of the ``temperature`` property.
+    public let unit: Unit
+
     /// The timestamp of the recording.
     public let timeStamp: DateTime?
     /// The location of the temperature measurement.
@@ -42,91 +52,95 @@ public struct TemperatureMeasurement {
 
     /// Create a new temperature measurement.
     /// - Parameters:
-    ///   - value: The measurement value.
+    ///   - temperature: The measurement value as a medfloat32.
+    ///   - unit: The unit of the temperature measurement.
     ///   - timeStamp: The timestamp of the measurement.
     ///   - temperatureType: The type of the measurement.
-    public init(value: Value, timeStamp: DateTime? = nil, temperatureType: TemperatureType? = nil) {
-        self.value = value
+    public init(temperature: UInt32, unit: Unit, timeStamp: DateTime? = nil, temperatureType: TemperatureType? = nil) {
+        self.temperature = temperature
+        self.unit = unit
         self.timeStamp = timeStamp
         self.temperatureType = temperatureType
-        assert(value.data.count == 4, "medFloat32 must be of length 4. Found \(value.data.count) bytes!")
     }
 }
 
 
-extension TemperatureMeasurement {
-    private enum FlagsField {
-        static let isFahrenheitTemperature: UInt8 = 0x01
-        static let isTimeStampPresent: UInt8 = 0x02
-        static let isTemperatureTypePresent: UInt8 = 0x04
+extension TemperatureMeasurement.Unit: Sendable, Hashable {}
+
+
+extension TemperatureMeasurement: Sendable, Hashable {}
+
+
+extension TemperatureMeasurement.Flags: ByteCodable {
+    init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
+        guard let rawValue = UInt8(from: &byteBuffer, preferredEndianness: endianness) else {
+            return nil
+        }
+        self.init(rawValue: rawValue)
+    }
+
+    func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
+        rawValue.encode(to: &byteBuffer, preferredEndianness: endianness)
     }
 }
-
-
-extension TemperatureMeasurement.Value: Equatable {}
-
-
-extension TemperatureMeasurement: Equatable {}
-
 
 extension TemperatureMeasurement: ByteCodable {
     public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        guard let flags = UInt8(from: &byteBuffer, preferredEndianness: endianness),
-              let medFloat32 = byteBuffer.readData(length: 4) else {
+        guard let flags = Flags(from: &byteBuffer, preferredEndianness: endianness),
+              let temperature = UInt32(from: &byteBuffer, preferredEndianness: endianness) else {
             return nil
         }
 
-        let measurement: Value
-        var timeStamp: DateTime?
-        var temperatureType: TemperatureType?
+        self.temperature = temperature
 
-        if flags & FlagsField.isFahrenheitTemperature > 0 {
-            measurement = .fahrenheit(medFloat32)
+        if flags.contains(.fahrenheitUnit) {
+            self.unit = .fahrenheit
         } else {
-            measurement = .celsius(medFloat32)
+            self.unit = .celsius
         }
 
-        if flags & FlagsField.isTimeStampPresent > 0 {
-            guard let dateTime = DateTime(from: &byteBuffer, preferredEndianness: endianness) else {
+        if flags.contains(.timeStampPresent) {
+            guard let timeStamp = DateTime(from: &byteBuffer, preferredEndianness: endianness) else {
                 return nil
             }
-            timeStamp = dateTime
+            self.timeStamp = timeStamp
+        } else {
+            self.timeStamp = nil
         }
 
-        if flags & FlagsField.isTemperatureTypePresent > 0 {
-            guard let type = TemperatureType(from: &byteBuffer, preferredEndianness: endianness) else {
+        if flags.contains(.temperatureTypePresent) {
+            guard let temperatureType = TemperatureType(from: &byteBuffer, preferredEndianness: endianness) else {
                 return nil
             }
-            temperatureType = type
+            self.temperatureType = temperatureType
+        } else {
+            self.temperatureType = nil
         }
-
-        self.init(value: measurement, timeStamp: timeStamp, temperatureType: temperatureType)
     }
 
     public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
+        var flags: Flags = []
+
+        // write empty flags field for now to move writer index
         let flagsIndex = byteBuffer.writerIndex
-        var flags: UInt8 = 0
+        flags.encode(to: &byteBuffer, preferredEndianness: endianness)
 
-        flags.encode(to: &byteBuffer, preferredEndianness: endianness) // write for now
+        temperature.encode(to: &byteBuffer, preferredEndianness: endianness)
 
-        switch value {
-        case let .fahrenheit(data):
-            flags |= FlagsField.isFahrenheitTemperature
-            data.encode(to: &byteBuffer, preferredEndianness: endianness)
-        case let .celsius(data):
-            data.encode(to: &byteBuffer, preferredEndianness: endianness)
+        if case .fahrenheit = unit {
+            flags.insert(.fahrenheitUnit)
         }
 
         if let timeStamp {
-            flags |= FlagsField.isTimeStampPresent
+            flags.insert(.timeStampPresent)
             timeStamp.encode(to: &byteBuffer, preferredEndianness: endianness)
         }
 
         if let temperatureType {
-            flags |= FlagsField.isTemperatureTypePresent
+            flags.insert(.temperatureTypePresent)
             temperatureType.encode(to: &byteBuffer, preferredEndianness: endianness)
         }
 
-        byteBuffer.setInteger(flags, at: flagsIndex) // finally update the flags field
+        byteBuffer.setInteger(flags.rawValue, at: flagsIndex) // finally update the flags field
     }
 }

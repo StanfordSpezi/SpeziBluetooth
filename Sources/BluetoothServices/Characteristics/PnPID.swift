@@ -64,10 +64,10 @@ public struct PnPID {
 }
 
 
-extension VendorIDSource: Equatable {}
+extension VendorIDSource: Hashable, Sendable {}
 
 
-extension PnPID: Equatable {}
+extension PnPID: Hashable, Sendable {}
 
 
 extension VendorIDSource: RawRepresentable {

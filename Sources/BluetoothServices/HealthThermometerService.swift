@@ -13,14 +13,6 @@ import SpeziBluetooth
 /// Bluetooth Health Thermometer Service implementation.
 ///
 /// This class implements the Bluetooth [Health Thermometer Service 1.0](https://www.bluetooth.com/specifications/specs/health-thermometer-service-1-0).
-///
-/// ## Topics
-///
-/// ### Structures
-/// - ``TemperatureMeasurement``
-/// - ``TemperatureType``
-/// - ``MeasurementInterval``
-/// - ``DateTime``
 public final class HealthThermometerService: BluetoothService, @unchecked Sendable {
     public static let id = CBUUID(string: "1809")
 

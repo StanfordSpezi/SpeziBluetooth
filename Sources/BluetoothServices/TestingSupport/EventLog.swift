@@ -17,7 +17,7 @@ import SpeziBluetooth
 ///
 /// Those events always imply to happen on characteristics of the `TestService`.
 @_spi(TestingSupport)
-public enum EventLog: Sendable {
+public enum EventLog {
     /// No event happened yet.
     case none
     /// Central subscribed to the notifications of the given characteristic.
@@ -32,7 +32,7 @@ public enum EventLog: Sendable {
 
 
 @_spi(TestingSupport)
-extension EventLog: Equatable {}
+extension EventLog: Hashable, Sendable {}
 
 
 @_spi(TestingSupport)

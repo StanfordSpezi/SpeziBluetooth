@@ -92,10 +92,10 @@ public struct DateTime {
 }
 
 
-extension DateTime.Month: Equatable {}
+extension DateTime.Month: Hashable, Sendable {}
 
 
-extension DateTime: Equatable {}
+extension DateTime: Hashable, Sendable {}
 
 
 extension DateTime.Month: ByteCodable {

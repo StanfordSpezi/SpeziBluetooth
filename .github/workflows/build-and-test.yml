@@ -28,7 +28,6 @@ jobs:
     uses: StanfordSpezi/.github/.github/workflows/xcodebuild-or-fastlane.yml@v2
     with:
       runsonlabels: '["macOS", "self-hosted", "spezi"]'
-      setupSimulators: true
       path: 'Tests/UITests'
       scheme: TestApp
       artifactname: TestApp-iOS.xcresult
@@ -52,3 +51,5 @@ jobs:
     uses: StanfordSpezi/.github/.github/workflows/create-and-upload-coverage-report.yml@v2
     with:
       coveragereports: SpeziBluetooth-Package.xcresult TestApp-iOS.xcresult TestApp-macOS.xcresult
+    secrets:
+      token: ${{ secrets.CODECOV_TOKEN }}
