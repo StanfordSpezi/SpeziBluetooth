@@ -1,6 +1,6 @@
 # ``BluetoothServices``
 
-Reusable Bluetooth Service implementations.
+Reusable Bluetooth Service and Characteristic implementations.
 
 <!--
 #
@@ -14,14 +14,16 @@ Reusable Bluetooth Service implementations.
 
 ## Overview
 
-This target provides reusable Bluetooth service implementations of standardized Bluetooth services.
+The `BluetoothServices` target provides several reusable components when developing Bluetooth peripherals
+with standardized services and characteristics.
 
 ## Topics
 
-### Core Services
+### Articles
 
-- ``DeviceInformationService``
+- <doc:Characteristics>
+- <doc:Services>
 
-### Health Domain
+### Data Types
 
-- ``HealthThermometerService``
+- ``MedFloat16``

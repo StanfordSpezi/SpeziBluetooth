@@ -17,12 +17,6 @@ import SpeziBluetooth
 /// All characteristics are read-only and optional to implement.
 /// It is possible that none are implemented at all.
 /// For more information refer to the specification.
-///
-/// ## Topics
-///
-/// ### Structures
-/// - ``PnPID``
-/// - ``VendorIDSource``
 public final class DeviceInformationService: BluetoothService, @unchecked Sendable {
     public static let id = CBUUID(string: "180A")
 
