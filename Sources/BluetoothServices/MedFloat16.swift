@@ -205,7 +205,7 @@ extension MedFloat16 {
 
     func normalized() -> MedFloat16 {
         // MedFloat16.normalize is called as part of the initializer
-        return MedFloat16(exponent: exponent, mantissa: mantissa)
+        MedFloat16(exponent: exponent, mantissa: mantissa)
     }
 }
 
