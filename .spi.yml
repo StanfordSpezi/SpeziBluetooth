@@ -12,5 +12,6 @@ builder:
     - platform: ios
       documentation_targets:
       - BluetoothServices
+      - BluetoothViews
       - SpeziBluetooth
-      - XCTBluetooth
+      - TestPeripheral
