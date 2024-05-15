@@ -11,6 +11,9 @@ import Foundation
 import NIOCore
 
 
+/// Features of a weight scale.
+///
+/// Refer to GATT Specification Supplement, 3.30 Blood Pressure Feature.
 public struct BloodPressureFeature: OptionSet {
     /// Indicate if body movement detection is supported.
     ///
