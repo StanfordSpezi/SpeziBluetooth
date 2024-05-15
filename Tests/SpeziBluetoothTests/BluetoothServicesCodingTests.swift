@@ -114,12 +114,12 @@ final class BluetoothServicesTests: XCTestCase {
     }
 
     func testWeightMeasurementResolutions() throws {
-        func weightOf(_ weight: UInt16, unit: WeightMeasurement.Unit = .si, resolution: WeightScaleFeature.WeightResolution) -> Double {
+        func weightOf(_ weight: UInt16, resolution: WeightScaleFeature.WeightResolution, unit: WeightMeasurement.Unit = .si) -> Double {
             WeightMeasurement(weight: weight, unit: unit)
                 .weight(of: resolution)
         }
 
-        func heightOf(_ height: UInt16, unit: WeightMeasurement.Unit = .si, resolution: WeightScaleFeature.HeightResolution) -> Double? {
+        func heightOf(_ height: UInt16, resolution: WeightScaleFeature.HeightResolution, unit: WeightMeasurement.Unit = .si) -> Double? {
             WeightMeasurement(weight: 120, unit: unit, additionalInfo: .init(bmi: 230, height: height))
                 .height(of: resolution)
         }
@@ -133,24 +133,24 @@ final class BluetoothServicesTests: XCTestCase {
         XCTAssertEqual(weightOf(120, resolution: .resolution200g), 24)
         XCTAssertEqual(weightOf(120, resolution: .resolution500g), 60)
 
-        XCTAssertEqual(weightOf(120, unit: .imperial, resolution: .unspecified), 1.2)
-        XCTAssertEqual(weightOf(120, unit: .imperial, resolution: .resolution5g), 1.2)
-        XCTAssertEqual(weightOf(120, unit: .imperial, resolution: .resolution10g), 2.4)
-        XCTAssertEqual(weightOf(120, unit: .imperial, resolution: .resolution20g), 6)
-        XCTAssertEqual(weightOf(120, unit: .imperial, resolution: .resolution50g), 12)
-        XCTAssertEqual(weightOf(120, unit: .imperial, resolution: .resolution100g), 24)
-        XCTAssertEqual(weightOf(120, unit: .imperial, resolution: .resolution200g), 60)
-        XCTAssertEqual(weightOf(120, unit: .imperial, resolution: .resolution500g), 120)
+        XCTAssertEqual(weightOf(120, resolution: .unspecified, unit: .imperial), 1.2)
+        XCTAssertEqual(weightOf(120, resolution: .resolution5g, unit: .imperial), 1.2)
+        XCTAssertEqual(weightOf(120, resolution: .resolution10g, unit: .imperial), 2.4)
+        XCTAssertEqual(weightOf(120, resolution: .resolution20g, unit: .imperial), 6)
+        XCTAssertEqual(weightOf(120, resolution: .resolution50g, unit: .imperial), 12)
+        XCTAssertEqual(weightOf(120, resolution: .resolution100g, unit: .imperial), 24)
+        XCTAssertEqual(weightOf(120, resolution: .resolution200g, unit: .imperial), 60)
+        XCTAssertEqual(weightOf(120, resolution: .resolution500g, unit: .imperial), 120)
 
         XCTAssertEqual(heightOf(1700, resolution: .unspecified), 1.7)
         XCTAssertEqual(heightOf(1700, resolution: .resolution1mm), 1.7)
         XCTAssertEqual(heightOf(1700, resolution: .resolution5mm), 8.5)
         XCTAssertEqual(heightOf(1700, resolution: .resolution10mm), 17)
 
-        XCTAssertEqual(heightOf(60, unit: .imperial, resolution: .unspecified), 6)
-        XCTAssertEqual(heightOf(60, unit: .imperial, resolution: .resolution1mm), 6)
-        XCTAssertEqual(heightOf(60, unit: .imperial, resolution: .resolution5mm), 30)
-        XCTAssertEqual(heightOf(60, unit: .imperial, resolution: .resolution10mm), 60)
+        XCTAssertEqual(heightOf(60, resolution: .unspecified, unit: .imperial), 6)
+        XCTAssertEqual(heightOf(60, resolution: .resolution1mm, unit: .imperial), 6)
+        XCTAssertEqual(heightOf(60, resolution: .resolution5mm, unit: .imperial), 30)
+        XCTAssertEqual(heightOf(60, resolution: .resolution10mm, unit: .imperial), 60)
     }
 
     func testWeightScaleFeature() throws {
@@ -166,7 +166,12 @@ final class BluetoothServicesTests: XCTestCase {
 
         try testIdentity(from: features)
         try testIdentity(from: WeightScaleFeature(weightResolution: .resolution20g, heightResolution: .resolution10mm))
-        try testIdentity(from: WeightScaleFeature(weightResolution: .resolution20g, heightResolution: .resolution10mm, options: .bmiSupported, .multipleUsersSupported))
+        try testIdentity(from: WeightScaleFeature(
+            weightResolution: .resolution20g,
+            heightResolution: .resolution10mm,
+            options: .bmiSupported,
+            .multipleUsersSupported
+        ))
     }
 
     func testTemperatureType() throws {
