@@ -106,7 +106,7 @@ class MyDevice: BluetoothDevice {
     @DeviceAction(\.disconnect)
     var disconnect
 
-    init() {} // required initializer
+    required init() {}
 }
 ```
 

@@ -60,38 +60,4 @@ public final class DeviceInformationService: BluetoothService, @unchecked Sendab
 
 
     public init() {}
-
-
-    /// Queries all present device information.
-    public func retrieveDeviceInformation() async throws {
-        if $manufacturerName.isPresent {
-            try await self.$manufacturerName.read()
-        }
-        if $modelNumber.isPresent {
-            try await self.$modelNumber.read()
-        }
-        if $serialNumber.isPresent {
-            try await self.$serialNumber.read()
-        }
-
-        if $hardwareRevision.isPresent {
-            try await self.$hardwareRevision.read()
-        }
-        if $firmwareRevision.isPresent {
-            try await self.$firmwareRevision.read()
-        }
-        if $softwareRevision.isPresent {
-            try await self.$softwareRevision.read()
-        }
-
-        if $systemID.isPresent {
-            try await self.$systemID.read()
-        }
-        if $regulatoryCertificationDataList.isPresent {
-            try await self.$regulatoryCertificationDataList.read()
-        }
-        if $pnpID.isPresent {
-            try await self.$pnpID.read()
-        }
-    }
 }

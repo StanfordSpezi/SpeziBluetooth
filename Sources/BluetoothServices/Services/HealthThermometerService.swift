@@ -18,7 +18,7 @@ public final class HealthThermometerService: BluetoothService, @unchecked Sendab
 
     /// Receive temperature measurements.
     ///
-    /// - Note: This is characteristic required and indicate-only.
+    /// - Note: This characteristic is required and indicate-only.
     @Characteristic(id: "2A1C", notify: true)
     public var temperatureMeasurement: TemperatureMeasurement?
     /// The body location of the temperature measurement.
@@ -26,19 +26,19 @@ public final class HealthThermometerService: BluetoothService, @unchecked Sendab
     /// Either use this static property or dynamically set it within ``TemperatureMeasurement/temperatureType``.
     /// Don't use both. Either of one is required.
     ///
-    /// - Note: This is characteristic optional and read-only.
+    /// - Note: This characteristic is optional and read-only.
     @Characteristic(id: "2A1D")
     public var temperatureType: TemperatureType?
     /// Receive intermediate temperature values to a device for display purposes while a measurement is in progress.
     ///
-    /// - Note: This is characteristic optional and notify-only.
+    /// - Note: This characteristic is optional and notify-only.
     @Characteristic(id: "2A1E", notify: true)
     public var intermediateTemperature: TemperatureMeasurement?
     /// The measurement interval between two measurements.
     ///
     /// Describes the measurements of ``temperatureMeasurement``.
     ///
-    /// - Note: This is characteristic optional and read-only.
+    /// - Note: This characteristic is optional and read-only.
     ///     Optionally it might indicate and writeable.
     @Characteristic(id: "2A21")
     public var measurementInterval: MeasurementInterval?

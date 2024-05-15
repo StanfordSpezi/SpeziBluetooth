@@ -62,7 +62,7 @@ import Spezi
 ///     @DeviceAction(\.disconnect)
 ///     var disconnect
 ///
-///     init() {} // required initializer
+///     required init() {}
 /// }
 /// ```
 ///
