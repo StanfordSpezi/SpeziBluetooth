@@ -31,23 +31,31 @@ public struct WeightMeasurement {
     /// Units for a weight measurement.
     public enum Unit {
         /// SI units (Weight and Mass in units of kilogram (kg) and Height in units of meter).
-        case si
+        case si // swiftlint:disable:this identifier_name
         /// Imperial units. (Weight and Mass in units of pound (lb) and Height in units of inch (in)).
         case imperial
     }
 
     /// Additional metadata information for a weight measurement.
     public struct AdditionalInfo {
-        /// The BMI in units of 0.1 kg/m2.
+        /// The BMI.
+        ///
+        /// The value is in units of 0.1 kg/m2.
         public let bmi: UInt16
         /// The height.
         ///
         /// The unit of this value is defined by the ``WeightMeasurement/unit-swift.property`` property.
-        /// The value has a resolution of `0.001` in meters and a resolution of `0.1` in inches.
-        public let height: UInt16 // TODO: automatic float conversion?
+        ///
+        /// The resolution of this value is defined by the ``WeightScaleFeature/heightResolution-swift.property`` property.
+        /// Otherwise, if nto specified the value has a resolution of `0.001` in meters and a resolution of `0.1` in inches.
+        public let height: UInt16
 
 
-        // TODO: app code docs!
+        /// Initialize new additional information for a weight measurement.
+        /// - Parameters:
+        ///   - bmi: The BMI in units of 0.1 kg/m2.
+        ///   - height: The height. Unit is defined by ``WeightMeasurement/unit-swift.property`` and resolution by
+        ///     ``WeightScaleFeature/heightResolution-swift.property`` or in `0.001` meters and `0.1` inches if not specified.
         public init(bmi: UInt16, height: UInt16) {
             self.bmi = bmi
             self.height = height
@@ -57,8 +65,9 @@ public struct WeightMeasurement {
     /// The weight measurement.
     ///
     /// The unit of this value is defined by the ``unit-swift.property`` property.
-    /// The value has a resolution of `0.005` in kg and a resolution of `0.01` in pounds.
-    public let weight: UInt16 // TODO: automatic float conversion?
+    /// The value has a resolution as defined by ``WeightMeasurement/unit-swift.property`` or, otheriwse,
+    /// of `0.005` in kg and a resolution of `0.01` in pounds.
+    public let weight: UInt16
     /// The unit of a weight measurement.
     public let unit: Unit
 
@@ -77,7 +86,15 @@ public struct WeightMeasurement {
     public let additionalInfo: AdditionalInfo?
 
 
-    // TODO: app code docs
+    /// Create a new weight measurement.
+    ///
+    /// - Parameters:
+    ///   - weight: The weight in resolution as defined by ``WeightScaleFeature/weightResolution-swift.property``
+    ///     or `0.005` in kg and a resolution of `0.01` in pounds.
+    ///   - unit: The units used for weight and height.
+    ///   - timeStamp: The timestamp of the measurement.
+    ///   - userId: The associated user of the weight measurement.
+    ///   - additionalInfo: Additional information collected by a weight scale like BMI and height.
     public init(weight: UInt16, unit: Unit, timeStamp: DateTime? = nil, userId: UInt8? = nil, additionalInfo: AdditionalInfo? = nil) {
         self.weight = weight
         self.unit = unit
@@ -89,11 +106,23 @@ public struct WeightMeasurement {
 
 
 extension WeightMeasurement {
+    /// The weight value in kg or pounds.
+    ///
+    /// Derrives the weight value as a `Double` considering the devices resolution as defiend by the
+    /// ``WeightScaleFeature`` characteristic.
+    /// - Parameter resolution: The resolution of the ``weight`` property.
+    /// - Returns: The double value of the weight in kg or pounds.
     public func weight(of resolution: WeightScaleFeature.WeightResolution) -> Double {
         Double(weight) * resolution.magnitude(in: unit)
     }
 
 
+    /// The height value in meter or inches.
+    ///
+    /// Derrives the height value as a `Double` consdering the devices resolution as defined by the
+    /// ``WeightScaleFeature`` characteristic.
+    /// - Parameter resolution: The resolution of the ``AdditionalInfo-swift.struct/height`` property.
+    /// - Returns: The double value of the height in meters or inches.
     public func height(of resolution: WeightScaleFeature.HeightResolution) -> Double? {
         (additionalInfo?.height)
             .map(Double.init)

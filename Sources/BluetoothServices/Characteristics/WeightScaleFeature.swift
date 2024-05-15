@@ -16,23 +16,23 @@ import NIOCore
 /// Refer to GATT Specification Supplement, 3.253 Weight Scale Feature.
 public struct WeightScaleFeature: OptionSet {
     /// Weight resolutions for a weight measurement.
-    public struct WeightResolution: RawRepresentable { // TODO: case naming?
+    public struct WeightResolution: RawRepresentable {
         /// Unspecified resolution, falling back to the default.
         public static let unspecified = WeightResolution(forceRawValue: 0)
         /// Resolution of 0.5 kg or 1 lb.
-        public static let gradeOne = WeightResolution(forceRawValue: 1)
+        public static let resolution500g = WeightResolution(forceRawValue: 1)
         /// Resolution 0.2 kg or 0.5 lb.
-        public static let gradeTwo = WeightResolution(forceRawValue: 2)
+        public static let resolution200g = WeightResolution(forceRawValue: 2)
         /// Resolution 0.1 kg or 0.2 lb.
-        public static let gradeThree = WeightResolution(forceRawValue: 3)
+        public static let resolution100g = WeightResolution(forceRawValue: 3)
         /// Resolution 0.05 kg or 0.1 lb.
-        public static let gradeFour = WeightResolution(forceRawValue: 4)
+        public static let resolution50g = WeightResolution(forceRawValue: 4)
         /// Resolution 0.02 kg or 0.05 lb.
-        public static let gradeFive = WeightResolution(forceRawValue: 5)
+        public static let resolution20g = WeightResolution(forceRawValue: 5)
         /// Resolution 0.01 kg or 0.02 lb.
-        public static let gradeSix = WeightResolution(forceRawValue: 6)
+        public static let resolution10g = WeightResolution(forceRawValue: 6)
         /// Resolution 0.005 kg or 0.01 lb.
-        public static let gradeSeven = WeightResolution(forceRawValue: 7)
+        public static let resolution5g = WeightResolution(forceRawValue: 7)
 
         public let rawValue: UInt8
 
@@ -49,51 +49,51 @@ public struct WeightScaleFeature: OptionSet {
         }
 
 
-        func magnitude(in unit: WeightMeasurement.Unit) -> Double {
+        func magnitude(in unit: WeightMeasurement.Unit) -> Double { // swiftlint:disable:this cyclomatic_complexity function_body_length
             switch self {
-            case .gradeOne:
+            case .resolution500g:
                 switch unit {
                 case .si:
                     0.5
                 case .imperial:
                     1
                 }
-            case .gradeTwo:
+            case .resolution200g:
                 switch unit {
                 case .si:
                     0.2
                 case .imperial:
                     0.5
                 }
-            case .gradeThree:
+            case .resolution100g:
                 switch unit {
                 case .si:
                     0.1
                 case .imperial:
                     0.2
                 }
-            case .gradeFour:
+            case .resolution50g:
                 switch unit {
                 case .si:
                     0.05
                 case .imperial:
                     0.1
                 }
-            case .gradeFive:
+            case .resolution20g:
                 switch unit {
                 case .si:
                     0.02
                 case .imperial:
                     0.05
                 }
-            case .gradeSix:
+            case .resolution10g:
                 switch unit {
                 case .si:
                     0.01
                 case .imperial:
                     0.02
                 }
-            case .unspecified, .gradeSeven:
+            case .unspecified, .resolution5g:
                 switch unit {
                 case .si:
                     0.005
@@ -116,11 +116,11 @@ public struct WeightScaleFeature: OptionSet {
         /// Unspecified resolution, falling back to the default.
         public static let unspecified = HeightResolution(forceRawValue: 0)
         /// Resolution of 0.01 meter or 1 inch.
-        public static let gradeOne = HeightResolution(forceRawValue: 1)
+        public static let resolution10mm = HeightResolution(forceRawValue: 1)
         /// Resolution of 0.005 meter or 0.5 inch.
-        public static let gradeTwo = HeightResolution(forceRawValue: 2)
+        public static let resolution5mm = HeightResolution(forceRawValue: 2)
         /// Resolution of 0.001 meter or 0.1 inch.
-        public static let gradeThree = HeightResolution(forceRawValue: 3)
+        public static let resolution1mm = HeightResolution(forceRawValue: 3)
 
         public let rawValue: UInt8
 
@@ -136,23 +136,23 @@ public struct WeightScaleFeature: OptionSet {
             self.rawValue = rawValue
         }
 
-        func magnitude(in unit: WeightMeasurement.Unit) -> Double {
+        func magnitude(in unit: WeightMeasurement.Unit) -> Double { // swiftlint:disable:this cyclomatic_complexity
             switch self {
-            case .gradeOne:
+            case .resolution10mm:
                 switch unit {
                 case .si:
                     0.01
                 case .imperial:
                     1
                 }
-            case .gradeTwo:
+            case .resolution5mm:
                 switch unit {
                 case .si:
                     0.005
                 case .imperial:
                     0.5
                 }
-            case .unspecified, .gradeThree:
+            case .unspecified, .resolution1mm:
                 switch unit {
                 case .si:
                     0.001
@@ -170,12 +170,11 @@ public struct WeightScaleFeature: OptionSet {
         }
     }
 
-    public let rawValue: UInt32
-
-
     public static let timeStampSupported = WeightScaleFeature(rawValue: 1 << 0)
     public static let multipleUsersSupported = WeightScaleFeature(rawValue: 1 << 1)
     public static let bmiSupported = WeightScaleFeature(rawValue: 1 << 2)
+
+    public let rawValue: UInt32
 
     public var weightResolution: WeightResolution {
         let rawValue = UInt8((rawValue >> 3) & 0b1111)

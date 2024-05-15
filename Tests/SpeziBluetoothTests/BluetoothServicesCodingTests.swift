@@ -104,6 +104,34 @@ final class BluetoothServicesTests: XCTestCase {
         try testIdentity(from: features3)
     }
 
+    func testWeightMeasurement() throws {
+        let time = DateTime(hours: 13, minutes: 12, seconds: 12)
+
+        try testIdentity(from: WeightMeasurement(weight: 123, unit: .si))
+        try testIdentity(from: WeightMeasurement(weight: 123, unit: .si, timeStamp: time))
+        try testIdentity(from: WeightMeasurement(weight: 123, unit: .si, timeStamp: time, userId: 23))
+        try testIdentity(from: WeightMeasurement(weight: 123, unit: .si, additionalInfo: .init(bmi: 230, height: 1760)))
+    }
+
+    func testWeightScaleFeature() throws {
+        let features: WeightScaleFeature = [
+            .bmiSupported,
+            .multipleUsersSupported,
+            .timeStampSupported
+        ]
+
+        XCTAssertTrue(features.contains(.bmiSupported))
+        XCTAssertTrue(features.contains(.multipleUsersSupported))
+        XCTAssertTrue(features.contains(.timeStampSupported))
+
+        let features2: WeightScaleFeature = [.bmiSupported]
+        let features3: WeightScaleFeature = [.timeStampSupported]
+
+        try testIdentity(from: features)
+        try testIdentity(from: features2)
+        try testIdentity(from: features3)
+    }
+
     func testTemperatureType() throws {
         for type in TemperatureType.allCases {
             try testIdentity(from: type)
