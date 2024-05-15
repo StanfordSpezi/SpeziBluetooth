@@ -199,8 +199,10 @@ final class BluetoothServicesTests: XCTestCase {
     func testCharacteristics() async throws {
         _ = TestService()
         _ = HealthThermometerService()
-        let info = DeviceInformationService()
-        try await info.retrieveDeviceInformation()
+        _ = DeviceInformationService()
+        _ = WeightScaleService()
+        _ = BloodPressureService()
+        _ = BatteryService()
     }
 
     func testUUID() {
