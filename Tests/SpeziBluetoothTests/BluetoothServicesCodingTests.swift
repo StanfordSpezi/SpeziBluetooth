@@ -113,6 +113,46 @@ final class BluetoothServicesTests: XCTestCase {
         try testIdentity(from: WeightMeasurement(weight: 123, unit: .si, additionalInfo: .init(bmi: 230, height: 1760)))
     }
 
+    func testWeightMeasurementResolutions() throws {
+        func weightOf(_ weight: UInt16, unit: WeightMeasurement.Unit = .si, resolution: WeightScaleFeature.WeightResolution) -> Double {
+            WeightMeasurement(weight: weight, unit: unit)
+                .weight(of: resolution)
+        }
+
+        func heightOf(_ height: UInt16, unit: WeightMeasurement.Unit = .si, resolution: WeightScaleFeature.HeightResolution) -> Double? {
+            WeightMeasurement(weight: 120, unit: unit, additionalInfo: .init(bmi: 230, height: height))
+                .height(of: resolution)
+        }
+
+        XCTAssertEqual(weightOf(120, resolution: .unspecified), 0.6)
+        XCTAssertEqual(weightOf(120, resolution: .resolution5g), 0.6)
+        XCTAssertEqual(weightOf(120, resolution: .resolution10g), 1.2)
+        XCTAssertEqual(weightOf(120, resolution: .resolution20g), 2.4)
+        XCTAssertEqual(weightOf(120, resolution: .resolution50g), 6)
+        XCTAssertEqual(weightOf(120, resolution: .resolution100g), 12)
+        XCTAssertEqual(weightOf(120, resolution: .resolution200g), 24)
+        XCTAssertEqual(weightOf(120, resolution: .resolution500g), 60)
+
+        XCTAssertEqual(weightOf(120, unit: .imperial, resolution: .unspecified), 1.2)
+        XCTAssertEqual(weightOf(120, unit: .imperial, resolution: .resolution5g), 1.2)
+        XCTAssertEqual(weightOf(120, unit: .imperial, resolution: .resolution10g), 2.4)
+        XCTAssertEqual(weightOf(120, unit: .imperial, resolution: .resolution20g), 6)
+        XCTAssertEqual(weightOf(120, unit: .imperial, resolution: .resolution50g), 12)
+        XCTAssertEqual(weightOf(120, unit: .imperial, resolution: .resolution100g), 24)
+        XCTAssertEqual(weightOf(120, unit: .imperial, resolution: .resolution200g), 60)
+        XCTAssertEqual(weightOf(120, unit: .imperial, resolution: .resolution500g), 120)
+
+        XCTAssertEqual(heightOf(1700, resolution: .unspecified), 1.7)
+        XCTAssertEqual(heightOf(1700, resolution: .resolution1mm), 1.7)
+        XCTAssertEqual(heightOf(1700, resolution: .resolution5mm), 8.5)
+        XCTAssertEqual(heightOf(1700, resolution: .resolution10mm), 17)
+
+        XCTAssertEqual(heightOf(60, unit: .imperial, resolution: .unspecified), 6)
+        XCTAssertEqual(heightOf(60, unit: .imperial, resolution: .resolution1mm), 6)
+        XCTAssertEqual(heightOf(60, unit: .imperial, resolution: .resolution5mm), 30)
+        XCTAssertEqual(heightOf(60, unit: .imperial, resolution: .resolution10mm), 60)
+    }
+
     func testWeightScaleFeature() throws {
         let features: WeightScaleFeature = [
             .bmiSupported,
@@ -124,12 +164,9 @@ final class BluetoothServicesTests: XCTestCase {
         XCTAssertTrue(features.contains(.multipleUsersSupported))
         XCTAssertTrue(features.contains(.timeStampSupported))
 
-        let features2: WeightScaleFeature = [.bmiSupported]
-        let features3: WeightScaleFeature = [.timeStampSupported]
-
         try testIdentity(from: features)
-        try testIdentity(from: features2)
-        try testIdentity(from: features3)
+        try testIdentity(from: WeightScaleFeature(weightResolution: .resolution20g, heightResolution: .resolution10mm))
+        try testIdentity(from: WeightScaleFeature(weightResolution: .resolution20g, heightResolution: .resolution10mm, options: .bmiSupported, .multipleUsersSupported))
     }
 
     func testTemperatureType() throws {

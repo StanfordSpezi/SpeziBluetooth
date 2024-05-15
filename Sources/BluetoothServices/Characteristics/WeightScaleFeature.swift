@@ -191,8 +191,14 @@ public struct WeightScaleFeature: OptionSet {
         self.rawValue = rawValue
     }
 
-    public init(weightResolution: WeightResolution, heightResolution: HeightResolution) {
-        self.rawValue = (UInt32(weightResolution.rawValue) << 3) & (UInt32(heightResolution.rawValue) << 7)
+    /// Create new weight scale features.
+    /// - Parameters:
+    ///   - weightResolution: The resolution for weight values for a ``WeightMeasurement``.
+    ///   - heightResolution: The resolution for height values for a ``WeightMeasurement``.
+    ///   - options: Additional flags and options of ``WeightScaleFeature`` (e.g., BMI support or multi user support).
+    public init(weightResolution: WeightResolution, heightResolution: HeightResolution, options: WeightScaleFeature...) {
+        let rawValue = (UInt32(weightResolution.rawValue) << 3) & (UInt32(heightResolution.rawValue) << 7)
+        self = WeightScaleFeature(rawValue: rawValue).union(WeightScaleFeature(options))
     }
 }
 
