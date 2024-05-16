@@ -33,14 +33,19 @@ which natively integrates with SpeziBluetooth-defined services.
 - ``PnPID``
 - ``VendorIDSource``
 
+### Blood Pressure
+
+- ``BloodPressureMeasurement``
+- ``BloodPressureFeature``
+- ``IntermediateCuffPressure``
+
 ### Temperature Measurement
 
 - ``TemperatureMeasurement``
 - ``TemperatureType``
 - ``MeasurementInterval``
 
-### Blood Pressure
+### Weight Measurement
 
-- ``BloodPressureMeasurement``
-- ``BloodPressureFeature``
-- ``IntermediateCuffPressure``
+- ``WeightMeasurement``
+- ``WeightScaleFeature``
