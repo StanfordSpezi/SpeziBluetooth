@@ -7,40 +7,49 @@
 //
 
 import ByteCoding
+import Foundation
 import NIO
 
 
-/// Date Time characteristic to represent date and time.
+/// Date and time information.
 ///
 /// Refer to GATT Specification Supplement, 3.70 Date Time.
 public struct DateTime {
-    public enum Month: UInt8 {
+    /// The month.
+    public struct Month: RawRepresentable {
         /// Unknown month.
-        case unknown
+        public static let unknown = Month(rawValue: 0)
         /// The month January.
-        case january
+        public static let january = Month(rawValue: 1)
         /// The month February.
-        case february
+        public static let february = Month(rawValue: 2)
         /// The month March.
-        case march
+        public static let march = Month(rawValue: 3)
         /// The month April.
-        case april
+        public static let april = Month(rawValue: 4)
         /// The month Mai.
-        case mai
+        public static let mai = Month(rawValue: 5)
         /// The month June.
-        case june
+        public static let june = Month(rawValue: 6)
         /// The month July.
-        case july
+        public static let july = Month(rawValue: 7)
         /// The month August.
-        case august
+        public static let august = Month(rawValue: 8)
         /// The month September.
-        case september
+        public static let september = Month(rawValue: 9)
         /// The month October.
-        case october
+        public static let october = Month(rawValue: 10)
         /// The month November.
-        case november
+        public static let november = Month(rawValue: 11)
         /// The month December.
-        case december
+        public static let december = Month(rawValue: 12)
+
+        public let rawValue: UInt8
+
+
+        public init(rawValue: UInt8) {
+            self.rawValue = rawValue
+        }
     }
 
     /// Year as defined by the Gregorian calendar.
@@ -88,6 +97,69 @@ public struct DateTime {
         self.hours = hours
         self.minutes = minutes
         self.seconds = seconds
+    }
+}
+
+
+extension DateTime {
+    /// The date components representation for the date and time.
+    public var dateComponents: DateComponents {
+        var components = DateComponents()
+
+        // value of zero signals unknown
+        if year > 0 {
+            components.year = Int(year)
+        }
+        if month.rawValue > 0 {
+            components.month = Int(month.rawValue)
+        }
+        if day > 0 {
+            components.day = Int(day)
+        }
+
+        components.hour = Int(hours)
+        components.minute = Int(minutes)
+        components.second = Int(seconds)
+
+        return components
+    }
+
+
+    /// Convert to Swift Date representation.
+    ///
+    /// Uses the current `Calendar`.
+    /// Returns `nil` if a date with matching components couldn't be found.
+    public var date: Date? {
+        Calendar.current.date(from: dateComponents)
+    }
+
+
+    /// Initialize date time from date components.
+    ///
+    /// - Note: Returns `nil` if not all required date components (`hour`, `minute`, `second`) are
+    ///     present. Date components `year`, `month` and `day` are optional but required to encode a date information.
+    /// - Parameter components: The Swift Date Components.
+    public init?(from components: DateComponents) {
+        guard let hours = components.hour,
+              let minutes = components.minute,
+              let seconds = components.second else {
+            return nil
+        }
+
+        let year = components.year.map(UInt16.init) ?? 0
+        let month = components.month.map(UInt8.init) ?? 0
+        let day = components.day.map(UInt8.init) ?? 0
+
+        self.init(year: year, month: Month(rawValue: month), day: day, hours: UInt8(hours), minutes: UInt8(minutes), seconds: UInt8(seconds))
+    }
+
+    /// Initialize date time from a date and current `Calendar`.
+    /// - Parameter date: The date to initialize from.
+    public init(from date: Date) {
+        let components = Calendar.current.dateComponents([.hour, .minute, .second, .year, .month, .day], from: date)
+
+        // we know that date components are present, so force-unwrapping is fine
+        self.init(from: components)! // swiftlint:disable:this force_unwrapping
     }
 }
 

@@ -20,8 +20,9 @@ Below is a list of reusable Bluetooth service implementations of standardized Bl
 
 ### Core Services
 
-- ``DeviceInformationService``
 - ``BatteryService``
+- ``CurrentTimeService``
+- ``DeviceInformationService``
 
 ### Health Domain
 
