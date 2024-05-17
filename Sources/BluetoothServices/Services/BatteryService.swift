@@ -21,7 +21,7 @@ public final class BatteryService: BluetoothService, @unchecked Sendable {
     /// Battery Level in percent.
     ///
     /// Battery Level in percent (range 0 to 100).
-    /// 100 represetns fully charged, 0 represents fully discharged.
+    /// 100 represents fully charged, 0 represents fully discharged.
     /// All other values are reserved.
     @Characteristic(id: "2A19", notify: true)
     public var batteryLevel: UInt8?

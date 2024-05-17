@@ -29,7 +29,7 @@ public final class BloodPressureService: BluetoothService, @unchecked Sendable {
     @Characteristic(id: "2A49", notify: true)
     public var features: BloodPressureFeature?
 
-    /// Receive intermdaite cuff pressure.
+    /// Receive intermediate cuff pressure.
     ///
     /// - Note: This characteristic is optional and notify-only.
     @Characteristic(id: "2A36", notify: true)

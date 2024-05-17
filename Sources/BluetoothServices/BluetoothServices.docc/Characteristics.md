@@ -24,14 +24,18 @@ which natively integrates with SpeziBluetooth-defined services.
 
 ## Topics
 
-### Generic
-
-- ``DateTime``
-
 ### Device Information
 
 - ``PnPID``
 - ``VendorIDSource``
+
+### Time
+
+- ``DateTime``
+- ``DayOfWeek``
+- ``DayDateTime``
+- ``ExactTime256``
+- ``CurrentTime``
 
 ### Blood Pressure
 
