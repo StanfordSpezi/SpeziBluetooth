@@ -10,73 +10,113 @@ import ByteCoding
 import NIOCore
 
 
-public struct RecordAccessFilterCriteria {
-    private let layout: any RecordAccessFilterCriteriaLayout
+public enum RecordAccessRangeFilterCriteria {
+    case sequenceNumber(min: UInt16, max: UInt16)
+    case userFacingTime(min: Int16, max: Int16)
+
 
     public var filterType: RecordAccessFilterType {
-        layout.filterType
-    }
-
-    public var value: any ByteCodable {
-        layout.value
-    }
-
-    init(_ criteria: any RecordAccessFilterCriteriaLayout) {
-        self.layout = criteria
+        switch self {
+        case .sequenceNumber:
+            return .sequenceNumber
+        case .userFacingTime:
+            return .userFacingTime
+        }
     }
 }
 
 
-extension RecordAccessFilterCriteria {
-    public init?( // swiftlint:disable:this cyclomatic_complexity
-                  from byteBuffer: inout ByteBuffer,
-                  preferredEndianness endianness: Endianness,
-                  operator: RecordAccessOperator
-    ) {
-        let criteria: (any RecordAccessFilterCriteriaLayout)?
+public enum RecordAccessFilterCriteria {
+    case sequenceNumber(UInt16)
+    case userFacingTime(Int16)
 
-        switch `operator` {
-        case .lessThanOrEqualTo, .greaterThanOrEqual:
-            guard let filterType = RecordAccessFilterType(from: &byteBuffer, preferredEndianness: endianness) else {
-                return nil
-            }
 
-            switch filterType {
-            case .sequenceNumber:
-                criteria = RecordAccessFilterCriteriaScalar<UInt16>(from: &byteBuffer, preferredEndianness: endianness, filterType: filterType)
-            case .userFacingTime:
-                criteria = RecordAccessFilterCriteriaScalar<Int16>(from: &byteBuffer, preferredEndianness: endianness, filterType: filterType)
-            default:
-                return nil
-            }
-        case .withinInclusiveRangeOf:
-            guard let filterType = RecordAccessFilterType(from: &byteBuffer, preferredEndianness: endianness) else {
-                return nil
-            }
+    public var filterType: RecordAccessFilterType {
+        switch self {
+        case .sequenceNumber:
+            return .sequenceNumber
+        case .userFacingTime:
+            return .userFacingTime
+        }
+    }
+}
 
-            switch filterType {
-            case .sequenceNumber:
-                criteria = RecordAccessFilterCriteriaTuple<UInt16>(from: &byteBuffer, preferredEndianness: endianness, filterType: filterType)
-            case .userFacingTime:
-                criteria = RecordAccessFilterCriteriaTuple<Int16>(from: &byteBuffer, preferredEndianness: endianness, filterType: filterType)
-            default:
+
+extension RecordAccessFilterCriteria: Hashable, Sendable {}
+
+
+extension RecordAccessRangeFilterCriteria: Hashable, Sendable {}
+
+
+extension RecordAccessFilterCriteria: ByteCodable {
+    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
+        guard let filterType = RecordAccessFilterType(from: &byteBuffer, preferredEndianness: endianness) else {
+            return nil
+        }
+
+        switch filterType {
+        case .sequenceNumber:
+            guard let value = UInt16(from: &byteBuffer, preferredEndianness: endianness) else {
                 return nil
             }
+            self = .sequenceNumber(value)
+        case .userFacingTime:
+            guard let value = Int16(from: &byteBuffer, preferredEndianness: endianness) else {
+                return nil
+            }
+            self = .userFacingTime(value)
         default:
             return nil
         }
+    }
 
-        guard let criteria else {
-            return nil
+    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
+        filterType.encode(to: &byteBuffer, preferredEndianness: endianness)
+
+        switch self {
+        case let .sequenceNumber(value):
+            value.encode(to: &byteBuffer, preferredEndianness: endianness)
+        case let .userFacingTime(value):
+            value.encode(to: &byteBuffer, preferredEndianness: endianness)
         }
-
-        self.init(criteria)
     }
 }
 
 
-extension RecordAccessFilterCriteria: ByteEncodable {
+extension RecordAccessRangeFilterCriteria: ByteCodable {
+    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
+        guard let filterType = RecordAccessFilterType(from: &byteBuffer, preferredEndianness: endianness) else {
+            return nil
+        }
+
+        switch filterType {
+        case .sequenceNumber:
+            guard let min = UInt16(from: &byteBuffer, preferredEndianness: endianness),
+                  let max = UInt16(from: &byteBuffer, preferredEndianness: endianness)else {
+                return nil
+            }
+            self = .sequenceNumber(min: min, max: max)
+        case .userFacingTime:
+            guard let min = Int16(from: &byteBuffer, preferredEndianness: endianness),
+                  let max = Int16(from: &byteBuffer, preferredEndianness: endianness)else {
+                return nil
+            }
+            self = .userFacingTime(min: min, max: max)
+        default:
+            return nil
+        }
+    }
+
     public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        layout.encode(to: &byteBuffer, preferredEndianness: endianness)
+        filterType.encode(to: &byteBuffer, preferredEndianness: endianness)
+
+        switch self {
+        case let .sequenceNumber(min, max):
+            min.encode(to: &byteBuffer, preferredEndianness: endianness)
+            max.encode(to: &byteBuffer, preferredEndianness: endianness)
+        case let .userFacingTime(min, max):
+            min.encode(to: &byteBuffer, preferredEndianness: endianness)
+            max.encode(to: &byteBuffer, preferredEndianness: endianness)
+        }
     }
 }

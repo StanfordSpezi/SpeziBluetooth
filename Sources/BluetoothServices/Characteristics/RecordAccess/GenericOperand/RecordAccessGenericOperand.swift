@@ -13,6 +13,7 @@ import NIOCore
 public enum RecordAccessGenericOperand: RecordAccessOperand { // TODO: we need a custom one for Omron!
     case generalResponse(RecordAccessGeneralResponse)
     case filterCriteria(RecordAccessFilterCriteria)
+    case rangeFilterCriteria(RecordAccessRangeFilterCriteria)
     case numberOfRecords(UInt16)
     // TODO: case sequenceNumber(UInt16) // TODO: this is specific to Omron devices?
 
@@ -24,26 +25,31 @@ public enum RecordAccessGenericOperand: RecordAccessOperand { // TODO: we need a
         operator: RecordAccessOperator
     ) {
         switch opCode {
-        case .numberOfStoredRecordsResponse:
-            guard let count = UInt16(from: &byteBuffer, preferredEndianness: endianness) else {
-                return nil
-            }
-            self = .numberOfRecords(count)
         case .responseCode:
             guard let response = RecordAccessGeneralResponse(from: &byteBuffer, preferredEndianness: endianness) else {
                 return nil
             }
             self = .generalResponse(response)
         case .reportStoredRecords, .deleteStoredRecords, .reportNumberOfStoredRecords:
-            guard let filterCriteria = RecordAccessFilterCriteria(
-                from: &byteBuffer,
-                preferredEndianness: endianness,
-                operator: `operator`
-            ) else {
+            switch `operator` {
+            case .lessThanOrEqualTo, .greaterThanOrEqual:
+                guard let filterCriteria = RecordAccessFilterCriteria(from: &byteBuffer, preferredEndianness: endianness) else {
+                    return nil
+                }
+                self = .filterCriteria(filterCriteria)
+            case .withinInclusiveRangeOf:
+                guard let filterCriteria = RecordAccessRangeFilterCriteria(from: &byteBuffer, preferredEndianness: endianness) else {
+                    return nil
+                }
+                self = .rangeFilterCriteria(filterCriteria)
+            default:
                 return nil
             }
-
-            self = .filterCriteria(filterCriteria)
+        case .numberOfStoredRecordsResponse:
+            guard let count = UInt16(from: &byteBuffer, preferredEndianness: endianness) else {
+                return nil
+            }
+            self = .numberOfRecords(count)
         default:
             return nil
         }
@@ -55,6 +61,8 @@ public enum RecordAccessGenericOperand: RecordAccessOperand { // TODO: we need a
             response.encode(to: &byteBuffer, preferredEndianness: endianness)
         case let .filterCriteria(criteria):
             criteria.encode(to: &byteBuffer, preferredEndianness: endianness)
+        case let .rangeFilterCriteria(criteria):
+            criteria.encode(to: &byteBuffer, preferredEndianness: endianness)
         case let .numberOfRecords(value):
             value.encode(to: &byteBuffer, preferredEndianness: endianness)
         }
@@ -63,15 +71,18 @@ public enum RecordAccessGenericOperand: RecordAccessOperand { // TODO: we need a
 
 
 extension RecordAccessOperationValue where Operand == RecordAccessGenericOperand {
-    public static func lessThanOrEqualTo<Value>(_ filterCriteria: RecordAccessFilterCriteriaScalar<Value>) -> RecordAccessOperationValue {
-        RecordAccessOperationValue(operator: .lessThanOrEqualTo, operand: .filterCriteria(RecordAccessFilterCriteria(filterCriteria)))
+    public static func lessThanOrEqualTo(_ filterCriteria: RecordAccessFilterCriteria) -> RecordAccessOperationValue {
+        RecordAccessOperationValue(operator: .lessThanOrEqualTo, operand: .filterCriteria(filterCriteria))
     }
 
-    public static func greaterThanOrEqualTo<Value>(_ filterCriteria: RecordAccessFilterCriteriaScalar<Value>) -> RecordAccessOperationValue {
-        RecordAccessOperationValue(operator: .greaterThanOrEqual, operand: .filterCriteria(RecordAccessFilterCriteria(filterCriteria)))
+    public static func greaterThanOrEqualToRecordAccessFilterCriteriaNew(_ filterCriteria: RecordAccessFilterCriteria) -> RecordAccessOperationValue {
+        RecordAccessOperationValue(operator: .greaterThanOrEqual, operand: .filterCriteria(filterCriteria))
     }
 
-    public static func withinInclusiveRangeOf<Value>(_ filterCriteria: RecordAccessFilterCriteriaTuple<Value>) -> RecordAccessOperationValue {
-        RecordAccessOperationValue(operator: .withinInclusiveRangeOf, operand: .filterCriteria(RecordAccessFilterCriteria(filterCriteria)))
+    public static func withinInclusiveRangeOf(_ filterCriteria: RecordAccessRangeFilterCriteria) -> RecordAccessOperationValue {
+        RecordAccessOperationValue(operator: .withinInclusiveRangeOf, operand: .rangeFilterCriteria(filterCriteria))
     }
 }
+
+
+extension RecordAccessGenericOperand: Hashable, Sendable {}
