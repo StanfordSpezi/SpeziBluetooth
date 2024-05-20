@@ -17,4 +17,14 @@ public protocol RecordAccessOperand: ByteEncodable { // TODO: typically implemen
         opCode: RecordAccessOpCode,
         operator: RecordAccessOperator
     )
+
+    // TODO: docs all
+    var generalResponse: RecordAccessGeneralResponse? { get }
+}
+
+
+extension RecordAccessOperand {
+    public var generalResponse: RecordAccessGeneralResponse? {
+        nil
+    }
 }

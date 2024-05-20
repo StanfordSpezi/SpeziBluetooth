@@ -6,32 +6,21 @@
 // SPDX-License-Identifier: MIT
 //
 
-import ByteCoding
+import BluetoothServices
 import NIOCore
 
 
-// TODO: docs and is this topics section right?
-/// Asdf
-///
-/// ## Topics
-///
-/// ### Generic Implementation
-/// - ``RecordAccessFilterType``
-/// - ``RecordAccessGeneralResponse``
-/// - ``RecordAccessFilterCriteria``
-/// - ``RecordAccessRangeFilterCriteria``
-public enum RecordAccessGenericOperand {
-    // REQUEST
+public enum OmronRecordAccessOperand {
     case filterCriteria(RecordAccessFilterCriteria)
     case rangeFilterCriteria(RecordAccessRangeFilterCriteria)
 
-    /// RESPONSE
     case generalResponse(RecordAccessGeneralResponse)
     case numberOfRecords(UInt16)
+    case sequenceNumber(UInt16)
 }
 
 
-extension RecordAccessGenericOperand: RecordAccessOperand {
+extension OmronRecordAccessOperand: RecordAccessOperand {
     public var generalResponse: RecordAccessGeneralResponse? {
         guard case let .generalResponse(response) = self else {
             return nil
@@ -39,7 +28,7 @@ extension RecordAccessGenericOperand: RecordAccessOperand {
         return response
     }
 
-    public init?(
+    public init?( // swiftlint:disable:this cyclomatic_complexity
         from byteBuffer: inout ByteBuffer,
         preferredEndianness endianness: Endianness,
         opCode: RecordAccessOpCode,
@@ -71,6 +60,11 @@ extension RecordAccessGenericOperand: RecordAccessOperand {
                 return nil
             }
             self = .numberOfRecords(count)
+        case .omronSequenceNumberOfLatestRecordsResponse:
+            guard let sequenceNumber = UInt16(from: &byteBuffer, preferredEndianness: endianness) else {
+                return nil
+            }
+            self = .sequenceNumber(sequenceNumber)
         default:
             return nil
         }
@@ -84,26 +78,8 @@ extension RecordAccessGenericOperand: RecordAccessOperand {
             criteria.encode(to: &byteBuffer, preferredEndianness: endianness)
         case let .rangeFilterCriteria(criteria):
             criteria.encode(to: &byteBuffer, preferredEndianness: endianness)
-        case let .numberOfRecords(value):
+        case let .numberOfRecords(value), let .sequenceNumber(value):
             value.encode(to: &byteBuffer, preferredEndianness: endianness)
         }
     }
 }
-
-
-extension RecordAccessOperationContent where Operand == RecordAccessGenericOperand {
-    public static func lessThanOrEqualTo(_ filterCriteria: RecordAccessFilterCriteria) -> RecordAccessOperationContent {
-        RecordAccessOperationContent(operator: .lessThanOrEqualTo, operand: .filterCriteria(filterCriteria))
-    }
-
-    public static func greaterThanOrEqualToRecordAccessFilterCriteriaNew(_ filterCriteria: RecordAccessFilterCriteria) -> RecordAccessOperationContent {
-        RecordAccessOperationContent(operator: .greaterThanOrEqual, operand: .filterCriteria(filterCriteria))
-    }
-
-    public static func withinInclusiveRangeOf(_ filterCriteria: RecordAccessRangeFilterCriteria) -> RecordAccessOperationContent {
-        RecordAccessOperationContent(operator: .withinInclusiveRangeOf, operand: .rangeFilterCriteria(filterCriteria))
-    }
-}
-
-
-extension RecordAccessGenericOperand: Hashable, Sendable {}

@@ -1,6 +1,29 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Control Point Error" : {
+
+    },
+    "Control point request was sent to %@ on %@ but notifications weren't enabled for that characteristic." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Control point request was sent to %1$@ on %2$@ but notifications weren't enabled for that characteristic."
+          }
+        }
+      }
+    },
+    "Control point request was sent to %@ on %@ while waiting for a response to a previous request." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Control point request was sent to %1$@ on %2$@ while waiting for a response to a previous request."
+          }
+        }
+      }
+    },
     "Could not decode byte representation into provided format." : {
       "localizations" : {
         "en" : {

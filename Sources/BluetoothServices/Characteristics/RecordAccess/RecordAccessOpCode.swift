@@ -24,10 +24,6 @@ public struct RecordAccessOpCode: RawRepresentable {
     public static let combinedReport = RecordAccessOpCode(rawValue: 0x07) // TODO: what are these two (+ below) used for?
     public static let combinedReportResponse = RecordAccessOpCode(rawValue: 0x08)
 
-    // TODO: move that to a simple extension!
-    public static let reportSequenceNumberOfLatestRecords = RecordAccessOpCode(rawValue: 0x10)
-    public static let sequenceNumberOfLatestRecordsResponse = RecordAccessOpCode(rawValue: 0x11)
-
     public let rawValue: UInt8
 
     public init(rawValue: UInt8) {

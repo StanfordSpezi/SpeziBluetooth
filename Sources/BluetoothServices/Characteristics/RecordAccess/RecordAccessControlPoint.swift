@@ -9,6 +9,16 @@
 import ByteCoding
 import Foundation
 import NIOCore
+import SpeziBluetooth
+
+
+public protocol _RecordAccessControlPoint: ControlPointCharacteristic { // TODO: naming, visibility, SPI?
+    associatedtype Operand: RecordAccessOperand // TODO: docs
+
+    var opCode: RecordAccessOpCode { get }
+    var `operator`: RecordAccessOperator { get }
+    var operand: Operand? { get }
+}
 
 
 public struct RecordAccessControlPoint<Operand: RecordAccessOperand> {
@@ -26,6 +36,9 @@ public struct RecordAccessControlPoint<Operand: RecordAccessOperand> {
 }
 
 
+extension RecordAccessControlPoint: _RecordAccessControlPoint {}
+
+
 extension RecordAccessControlPoint: Equatable where Operand: Equatable {}
 
 
@@ -35,6 +48,9 @@ extension RecordAccessControlPoint: Hashable where Operand: Hashable {}
 extension RecordAccessControlPoint: Sendable where Operand: Sendable {}
 
 
+extension RecordAccessControlPoint: ControlPointCharacteristic {}
+
+
 extension RecordAccessControlPoint: ByteCodable {
     public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
         guard let opCode = RecordAccessOpCode(from: &byteBuffer, preferredEndianness: endianness),
@@ -42,6 +58,8 @@ extension RecordAccessControlPoint: ByteCodable {
             return nil
         }
 
+        // TODO: differentiate between expected nil
+        // TODO: operand might be nil expectedly!
         guard let operand = Operand(from: &byteBuffer, preferredEndianness: endianness, opCode: opCode, operator: `operator`) else {
             return nil
         }

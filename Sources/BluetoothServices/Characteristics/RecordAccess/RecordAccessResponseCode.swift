@@ -35,6 +35,9 @@ public struct RecordAccessResponseCode: RawRepresentable {
 extension RecordAccessResponseCode: Hashable, Sendable {}
 
 
+extension RecordAccessResponseCode: Error {}
+
+
 extension RecordAccessResponseCode: ByteCodable {
     public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
         guard let rawValue = UInt8(from: &byteBuffer, preferredEndianness: endianness) else {
