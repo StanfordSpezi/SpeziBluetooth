@@ -28,7 +28,9 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
     /// Don't access directly. Observable for the properties of ``CharacteristicAccessor``.
     private let _characteristic: WeakObservableBox<GATTCharacteristic>
 
-    // TODO: documentation
+    /// State support for control point characteristics.
+    ///
+    /// Fore more information see ``ControlPointCharacteristic``.
     private var controlPointTransaction: ControlPointTransaction<Value>?
 
     /// The user supplied onChange closure we use to forward notifications.
@@ -295,7 +297,6 @@ extension CharacteristicPeripheralInjection where Value: ControlPointCharacteris
         }
 
         guard controlPointTransaction == nil else {
-            // TODO: abort is very specific to the control point format!
             throw BluetoothError.controlPointInProgress(service: serviceId, characteristic: characteristicId)
         }
 

@@ -10,20 +10,49 @@ import ByteCoding
 import NIOCore
 
 
-public protocol RecordAccessOperand: ByteEncodable { // TODO: typically implemented as an enum!
+/// The operand format.
+///
+/// The operand defines the content of a operation in combination with the ``RecordAccessOpCode`` and the ``RecordAccessOperator``.
+/// - Note: The format of the operand might differ depending on the op code and operator used.
+///     Therefore, a typical implementation is done using a enum with associated values.
+///
+/// The format of a operand is defined by the Service specification using the ``RecordAccessControlPoint`` characteristic.
+///
+/// Refer to GATT Specification Supplement, 3.178.3 Operand field.
+public protocol RecordAccessOperand: ByteEncodable {
+    /// General Response representation.
+    ///
+    /// The operand format with the code ``RecordAccessOpCode/responseCode`` contains at least the information modeled with
+    /// ``RecordAccessGeneralResponse``. This property returns this information in the format of a ``RecordAccessGeneralResponse`` type
+    /// if the operand is modeling the content of a response with the code ``RecordAccessOpCode/responseCode``.
+    ///
+    /// - Note: This property is optional to implement and returns `nil` by default.
+    var generalResponse: RecordAccessGeneralResponse? { get }
+
+    /// Decode a operand form the `ByteBuffer`.
+    ///
+    /// Initialize a new instance using the byte representation provided by the `ByteBuffer`.
+    /// This call should mvoe the `readerIndex` forwards.
+    ///
+    /// The ``RecordAccessOpCode`` and ``RecordAccessOperator`` might be relevant to decide the byte representation of the operand.
+    ///
+    /// - Parameters:
+    ///   - byteBuffer: The ByteBuffer to read from.
+    ///   - endianness: The preferred endianness to use for decoding if applicable.
+    ///     This might not apply to certain data structures that operate on single byte level.
+    ///   - opCode: The opcode of the ``RecordAccessControlPoint`` this operand is being decoded for.
+    ///   - operator: The operator of the ``RecordAccessControlPoint`` this operand is being decoded for.
     init?(
         from byteBuffer: inout ByteBuffer,
         preferredEndianness endianness: Endianness,
         opCode: RecordAccessOpCode,
-        operator: RecordAccessOperator
+        `operator`: RecordAccessOperator
     )
-
-    // TODO: docs all
-    var generalResponse: RecordAccessGeneralResponse? { get }
 }
 
 
 extension RecordAccessOperand {
+    /// Default implementation returning nil.
     public var generalResponse: RecordAccessGeneralResponse? {
         nil
     }

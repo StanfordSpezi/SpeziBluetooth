@@ -61,6 +61,6 @@ which natively integrates with SpeziBluetooth-defined services.
 - ``RecordAccessOpCode``
 - ``RecordAccessOperator``
 - ``RecordAccessOperand``
-- ``RecordAccessOperationValue``
 - ``RecordAccessResponseCode``
+- ``RecordAccessOperationContent``
 - ``RecordAccessGenericOperand``

@@ -147,6 +147,10 @@ import Foundation
 /// ### Get notified about changes
 /// - ``CharacteristicAccessor/onChange(initial:perform:)``
 ///
+/// ### Control Point Characteristics
+/// - ``ControlPointCharacteristic``
+/// - ``CharacteristicAccessor/sendRequest(_:)``
+///
 /// ### Property wrapper access
 /// - ``wrappedValue``
 /// - ``projectedValue``

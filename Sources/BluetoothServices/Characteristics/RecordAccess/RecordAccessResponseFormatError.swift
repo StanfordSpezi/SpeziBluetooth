@@ -7,6 +7,10 @@
 //
 
 
+/// Error in the format of the response of a Record Access Control Point value.
+///
+/// The value returned from the Record Access Control Point characteristic for a previously sent
+/// request has unexpected format.
 public enum RecordAccessResponseFormatError {
     /// Received an unexpected response.
     ///

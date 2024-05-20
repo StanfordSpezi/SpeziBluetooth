@@ -10,11 +10,17 @@ import ByteCoding
 import NIOCore
 
 
+/// Range-based filter criteria format for the generic operand.
+///
+/// The filter criteria format used with the ``RecordAccessGenericOperand``.
 public enum RecordAccessRangeFilterCriteria {
+    /// Filter records for range of sequence numbers.
     case sequenceNumber(min: UInt16, max: UInt16)
+    /// Filter records for range of user facing time.
     case userFacingTime(min: Int16, max: Int16)
 
 
+    /// The filter type code.+
     public var filterType: RecordAccessFilterType {
         switch self {
         case .sequenceNumber:
@@ -26,11 +32,17 @@ public enum RecordAccessRangeFilterCriteria {
 }
 
 
+/// Filter criteria format for the generic operand.
+///
+/// The filter criteria format used with the ``RecordAccessGenericOperand``.
 public enum RecordAccessFilterCriteria {
+    /// Filter for the record's sequence number.
     case sequenceNumber(UInt16)
+    /// Filter for the record's user facing time.
     case userFacingTime(Int16)
 
 
+    /// The filter type code.
     public var filterType: RecordAccessFilterType {
         switch self {
         case .sequenceNumber:

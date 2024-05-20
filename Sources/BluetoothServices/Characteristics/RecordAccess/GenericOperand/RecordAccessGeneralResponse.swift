@@ -10,11 +10,21 @@ import ByteCoding
 import Foundation
 import NIOCore
 
+
+/// The description of a general response.
+///
+/// Used to represent the content of a ``RecordAccessOpCode/responseCode`` operation.
 public struct RecordAccessGeneralResponse {
+    /// The operation code of the request this response is triggered from.
     public let requestOpCode: RecordAccessOpCode
+    /// The response code.
     public let response: RecordAccessResponseCode
 
 
+    /// Initialize a new general response.
+    /// - Parameters:
+    ///   - requestOpCode: The request code.
+    ///   - response: The response code.
     public init(requestOpCode: RecordAccessOpCode, response: RecordAccessResponseCode) {
         self.requestOpCode = requestOpCode
         self.response = response

@@ -36,7 +36,7 @@ final class ControlPointTransaction<Value>: @unchecked Sendable {
         }
 
         guard let continuation else {
-            return // TODO: log
+            return
         }
 
         continuation.resume(throwing: CancellationError())
@@ -50,7 +50,7 @@ final class ControlPointTransaction<Value>: @unchecked Sendable {
         }
 
         guard let continuation else {
-            return // TODO: log
+            return
         }
 
         continuation.resume(returning: value)

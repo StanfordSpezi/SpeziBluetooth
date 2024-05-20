@@ -16,7 +16,7 @@ import NIOCore
 /// Specifies the day within a seven-day week as specified in IOS 8601.
 ///
 /// Refer to GATT Specification Supplement, 3.73 Day of Week.
-public struct DayOfWeek: RawRepresentable {
+public struct DayOfWeek {
     /// Unknown day of week.
     public static let unknown = DayOfWeek(rawValue: 0)
     /// Monday.
@@ -39,10 +39,15 @@ public struct DayOfWeek: RawRepresentable {
     public let rawValue: UInt8
 
 
+    /// Initialize using a raw value day of week.
+    /// - Parameter rawValue: The day of week.
     public init(rawValue: UInt8) {
         self.rawValue = rawValue
     }
 }
+
+
+extension DayOfWeek: RawRepresentable {}
 
 
 extension DayOfWeek: Hashable, Sendable {}

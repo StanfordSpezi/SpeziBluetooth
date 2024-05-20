@@ -8,7 +8,12 @@
 
 import ByteCoding
 
-// TODO: marker protocol => much more documentation.
 
-/// Mark a Characteristic as a Control-Point characteristic.
+/// Mark a characteristic to have control point semantics.
+///
+/// Control Point Characteristics are special Characteristics that encode a special request and response flow.
+/// Such characteristics use `write` permissions to send the request and `indicate` permissions to send the response to a request.
+///
+/// This protocol is a marker protocol making additional controls available with the ``CharacteristicAccessor``,
+/// to more easily interact with control point characteristics.
 public protocol ControlPointCharacteristic: ByteCodable {}

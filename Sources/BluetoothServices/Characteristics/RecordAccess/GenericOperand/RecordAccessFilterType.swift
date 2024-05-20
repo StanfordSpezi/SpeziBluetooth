@@ -11,17 +11,30 @@ import Foundation
 import NIOCore
 
 
-public struct RecordAccessFilterType: RawRepresentable {
+/// Filter types used with the generic operand.
+///
+/// These filter types are used with the ``RecordAccessGenericOperand``.
+public struct RecordAccessFilterType {
+    /// Reserved for future use.
     public static let reserved = RecordAccessFilterType(rawValue: 0x00)
+    /// Filter for a record's sequence number.
     public static let sequenceNumber = RecordAccessFilterType(rawValue: 0x01)
-    public static let userFacingTime = RecordAccessFilterType(rawValue: 0x02) // TODO: base time + offset time?
+    /// Filter for a record's user facing time.
+    public static let userFacingTime = RecordAccessFilterType(rawValue: 0x02)
 
+
+    /// The raw value filter type.
     public let rawValue: UInt8
 
+    /// Initialize using a raw value filter type.
+    /// - Parameter rawValue: The filter type.
     public init(rawValue: UInt8) {
         self.rawValue = rawValue
     }
 }
+
+
+extension RecordAccessFilterType: RawRepresentable {}
 
 
 extension RecordAccessFilterType: Hashable, Sendable {}

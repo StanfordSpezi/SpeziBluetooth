@@ -44,6 +44,9 @@ struct CharacteristicTestInjections<Value> {
 ///
 /// ### Get notified about changes
 /// - ``onChange(initial:perform:)``
+///
+/// ### Control Point Characteristics
+/// - ``sendRequest(_:)``
 public struct CharacteristicAccessor<Value> {
     let configuration: Characteristic<Value>.Configuration
     let injection: CharacteristicPeripheralInjection<Value>?
