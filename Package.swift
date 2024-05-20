@@ -61,6 +61,13 @@ let package = Package(
                 .product(name: "SpeziViews", package: "SpeziViews")
             ]
         ),
+        .target(
+            name: "SpeziDevices",
+            dependencies: [
+                .target(name: "SpeziBluetooth"),
+                .target(name: "BluetoothServices")
+            ]
+        ),
         .executableTarget(
             name: "TestPeripheral",
             dependencies: [
