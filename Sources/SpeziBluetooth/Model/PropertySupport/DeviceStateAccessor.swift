@@ -14,7 +14,7 @@
 /// ## Topics
 ///
 /// ### Get notified about changes
-/// - ``onChange(perform:)``
+/// - ``onChange(initial:perform:)``
 public struct DeviceStateAccessor<Value> {
     private let id: ObjectIdentifier
     private let injection: DeviceStatePeripheralInjection<Value>?

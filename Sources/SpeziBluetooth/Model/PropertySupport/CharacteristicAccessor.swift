@@ -38,7 +38,7 @@ import CoreBluetooth
 /// - ``enableNotifications(_:)``
 ///
 /// ### Get notified about changes
-/// - ``onChange(perform:)``
+/// - ``onChange(initial:perform:)``
 public struct CharacteristicAccessor<Value> {
     private let configuration: Characteristic<Value>.Configuration
     private let injection: CharacteristicPeripheralInjection<Value>?
