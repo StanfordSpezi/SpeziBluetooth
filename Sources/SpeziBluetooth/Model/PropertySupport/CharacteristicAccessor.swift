@@ -98,8 +98,13 @@ extension CharacteristicAccessor where Value: ByteDecodable {
     ///
     /// - Note: It is perfectly fine if you capture strongly self within your closure. The framework will
     ///     resolve any reference cycles for you.
-    /// - Parameter perform: The change handler to register.
-    public func onChange(perform: @escaping (Value) async -> Void) {
+    /// - Parameters:
+    ///     - initial: Whether the action should be run with the initial characteristic value.
+    ///     Otherwise, the action will only run strictly if the value changes.
+    ///     - action: The change handler to register.
+    public func onChange(initial: Bool = false, perform action: @escaping (Value) async -> Void) {
+        let closure = OnChangeClosure(initial: initial, closure: action)
+
         guard let injection else {
             guard let closures = ClosureRegistrar.writeableView else {
                 Bluetooth.logger.warning(
@@ -111,16 +116,17 @@ extension CharacteristicAccessor where Value: ByteDecodable {
                 )
                 return
             }
+
             // We save the instance in the global registrar if its available.
             // It will be available if we are instantiated through the Bluetooth module.
             // This indirection is required to support self referencing closures without encountering a strong reference cycle.
-            closures.insert(for: configuration.objectId, closure: perform)
+            closures.insert(for: configuration.objectId, closure: closure)
             return
         }
 
         // global actor ensures these tasks are queued serially and are executed in order.
         Task { @SpeziBluetooth in
-            await injection.setOnChangeClosure(perform)
+            await injection.setOnChangeClosure(closure)
         }
     }
 

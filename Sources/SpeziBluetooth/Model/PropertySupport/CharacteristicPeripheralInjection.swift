@@ -29,7 +29,7 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
     private let _characteristic: WeakObservableBox<GATTCharacteristic>
 
     /// The user supplied onChange closure we use to forward notifications.
-    private var onChangeClosure: ChangeClosure<Value>
+    private var onChangeClosure: ChangeClosureState<Value>
     /// The registration object we received from the ``BluetoothPeripheral`` for our instance onChange handler.
     private var instanceRegistration: OnChangeRegistration?
     /// The registration object we received from the ``BluetoothPeripheral`` for our value onChange handler.
@@ -65,7 +65,7 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
         characteristicId: CBUUID,
         value: ObservableBox<Value?>,
         characteristic: GATTCharacteristic?,
-        onChangeClosure: ((Value) async -> Void)?
+        onChangeClosure: OnChangeClosure<Value>?
     ) {
         self.bluetoothQueue = peripheral.bluetoothQueue
         self.peripheral = peripheral
@@ -81,15 +81,15 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
     func setup(defaultNotify: Bool) {
         registerCharacteristicInstanceChanges()
 
-        guard let instance = self as? DecodableCharacteristic else {
+        guard self is DecodableCharacteristic else {
             return
         }
         // value is readable!
 
         // handle assigning the initial value!
-        if let characteristic,
+        if let characteristic, // TODO: why is this sometimes present? (docs)
            let value = characteristic.value {
-            instance.assumeIsolated { $0.handleUpdateValueAssumingIsolation(value) }
+            handleUpdatedValue(value)
         }
 
         self.registerCharacteristicValueChanges()
@@ -109,12 +109,19 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
     }
 
 
-    func setOnChangeClosure(_ closure: @escaping (Value) async -> Void) {
+    func setOnChangeClosure(_ closure: OnChangeClosure<Value>) {
         if case .cleared = onChangeClosure {
             // object is about to be cleared. Make sure we don't create a self reference last minute.
             return
         }
         self.onChangeClosure = .value(closure)
+
+        // if configured as initial, and there is a value, we notify
+        if let value, closure.initial {
+            Task { @SpeziBluetooth in
+                await closure(value)
+            }
+        }
     }
 
     /// Enable or disable notifications for the characteristic.
@@ -176,9 +183,11 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
 
         if instanceChanged {
             if let characteristic {
-                handleUpdatedValue(characteristic.value)
+                if let value = characteristic.value { // TODO: is this a breaking change? what are the exact implications?
+                    handleUpdatedValue(value)
+                }
             } else {
-                // we must make sure to not override the default value is one is present
+                // we must make sure to not override the default value if one is present
                 self.value = nil
             }
         }
@@ -194,12 +203,14 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
         }
     }
 
-    private func dispatchChangeHandler(_ value: Value, with onChangeClosure: ChangeClosure<Value>) async {
+    private func dispatchChangeHandler(previous previousValue: Value?, new newValue: Value, with onChangeClosure: ChangeClosureState<Value>) async {
         guard case let .value(closure) = onChangeClosure else {
             return
         }
 
-        await closure(value)
+        if closure.initial || previousValue != nil {
+            await closure(newValue)
+        }
     }
 }
 
@@ -212,10 +223,12 @@ extension CharacteristicPeripheralInjection: DecodableCharacteristic where Value
                 return
             }
 
+            let previousValue = self.value
             self.value = value
-            let onChangeClosure = onChangeClosure // make sure we capture it now not later where it might have changed.
+
+            let onChangeClosure = onChangeClosure // make sure we capture it now, not later where it might have changed.
             Task { @SpeziBluetooth in
-                await self.dispatchChangeHandler(value, with: onChangeClosure)
+                await self.dispatchChangeHandler(previous: previousValue, new: value, with: onChangeClosure)
             }
         } else {
             self.value = nil
