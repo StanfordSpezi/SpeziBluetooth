@@ -183,7 +183,7 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
 
         if instanceChanged {
             if let characteristic {
-                if let value = characteristic.value { // TODO: is this a breaking change? what are the exact implications?
+                if let value = characteristic.value {
                     handleUpdatedValue(value)
                 }
             } else {

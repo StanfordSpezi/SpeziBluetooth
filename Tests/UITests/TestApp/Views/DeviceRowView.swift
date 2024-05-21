@@ -11,7 +11,7 @@ import SpeziBluetooth
 import SwiftUI
 
 
-protocol SomePeripheral {
+protocol SomePeripheral: Sendable {
     var id: UUID { get }
     var name: String? { get }
     var state: PeripheralState { get }

@@ -12,7 +12,7 @@ import Foundation
 import SpeziBluetooth
 
 
-class TestDevice: BluetoothDevice, Identifiable, SomePeripheral {
+final class TestDevice: BluetoothDevice, Identifiable, SomePeripheral, @unchecked Sendable {
     @DeviceState(\.id)
     var id
     @DeviceState(\.name)

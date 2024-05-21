@@ -24,9 +24,9 @@ extension CBUUID {
     /// A string characteristic that you can write.
     public static let writeStringCharacteristic: CBUUID = .uuid(ofCustom: "F004")
     /// A string characteristic that you can read and write.
-    public static let readWriteStringCharacteristic: CBUUID = .uuid(ofCustom: "F005")
+    public static nonisolated(unsafe) let readWriteStringCharacteristic: CBUUID = .uuid(ofCustom: "F005")
     /// Reset peripheral state to default settings.
-    public static let resetCharacteristic: CBUUID = .uuid(ofCustom: "F006")
+    public static nonisolated(unsafe) let resetCharacteristic: CBUUID = .uuid(ofCustom: "F006")
 
 
     private static func uuid(ofCustom: String) -> CBUUID {

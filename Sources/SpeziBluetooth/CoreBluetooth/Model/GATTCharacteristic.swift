@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
-import CoreBluetooth
+@preconcurrency import CoreBluetooth
 import Foundation
 
 
@@ -35,7 +35,7 @@ struct CBCharacteristicCapture {
 /// - ``descriptors``
 /// - ``service``
 @Observable
-public class GATTCharacteristic {
+public final class GATTCharacteristic {
     let underlyingCharacteristic: CBCharacteristic
 
     /// The associated service if still available.
@@ -67,7 +67,7 @@ public class GATTCharacteristic {
     }
 
 
-    func synchronizeModel(capture: CBCharacteristicCapture) {
+    func synchronizeModel(capture: CBCharacteristicCapture) { // always called from the Bluetooth thread
         if capture.isNotifying != isNotifying {
             isNotifying = capture.isNotifying
         }
@@ -79,6 +79,9 @@ public class GATTCharacteristic {
         }
     }
 }
+
+
+extension GATTCharacteristic: @unchecked Sendable {}
 
 
 extension GATTCharacteristic: CustomDebugStringConvertible {

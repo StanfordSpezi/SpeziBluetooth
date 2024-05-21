@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
-import CoreBluetooth
+@preconcurrency import CoreBluetooth
 
 
 /// Interact with a given Service.
@@ -48,3 +48,6 @@ public struct ServiceAccessor {
         self.service = injection?.unsafeService
     }
 }
+
+
+extension ServiceAccessor: Sendable {}

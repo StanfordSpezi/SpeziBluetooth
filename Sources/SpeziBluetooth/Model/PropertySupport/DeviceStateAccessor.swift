@@ -68,6 +68,9 @@ public struct DeviceStateAccessor<Value> {
 }
 
 
+extension DeviceStateAccessor: @unchecked Sendable {}
+
+
 // MARK: - Testing Support
 
 @_spi(TestingSupport)

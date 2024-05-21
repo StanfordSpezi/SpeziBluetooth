@@ -57,6 +57,9 @@ public struct CharacteristicAccessor<Value> {
 }
 
 
+extension CharacteristicAccessor: @unchecked Sendable {}
+
+
 extension CharacteristicAccessor {
     /// Determine if the characteristic is available.
     ///
