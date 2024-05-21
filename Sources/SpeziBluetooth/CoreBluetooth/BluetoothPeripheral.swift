@@ -678,7 +678,7 @@ extension BluetoothPeripheral {
 
         // automatically subscribe to discovered characteristics for which we have a handler subscribed!
         for characteristic in characteristics {
-            // pull initial value if none is present // TODO: might be cached by CB??? more clearly research behavior here!
+            // pull initial value if none is present
             if characteristic.value == nil && characteristic.properties.contains(.read) {
                 peripheral.readValue(for: characteristic)
             }

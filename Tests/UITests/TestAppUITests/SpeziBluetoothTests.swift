@@ -44,6 +44,12 @@ final class SpeziBluetoothTests: XCTestCase {
         XCTAssert(app.staticTexts["Manufacturer, Apple Inc."].exists)
         XCTAssert(app.staticTexts["Model"].exists) // we just check for existence of the model row
 
+        // CHECK onChange behavior
+        XCTAssert(app.staticTexts["Manufacturer: false, Model: true"].waitForExistence(timeout: 0.5))
+        XCTAssert(app.buttons["Fetch"].exists)
+        app.buttons["Fetch"].tap()
+        XCTAssert(app.staticTexts["Manufacturer: true, Model: true"].waitForExistence(timeout: 0.5))
+
         // by checking if event row is there to verify auto notify enabled.
         XCTAssert(app.staticTexts["Event"].exists)
 

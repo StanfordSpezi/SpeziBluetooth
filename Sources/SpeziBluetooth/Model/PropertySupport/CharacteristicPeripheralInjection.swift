@@ -87,7 +87,7 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
         // value is readable!
 
         // handle assigning the initial value!
-        if let characteristic, // TODO: why is this sometimes present? (docs)
+        if let characteristic,
            let value = characteristic.value {
             handleUpdatedValue(value)
         }
