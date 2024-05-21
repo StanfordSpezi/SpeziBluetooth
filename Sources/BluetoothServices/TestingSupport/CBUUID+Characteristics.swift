@@ -15,18 +15,30 @@ extension CBUUID {
     private static let suffix = "-0000-1000-8000-00805F9B34FB"
 
     /// The test service.
-    public static let testService: CBUUID = .uuid(ofCustom: "F001")
+    public static var testService: CBUUID {
+        .uuid(ofCustom: "F001")
+    }
 
     /// An event log of events of the test peripheral implementation.
-    public static let eventLogCharacteristic: CBUUID = .uuid(ofCustom: "F002")
+    public static var eventLogCharacteristic: CBUUID {
+        .uuid(ofCustom: "F002")
+    }
     /// A string characteristic that you can read.
-    public static let readStringCharacteristic: CBUUID = .uuid(ofCustom: "F003")
+    public static var readStringCharacteristic: CBUUID {
+        .uuid(ofCustom: "F003")
+    }
     /// A string characteristic that you can write.
-    public static let writeStringCharacteristic: CBUUID = .uuid(ofCustom: "F004")
+    public static var writeStringCharacteristic: CBUUID {
+        .uuid(ofCustom: "F004")
+    }
     /// A string characteristic that you can read and write.
-    public static let readWriteStringCharacteristic: CBUUID = .uuid(ofCustom: "F005")
+    public static var readWriteStringCharacteristic: CBUUID {
+        .uuid(ofCustom: "F005")
+    }
     /// Reset peripheral state to default settings.
-    public static let resetCharacteristic: CBUUID = .uuid(ofCustom: "F006")
+    public static var resetCharacteristic: CBUUID {
+        .uuid(ofCustom: "F006")
+    }
 
 
     private static func uuid(ofCustom: String) -> CBUUID {

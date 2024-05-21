@@ -15,10 +15,10 @@ actor DeviceStatePeripheralInjection<Value>: BluetoothActor {
     let peripheral: BluetoothPeripheral
     private let accessKeyPath: KeyPath<BluetoothPeripheral, Value>
     private let observationKeyPath: KeyPath<PeripheralStorage, Value>?
-    private var onChangeClosure: ChangeClosure<Value>
+    private var onChangeClosure: ChangeClosureState<Value>
 
 
-    init(peripheral: BluetoothPeripheral, keyPath: KeyPath<BluetoothPeripheral, Value>, onChangeClosure: ((Value) async -> Void)?) {
+    init(peripheral: BluetoothPeripheral, keyPath: KeyPath<BluetoothPeripheral, Value>, onChangeClosure: OnChangeClosure<Value>?) {
         self.bluetoothQueue = peripheral.bluetoothQueue
         self.peripheral = peripheral
         self.accessKeyPath = keyPath
@@ -34,6 +34,8 @@ actor DeviceStatePeripheralInjection<Value>: BluetoothActor {
         guard let observationKeyPath else {
             return
         }
+
+        dispatchOnChangeWithInitialValue()
 
         peripheral.assumeIsolated { peripheral in
             peripheral.onChange(of: observationKeyPath) { [weak self] value in
@@ -57,21 +59,33 @@ actor DeviceStatePeripheralInjection<Value>: BluetoothActor {
     }
 
     /// Returns once the change handler completes.
-    private func dispatchChangeHandler(_ value: Value, with onChangeClosure: ChangeClosure<Value>) async {
+    private func dispatchChangeHandler(_ value: Value, with onChangeClosure: ChangeClosureState<Value>, isInitial: Bool = false) async {
         guard case let .value(closure) = onChangeClosure else {
             return
         }
 
-        await closure(value)
+        if closure.initial || !isInitial {
+            await closure(value)
+        }
     }
 
-    func setOnChangeClosure(_ closure: @escaping (Value) async -> Void) {
+    func setOnChangeClosure(_ closure: OnChangeClosure<Value>) {
         if case .cleared = onChangeClosure {
             // object is about to be cleared. Make sure we don't create a self reference last minute.
             return
         }
 
         self.onChangeClosure = .value(closure)
+        dispatchOnChangeWithInitialValue()
+    }
+
+    private func dispatchOnChangeWithInitialValue() {
+        // For most values, this just delivers a nil value (e.g., name or localName).
+        // However, there might be a use case to retrieve the initial value for the deviceState or advertisement data.
+        let value = peripheral[keyPath: accessKeyPath]
+        Task { @SpeziBluetooth in
+            await dispatchChangeHandler(value, with: onChangeClosure, isInitial: true)
+        }
     }
 
     /// Remove any onChangeClosure and mark injection as cleared.

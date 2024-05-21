@@ -14,7 +14,7 @@
 /// ## Topics
 ///
 /// ### Get notified about changes
-/// - ``onChange(perform:)``
+/// - ``onChange(initial:perform:)``
 public struct DeviceStateAccessor<Value> {
     private let id: ObjectIdentifier
     private let injection: DeviceStatePeripheralInjection<Value>?
@@ -36,8 +36,13 @@ public struct DeviceStateAccessor<Value> {
     ///
     /// - Note: It is perfectly fine if you capture strongly self within your closure. The framework will
     ///     resolve any reference cycles for you.
-    /// - Parameter perform: The change handler to register.
-    public func onChange(perform: @escaping (Value) async -> Void) {
+    /// - Parameters:
+    ///     - initial: Whether the action should be run with the initial state value. Otherwise, the action will only run
+    ///     strictly if the value changes.
+    ///     - action: The change handler to register.
+    public func onChange(initial: Bool = false, perform action: @escaping (Value) async -> Void) {
+        let closure = OnChangeClosure(initial: initial, closure: action)
+
         guard let injection else {
             guard let closures = ClosureRegistrar.writeableView else {
                 Bluetooth.logger.warning(
@@ -51,16 +56,19 @@ public struct DeviceStateAccessor<Value> {
             }
             // Similar to CharacteristicAccessor/onChange(perform:), we save it in a global registrar
             // to avoid reference cycles we can't control.
-            closures.insert(for: id, closure: perform)
+            closures.insert(for: id, closure: closure)
             return
         }
 
         // global actor ensures these tasks are queued serially and are executed in order.
         Task { @SpeziBluetooth in
-            await injection.setOnChangeClosure(perform)
+            await injection.setOnChangeClosure(closure)
         }
     }
 }
+
+
+extension DeviceStateAccessor: @unchecked Sendable {}
 
 
 // MARK: - Testing Support

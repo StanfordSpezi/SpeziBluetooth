@@ -18,7 +18,7 @@ struct TestDeviceView: View {
 
     var body: some View {
         List {
-            DeviceInformationView(device.deviceInformation)
+            DeviceInformationView(device)
 
             TestServiceView(device.testService)
         }

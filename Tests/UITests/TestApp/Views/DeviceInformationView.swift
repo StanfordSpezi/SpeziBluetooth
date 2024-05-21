@@ -14,11 +14,18 @@ import SwiftUI
 
 
 struct DeviceInformationView: View {
-    private let deviceInformation: DeviceInformationService
+    private let device: TestDevice
+
+    private var deviceInformation: DeviceInformationService {
+        device.deviceInformation
+    }
+
+
+    @State private var viewState: ViewState = .idle
 
 
     var body: some View {
-        Section("Device Information") { // swiftlint:disable:this closure_body_length
+        Section { // swiftlint:disable:this closure_body_length
             if let manufacturerName = deviceInformation.manufacturerName {
                 ListRow("Manufacturer") {
                     Text(manufacturerName)
@@ -61,6 +68,15 @@ struct DeviceInformationView: View {
                     Text(regulatoryCertificationDataList.hexString())
                 }
             }
+        } header: {
+            Text("Device Information")
+        } footer: {
+            HStack {
+                Text("Manufacturer: \(device.testState.didReceiveManufacturer), Model: \(device.testState.didReceiveModel)")
+                Spacer()
+
+                AsyncButton("Fetch", state: $viewState, action: readDeviceInformation)
+            }
         }
 
         if let pnpID = deviceInformation.pnpID {
@@ -78,21 +94,28 @@ struct DeviceInformationView: View {
         }
     }
 
-    init(_ deviceInformation: DeviceInformationService) {
-        self.deviceInformation = deviceInformation
+    init(_ device: TestDevice) {
+        self.device = device
+    }
+
+    @MainActor
+    private func readDeviceInformation() async throws {
+        try await deviceInformation.$modelNumber.read()
+        try await deviceInformation.$manufacturerName.read()
     }
 }
 
 
 #if DEBUG
 #Preview {
-    let service = DeviceInformationService()
-    service.$manufacturerName.inject("Stanford Spezi")
-    service.$systemID.inject(1231213)
-    service.$pnpID.inject(PnPID(vendorIdSource: .bluetoothSIGAssigned, vendorId: 123, productId: 23, productVersion: 42))
+    let device = TestDevice()
+    device.deviceInformation.$manufacturerName.inject("Stanford Spezi")
+    device.deviceInformation.$modelNumber.inject("Simulator")
+    device.deviceInformation.$systemID.inject(1231213)
+    device.deviceInformation.$pnpID.inject(PnPID(vendorIdSource: .bluetoothSIGAssigned, vendorId: 123, productId: 23, productVersion: 42))
 
     return List {
-        DeviceInformationView(service)
+        DeviceInformationView(device)
     }
 }
 #endif

@@ -42,7 +42,7 @@ import Foundation
 /// by supplying the `notify` initializer argument.
 ///
 /// - Tip: If you want to react to every change of the characteristic value, you can use
-///     ``CharacteristicAccessor/onChange(perform:)`` to set up your action.
+///     ``CharacteristicAccessor/onChange(initial:perform:)`` to set up your action.
 ///
 /// The below code example uses the [Bluetooth Heart Rate Service](https://www.bluetooth.com/specifications/specs/heart-rate-service-1-0)
 /// to demonstrate the automatic notifications feature for the Heart Rate Measurement characteristic.
@@ -145,7 +145,7 @@ import Foundation
 /// - ``CharacteristicAccessor/enableNotifications(_:)``
 ///
 /// ### Get notified about changes
-/// - ``CharacteristicAccessor/onChange(perform:)``
+/// - ``CharacteristicAccessor/onChange(initial:perform:)``
 ///
 /// ### Property wrapper access
 /// - ``wrappedValue``

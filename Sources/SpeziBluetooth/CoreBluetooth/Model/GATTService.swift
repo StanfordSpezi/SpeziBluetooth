@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
-import CoreBluetooth
+@preconcurrency import CoreBluetooth
 import Foundation
 
 struct ServiceChangeProtocol {
@@ -24,7 +24,7 @@ struct ServiceChangeProtocol {
 /// - ``isPrimary``
 /// - ``characteristics``
 @Observable
-public class GATTService {
+public final class GATTService {
     let underlyingService: CBService
     /// The stored characteristics, indexed by their uuid.
     private var _characteristics: [CBUUID: GATTCharacteristic]
@@ -64,7 +64,7 @@ public class GATTService {
     }
 
     /// Signal from the BluetoothManager to update your stored representations.
-    func synchronizeModel() -> ServiceChangeProtocol {
+    func synchronizeModel() -> ServiceChangeProtocol { // always called from the Bluetooth thread
         var removedCharacteristics = Set(_characteristics.keys)
         var updatedCharacteristics: [GATTCharacteristic] = []
 
@@ -93,6 +93,9 @@ public class GATTService {
         return ServiceChangeProtocol(removedCharacteristics: removedCharacteristics, updatedCharacteristics: updatedCharacteristics)
     }
 }
+
+
+extension GATTService: @unchecked Sendable {}
 
 
 extension GATTService: Hashable {

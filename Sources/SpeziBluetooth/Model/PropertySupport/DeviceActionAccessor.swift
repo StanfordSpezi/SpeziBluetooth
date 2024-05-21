@@ -27,3 +27,6 @@ public struct DeviceActionAccessor<ClosureType> {
         _injectedClosure.value = action
     }
 }
+
+
+extension DeviceActionAccessor: @unchecked Sendable {}

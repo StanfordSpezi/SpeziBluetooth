@@ -12,7 +12,15 @@ import Foundation
 import SpeziBluetooth
 
 
-class TestDevice: BluetoothDevice, Identifiable, SomePeripheral {
+final class TestDevice: BluetoothDevice, Identifiable, SomePeripheral, @unchecked Sendable {
+    @Observable
+    class State {
+        @MainActor fileprivate(set) var didReceiveManufacturer = false
+        @MainActor fileprivate(set) var didReceiveModel = false
+
+        init() {}
+    }
+
     @DeviceState(\.id)
     var id
     @DeviceState(\.name)
@@ -30,7 +38,17 @@ class TestDevice: BluetoothDevice, Identifiable, SomePeripheral {
     @Service var deviceInformation = DeviceInformationService()
     @Service var testService = TestService()
 
-    required init() {}
+
+    let testState = State()
+
+    required init() {
+        deviceInformation.$modelNumber.onChange(initial: true) { @MainActor _ in
+            self.testState.didReceiveModel = true
+        }
+        deviceInformation.$manufacturerName.onChange { @MainActor _ in
+            self.testState.didReceiveManufacturer = true // this should never be called
+        }
+    }
 
 
     func connect() async {
