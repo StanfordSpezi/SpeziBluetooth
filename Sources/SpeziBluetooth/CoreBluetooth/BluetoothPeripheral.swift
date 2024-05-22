@@ -70,7 +70,10 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
     /// Observable state container for local state.
     private let _storage: PeripheralStorage
 
-
+    /// Protecting concurrent access to an ongoing connect attempt.
+    private let connectAccess = AsyncSemaphore()
+    /// Continuation for a currently ongoing connect attempt.
+    private var connectContinuation: CheckedContinuation<Void, Error>?
     /// Ongoing accessed per characteristic.
     private var characteristicAccesses = CharacteristicAccesses()
     /// Protecting concurrent access to an ongoing write without response.
@@ -218,49 +221,29 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
         peripheral.delegate = delegate
     }
 
-    /// Establish a connection to the peripheral.
-    ///
-    /// Make a connection to the peripheral.
-    ///
-    /// - Note: This method returns as soon as the request to connect was processed locally. It does
-    ///     not wait until the connection has been established successfully, use ``connectAndWait()`` instead, if needed.
-    ///
-    /// - Note: You might want to verify via the ``AdvertisementData/isConnectable`` property that the device is connectable.
-    public func connect() {
-        guard let manager else {
-            logger.warning("Tried to connect an orphaned bluetooth peripheral!")
-            return
-        }
-
-        manager.assumeIsolated { manager in
-            manager.connect(peripheral: self)
-        }
-    }
-
     /// Establish a connection to the peripheral and wait until it is connected.
     ///
     /// Make a connection to the peripheral.
     ///
-    /// - Note: This method waits until the connection has been established successfully. 
-    ///     Use ``connect()`` to skip waiting instead.
-    ///
     /// - Note: You might want to verify via the ``AdvertisementData/isConnectable`` property that the device is connectable.
-    public func connectAndWait() async throws {
-        guard let manager else {
-            logger.warning("Tried to connect an orphaned bluetooth peripheral!")
-            return
-        }
+    public func connect() async throws {
+        try await connectAccess.waitCheckingCancellation()
 
-        await manager.connect(peripheral: self)
-
-        while true {
-            switch await waitForChange(of: \.state) {
-            case .connected:
-                return
-            case .connecting:
-                continue
-            case .disconnecting, .disconnected:
-                throw CBError(.connectionFailed)
+        return try await withTaskCancellationHandler {
+             try await withCheckedThrowingContinuation { continuation in
+                assert(connectContinuation == nil, "connectContinuation was unexpectedly not nil")
+                connectContinuation = continuation
+                guard let manager = self.manager else {
+                    logger.warning("Tried to connect an orphaned bluetooth peripheral!")
+                    return
+                }
+                manager.assumeIsolated {
+                    $0.connect(peripheral: self)
+                }
+            }
+        } onCancel: {
+            Task {
+                await disconnect()
             }
         }
     }
@@ -333,14 +316,14 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
         let services = requestedCharacteristics.map { Array($0.keys) }
         
         if let services, services.isEmpty {
-            _storage.signalFullyDiscovered()
+            signalFullyDiscovered()
         } else {
             peripheral.discoverServices(requestedCharacteristics.map { Array($0.keys) })
         }
     }
 
     /// Handles a disconnect or failed connection attempt.
-    func handleDisconnect() {
+    func handleDisconnect(error: Error?) {
         // ensure that it is updated instantly.
         self.isolatedUpdate(of: \.state, PeripheralState(from: peripheral.state))
 
@@ -353,17 +336,22 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
             self.invalidateServices(Set(services.map { $0.uuid }))
         }
 
+        connectAccess.cancelAll()
         characteristicAccesses.cancelAll()
         writeWithoutResponseAccess.cancelAll()
         rssiAccess.cancelAll()
 
+        if let connectContinuation {
+            self.connectContinuation = nil
+            connectContinuation.resume(throwing: error ?? CancellationError())
+        }
         if let writeWithoutResponseContinuation {
             self.writeWithoutResponseContinuation = nil
             writeWithoutResponseContinuation.resume()
         }
         if let rssiContinuation {
             self.rssiContinuation = nil
-            rssiContinuation.resume(throwing: CancellationError())
+            rssiContinuation.resume(throwing: error ?? CancellationError())
         }
     }
 
@@ -746,6 +734,12 @@ extension BluetoothPeripheral {
         }
     }
 
+    private func signalFullyDiscovered() {
+        _storage.signalFullyDiscovered()
+        connectContinuation?.resume()
+        connectContinuation = nil
+    }
+
     private func receivedUpdatedValue(for characteristic: CBCharacteristic, result: Result<Data, Error>) {
         if case let .read(continuation) = characteristicAccesses.retrieveAccess(for: characteristic) {
             if case let .failure(error) = result {
@@ -934,7 +928,7 @@ extension BluetoothPeripheral {
                     }
 
                     if device.servicesAwaitingCharacteristicsDiscovery.isEmpty {
-                        device._storage.signalFullyDiscovered()
+                        device.signalFullyDiscovered()
                     }
                 }
             }
@@ -953,7 +947,7 @@ extension BluetoothPeripheral {
                     // ensure we keep track of all discoveries, set .connected state
                     device.servicesAwaitingCharacteristicsDiscovery.remove(service.uuid)
                     if device.servicesAwaitingCharacteristicsDiscovery.isEmpty {
-                        device._storage.signalFullyDiscovered()
+                        device.signalFullyDiscovered()
                     }
 
                     if let error {

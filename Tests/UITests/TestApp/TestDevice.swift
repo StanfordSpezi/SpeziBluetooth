@@ -33,8 +33,8 @@ class TestDevice: BluetoothDevice, Identifiable, SomePeripheral {
     required init() {}
 
 
-    func connect() async {
-        await self.connect()
+    func connect() async throws {
+        try await self.connect()
     }
 
     func disconnect() async {
