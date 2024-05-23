@@ -229,8 +229,8 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
     public func connect() async throws {
         try await connectAccess.waitCheckingCancellation()
 
-        return try await withTaskCancellationHandler {
-             try await withCheckedThrowingContinuation { continuation in
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
                 assert(connectContinuation == nil, "connectContinuation was unexpectedly not nil")
                 connectContinuation = continuation
                 guard let manager = self.manager else {
@@ -314,7 +314,7 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
 
         logger.debug("Discovering services for \(self.peripheral.debugIdentifier) ...")
         let services = requestedCharacteristics.map { Array($0.keys) }
-        
+
         if let services, services.isEmpty {
             signalFullyDiscovered()
         } else {
