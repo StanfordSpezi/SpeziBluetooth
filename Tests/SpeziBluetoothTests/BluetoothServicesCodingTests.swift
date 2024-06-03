@@ -251,6 +251,13 @@ final class BluetoothServicesTests: XCTestCase {
             options: .bmiSupported,
             .multipleUsersSupported
         ))
+
+        let features2 = WeightScaleFeature(weightResolution: .resolution20g, heightResolution: .resolution5mm, options: .bmiSupported)
+        XCTAssertEqual(features2.weightResolution, .resolution20g)
+        XCTAssertEqual(features2.heightResolution, .resolution5mm)
+        XCTAssertTrue(features2.contains(.bmiSupported))
+        XCTAssertFalse(features2.contains(.multipleUsersSupported))
+        XCTAssertFalse(features2.contains(.timeStampSupported))
     }
 
     func testTemperatureType() throws {
