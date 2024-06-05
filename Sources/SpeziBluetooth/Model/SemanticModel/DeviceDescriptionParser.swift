@@ -41,7 +41,7 @@ extension DiscoveryConfiguration {
 
 
 extension Set where Element == DiscoveryConfiguration {
-    var deviceTypes: [BluetoothDevice.Type] {
+    var deviceTypes: [any BluetoothDevice.Type] {
         map { configuration in
             configuration.anyDeviceType
         }

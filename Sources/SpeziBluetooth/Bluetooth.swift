@@ -160,7 +160,7 @@ import Spezi
 public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, BluetoothActor {
     @Observable
     class Storage {
-        var nearbyDevices: OrderedDictionary<UUID, BluetoothDevice> = [:]
+        var nearbyDevices: OrderedDictionary<UUID, any BluetoothDevice> = [:]
     }
 
     static let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "Bluetooth")
@@ -195,7 +195,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
     }
 
 
-    private var nearbyDevices: OrderedDictionary<UUID, BluetoothDevice> {
+    private var nearbyDevices: OrderedDictionary<UUID, any BluetoothDevice> {
         get {
             _storage.nearbyDevices
         }
@@ -203,6 +203,9 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
             _storage.nearbyDevices = newValue
         }
     }
+
+    @Application(\.spezi)
+    private var spezi
 
     /// Stores the connected device instance for every configured ``BluetoothDevice`` type.
     @Model private var connectedDevicesModel = ConnectedDevices()
@@ -301,7 +304,11 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
         for key in nearbyDevices.keys where discoveredDevices[key] == nil {
             checkForConnected = true
             let device = nearbyDevices.removeValue(forKey: key)
-            device?.clearState(isolatedTo: self)
+
+            if let device {
+                device.clearState(isolatedTo: self)
+                spezi.unloadModule(device)
+            }
         }
 
         // add devices for new keys
@@ -324,6 +331,8 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
 
             checkForConnected = true
             observePeripheralState(of: uuid) // register \.state onChange closure
+
+            spezi.loadModule(device)
         }
 
         if checkForConnected {

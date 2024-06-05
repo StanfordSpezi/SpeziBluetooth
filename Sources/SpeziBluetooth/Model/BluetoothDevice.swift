@@ -28,7 +28,7 @@ import Spezi
 ///     init() {}
 /// }
 /// ```
-public protocol BluetoothDevice: AnyObject, EnvironmentAccessible {
+public protocol BluetoothDevice: AnyObject, Module, EnvironmentAccessible {
     /// Initializes the Bluetooth Device.
     ///
     /// This initializer is called automatically when a peripheral of this type connects.

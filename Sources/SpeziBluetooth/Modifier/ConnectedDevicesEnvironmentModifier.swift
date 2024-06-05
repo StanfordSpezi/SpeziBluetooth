@@ -27,13 +27,13 @@ private struct ConnectedDeviceEnvironmentModifier<Device: BluetoothDevice>: View
 
 
 struct ConnectedDevicesEnvironmentModifier: ViewModifier {
-    private let configuredDeviceTypes: [BluetoothDevice.Type]
+    private let configuredDeviceTypes: [any BluetoothDevice.Type]
 
     @Environment(ConnectedDevices.self)
     var connectedDevices
 
 
-    init(configuredDeviceTypes: [BluetoothDevice.Type]) {
+    init(configuredDeviceTypes: [any BluetoothDevice.Type]) {
         self.configuredDeviceTypes = configuredDeviceTypes
     }
 
