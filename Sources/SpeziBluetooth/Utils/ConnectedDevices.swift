@@ -12,14 +12,12 @@ import Foundation
 @Observable
 class ConnectedDevices {
     /// We track the first connected device for every BluetoothDevice type.
-    @MainActor private var connectedDevices: [ObjectIdentifier: BluetoothDevice] = [:]
+    @MainActor private var connectedDevices: [ObjectIdentifier: any BluetoothDevice] = [:]
     @MainActor private var connectedDeviceIds: [ObjectIdentifier: UUID] = [:]
-
-    var hasConnectedDevices = false
 
 
     @MainActor
-    func update(with devices: [UUID: BluetoothDevice]) {
+    func update(with devices: [UUID: any BluetoothDevice]) {
         // remove devices that disconnected
         for (identifier, uuid) in connectedDeviceIds where devices[uuid] == nil {
             connectedDeviceIds.removeValue(forKey: identifier)
@@ -36,12 +34,10 @@ class ConnectedDevices {
             connectedDevices[device.typeIdentifier] = device
             connectedDeviceIds[device.typeIdentifier] = uuid
         }
-
-        hasConnectedDevices = !connectedDevices.isEmpty
     }
 
     @MainActor
-    subscript(_ identifier: ObjectIdentifier) -> BluetoothDevice? {
+    subscript(_ identifier: ObjectIdentifier) -> (any BluetoothDevice)? {
         connectedDevices[identifier]
     }
 }

@@ -188,6 +188,43 @@ struct MyView: View {
 }
 ```
 
+### Integration with Spezi Modules
+
+A Spezi [`Module`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module) is a great way of structuring your application into
+different subsystems and provides extensive capabilities to model relationship and dependence between modules.
+Every ``BluetoothDevice`` is a `Module`.
+Therefore, you can easily access your SpeziBluetooth device from within any Spezi `Module` using the standard
+[Module Dependency](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module-dependency) infrastructure. At the same time,
+every `BluetoothDevice` can benefit from the same capabilities as every other Spezi `Module`.
+
+Below is a short code example demonstrating how a `BluetoothDevice` uses the `@Dependency` property to interact with a Spezi Module that is
+configured within the Spezi application.
+
+```swift
+class Measurements: Module, EnvironmentAccessible, DefaultInitializable {
+    required init() {}
+
+    func recordNewMeasurement(_ measurement: WeightMeasurement) {
+        // ... process measurement
+    }
+}
+
+class MyDevice: BluetoothDevice {
+    @Service var weightScale = WeightScaleService()
+    
+    // declare dependency to a configured Spezi Module
+    @Dependency var measurements: Measurements
+    
+    required init() {
+        weightScale.$weightMeasurement.onChange(perform: handleNewMeasurement)
+    }
+    
+    private func handleNewMeasurement(_ measurement: WeightMeasurement) {
+        measurements.recordNewMeasurement(measurement)
+    }
+}
+```
+
 ### Thread Model
 
 Every instance of ``BluetoothManager`` (or ``Bluetooth``) creates an `SerialExecutor` to dispatch any Bluetooth related action.
