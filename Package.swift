@@ -50,7 +50,8 @@ let package = Package(
             name: "BluetoothServices",
             dependencies: [
                 .target(name: "SpeziBluetooth"),
-                .product(name: "ByteCoding", package: "SpeziNetworking")
+                .product(name: "ByteCoding", package: "SpeziNetworking"),
+                .product(name: "SpeziNumerics", package: "SpeziNetworking")
             ]
         ),
         .target(

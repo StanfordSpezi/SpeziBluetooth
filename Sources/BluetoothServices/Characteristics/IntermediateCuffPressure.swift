@@ -9,6 +9,7 @@
 import ByteCoding
 import Foundation
 import NIOCore
+import SpeziNumerics
 
 
 /// Intermediate cuff pressure values while  a measurement is in progress.
