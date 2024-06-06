@@ -9,6 +9,11 @@
 import ByteCoding
 import CoreBluetooth
 
+struct CharacteristicTestInjections<Value> {
+    var writeClosure: ((Value, WriteType) async throws -> Void)?
+    var readClosure: (() async throws -> Value)?
+}
+
 
 /// Interact with a given Characteristic.
 ///
@@ -42,17 +47,27 @@ import CoreBluetooth
 public struct CharacteristicAccessor<Value> {
     private let configuration: Characteristic<Value>.Configuration
     private let injection: CharacteristicPeripheralInjection<Value>?
-    /// We keep track of this for testing support.
-    private let _value: ObservableBox<Value?>
     /// Capture of the characteristic.
     private let characteristic: GATTCharacteristic?
 
+    /// We keep track of this for testing support.
+    private let _value: ObservableBox<Value?>
+    /// Closure that captures write for testing support.
+    private let _testInjections: Box<CharacteristicTestInjections<Value>>
 
-    init(configuration: Characteristic<Value>.Configuration, injection: CharacteristicPeripheralInjection<Value>?, value: ObservableBox<Value?>) {
+
+    init(
+        configuration: Characteristic<Value>.Configuration,
+        injection: CharacteristicPeripheralInjection<Value>?,
+        value: ObservableBox<Value?>,
+        testInjections: Box<CharacteristicTestInjections<Value>>
+    ) {
         self.configuration = configuration
         self.injection = injection
-        self._value = value
         self.characteristic = injection?.unsafeCharacteristic
+
+        self._value = value
+        self._testInjections = testInjections
     }
 }
 
@@ -162,6 +177,10 @@ extension CharacteristicAccessor where Value: ByteDecodable {
     ///     It might also throw a ``BluetoothError/notPresent(service:characteristic:)`` or ``BluetoothError/incompatibleDataFormat`` error.
     @discardableResult
     public func read() async throws -> Value {
+        if let injectedReadClosure = _testInjections.value.readClosure {
+            return try await injectedReadClosure()
+        }
+
         guard let injection  else {
             throw BluetoothError.notPresent(characteristic: configuration.id)
         }
@@ -183,6 +202,11 @@ extension CharacteristicAccessor where Value: ByteEncodable {
     /// - Throws: Throws an `CBError` or `CBATTError` if the write fails.
     ///     It might also throw a ``BluetoothError/notPresent(service:characteristic:)`` error.
     public func write(_ value: Value) async throws {
+        if let injectedWriteClosure = _testInjections.value.writeClosure {
+            try await injectedWriteClosure(value, .withResponse)
+            return
+        }
+
         guard let injection else {
             throw BluetoothError.notPresent(characteristic: configuration.id)
         }
@@ -200,6 +224,11 @@ extension CharacteristicAccessor where Value: ByteEncodable {
     /// - Throws: Throws an `CBError` or `CBATTError` if the write fails.
     ///     It might also throw a ``BluetoothError/notPresent(service:characteristic:)`` error.
     public func writeWithoutResponse(_ value: Value) async throws {
+        if let injectedWriteClosure = _testInjections.value.writeClosure {
+            try await injectedWriteClosure(value, .withoutResponse)
+            return
+        }
+
         guard let injection else {
             throw BluetoothError.notPresent(characteristic: configuration.id)
         }
@@ -223,5 +252,25 @@ extension CharacteristicAccessor {
     /// - Parameter value: The value to inject.
     public func inject(_ value: Value) {
         _value.value = value
+    }
+
+    /// Inject a custom action that sinks all write operations for testing purposes.
+    ///
+    /// This method can be used to inject a custom action that is called whenever a value is written to the characteristic.
+    /// This is particularly helpful when writing unit tests to verify the value which was written to the characteristic.
+    ///
+    /// - Parameter action: The action to inject. Called for every write.
+    public func onWrite(perform action: @escaping (Value, WriteType) async throws -> Void) {
+        _testInjections.value.writeClosure = action
+    }
+
+    /// Inject a custom action that sinks all read operations for testing purposes.
+    ///
+    /// This method can be used to inject a custom action that is called whenever a value is read from the characteristic.
+    /// This is particularly helpful when writing unit tests to return a custom value upon read requests.
+    ///
+    /// - Parameter action: The action to inject. Called for every read.
+    public func onRead(return action: @escaping () async throws -> Value) {
+        _testInjections.value.readClosure = action
     }
 }

@@ -65,7 +65,7 @@ public struct WeightMeasurement {
     /// The weight measurement.
     ///
     /// The unit of this value is defined by the ``unit-swift.property`` property.
-    /// The value has a resolution as defined by ``WeightMeasurement/unit-swift.property`` or, otheriwse,
+    /// The value has a resolution as defined by ``WeightMeasurement/unit-swift.property`` or, otherwise,
     /// of `0.005` in kg and a resolution of `0.01` in pounds.
     public let weight: UInt16
     /// The unit of a weight measurement.
@@ -108,7 +108,7 @@ public struct WeightMeasurement {
 extension WeightMeasurement {
     /// The weight value in kg or pounds.
     ///
-    /// Derrives the weight value as a `Double` considering the devices resolution as defiend by the
+    /// Derives the weight value as a `Double` considering the devices resolution as defined by the
     /// ``WeightScaleFeature`` characteristic.
     /// - Parameter resolution: The resolution of the ``weight`` property.
     /// - Returns: The double value of the weight in kg or pounds.
@@ -119,7 +119,7 @@ extension WeightMeasurement {
 
     /// The height value in meter or inches.
     ///
-    /// Derrives the height value as a `Double` consdering the devices resolution as defined by the
+    /// Derives the height value as a `Double` considering the devices resolution as defined by the
     /// ``WeightScaleFeature`` characteristic.
     /// - Parameter resolution: The resolution of the ``AdditionalInfo-swift.struct/height`` property.
     /// - Returns: The double value of the height in meters or inches.

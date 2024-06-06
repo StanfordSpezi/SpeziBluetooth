@@ -175,6 +175,8 @@ public final class Characteristic<Value>: @unchecked Sendable {
     private let _value: ObservableBox<Value?>
     private(set) var injection: CharacteristicPeripheralInjection<Value>?
 
+    private let _testInjections = Box(CharacteristicTestInjections<Value>())
+
     var description: CharacteristicDescription {
         CharacteristicDescription(id: configuration.id, discoverDescriptors: configuration.discoverDescriptors)
     }
@@ -195,7 +197,7 @@ public final class Characteristic<Value>: @unchecked Sendable {
     ///     However, if you project a new `CharacteristicAccessor` instance right after your access,
     ///     the view on the characteristic might have changed due to the asynchronous nature of SpeziBluetooth.
     public var projectedValue: CharacteristicAccessor<Value> {
-        CharacteristicAccessor(configuration: configuration, injection: injection, value: _value)
+        CharacteristicAccessor(configuration: configuration, injection: injection, value: _value, testInjections: _testInjections)
     }
 
     fileprivate init(wrappedValue: Value? = nil, characteristic: CBUUID, notify: Bool, discoverDescriptors: Bool = false) {
