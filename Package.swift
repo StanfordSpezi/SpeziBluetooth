@@ -27,7 +27,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/StanfordSpezi/SpeziFoundation", from: "1.0.4"),
         .package(url: "https://github.com/StanfordSpezi/Spezi", from: "1.3.0"),
-        .package(url: "https://github.com/StanfordSpezi/SpeziFileFormats", from: "1.2.0"),
+        .package(url: "https://github.com/StanfordSpezi/SpeziNetworking", branch: "initial-setup"),
         .package(url: "https://github.com/StanfordSpezi/SpeziViews", from: "1.3.0"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.59.0"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.0.4")
@@ -40,7 +40,7 @@ let package = Package(
                 .product(name: "NIO", package: "swift-nio"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "SpeziFoundation", package: "SpeziFoundation"),
-                .product(name: "ByteCoding", package: "SpeziFileFormats")
+                .product(name: "ByteCoding", package: "SpeziNetworking")
             ],
             resources: [
                 .process("Resources")
@@ -50,7 +50,7 @@ let package = Package(
             name: "BluetoothServices",
             dependencies: [
                 .target(name: "SpeziBluetooth"),
-                .product(name: "ByteCoding", package: "SpeziFileFormats")
+                .product(name: "ByteCoding", package: "SpeziNetworking")
             ]
         ),
         .target(
@@ -65,7 +65,7 @@ let package = Package(
             dependencies: [
                 .target(name: "SpeziBluetooth"),
                 .target(name: "BluetoothServices"),
-                .product(name: "ByteCoding", package: "SpeziFileFormats")
+                .product(name: "ByteCoding", package: "SpeziNetworking")
             ]
         ),
         .testTarget(
@@ -73,7 +73,7 @@ let package = Package(
             dependencies: [
                 .target(name: "BluetoothServices"),
                 .target(name: "SpeziBluetooth"),
-                .product(name: "XCTByteCoding", package: "SpeziFileFormats"),
+                .product(name: "XCTByteCoding", package: "SpeziNetworking"),
                 .product(name: "NIO", package: "swift-nio")
             ]
         )

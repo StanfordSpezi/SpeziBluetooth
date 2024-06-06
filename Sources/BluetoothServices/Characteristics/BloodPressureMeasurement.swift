@@ -96,6 +96,7 @@ public struct BloodPressureMeasurement {
     /// Additional metadata information of a blood pressure measurement.
     public let measurementStatus: Status?
 
+    // TODO: update MedFloat16 documentation with link to SpeziNetworking docs (once published)
 
     /// Create a new blood pressure measurement.
     /// - Parameters:
