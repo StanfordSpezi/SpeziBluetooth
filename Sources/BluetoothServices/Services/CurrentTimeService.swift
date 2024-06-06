@@ -46,16 +46,14 @@ extension CurrentTimeService {
     /// Synchronize peripheral time.
     ///
     /// This method checks the current time of the connected peripheral. If the current time was never set or the time difference
-    /// is larger than one second, the peripheral time is updated to `now`.
+    /// is larger than the specified `threshold`, the peripheral time is updated to `now`.
     ///
     /// - Note: This method expects that the ``currentTime`` characteristic is current.
-    /// - Parameter now: The `Date` which is perceived as now.
-    public func synchronizeDeviceTime(now: Date = .now) {
-        guard $currentTime.isPresent else {
-            Self.logger("Couldn't synchronize time. Current Time Service isn't present on the target device.")
-            return
-        }
-
+    /// - Parameters:
+    ///   - now: The `Date` which is perceived as now.
+    ///   - threshold: The threshold in seconds used to decide if peripheral time should be updated.
+    ///     A time difference smaller than the threshold is considered current.
+    public func synchronizeDeviceTime(now: Date = .now, threshold: TimeInterval = 1) {
         // check if time update is necessary
         if let currentTime = currentTime,
            let deviceTime = currentTime.time.date {

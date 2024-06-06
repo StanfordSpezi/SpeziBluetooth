@@ -69,7 +69,7 @@ let package = Package(
             ]
         ),
         .testTarget(
-            name: "SpeziBluetoothTests",
+            name: "BluetoothServicesTests",
             dependencies: [
                 .target(name: "BluetoothServices"),
                 .target(name: "SpeziBluetooth"),
