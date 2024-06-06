@@ -6,7 +6,8 @@
 // SPDX-License-Identifier: MIT
 //
 
-import class CoreBluetooth.CBUUID
+import CoreBluetooth
+import OSLog
 import SpeziBluetooth
 
 
@@ -17,6 +18,8 @@ import SpeziBluetooth
 ///     Both are optional to implement for peripherals.
 public final class CurrentTimeService: BluetoothService, @unchecked Sendable {
     public static let id = CBUUID(string: "1805")
+
+    fileprivate static let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "CurrentTimeService")
 
 
     /// The current time and reason for adjustment.
@@ -36,4 +39,53 @@ public final class CurrentTimeService: BluetoothService, @unchecked Sendable {
 
 
     public init() {}
+}
+
+
+extension CurrentTimeService {
+    /// Synchronize peripheral time.
+    ///
+    /// This method checks the current time of the connected peripheral. If the current time was never set or the time difference
+    /// is larger than one second, the peripheral time is updated to `now`.
+    ///
+    /// - Note: This method expects that the ``currentTime`` characteristic is current.
+    /// - Parameter now: The `Date` which is perceived as now.
+    public func synchronizeDeviceTime(now: Date = .now) {
+        guard $currentTime.isPresent else {
+            Self.logger("Couldn't synchronize time. Current Time Service isn't present on the target device.")
+            return
+        }
+
+        // check if time update is necessary
+        if let currentTime = currentTime,
+           let deviceTime = currentTime.time.date {
+            let difference = abs(deviceTime.timeIntervalSinceReferenceDate - now.timeIntervalSinceReferenceDate)
+            if difference < 1 {
+                return // we consider 1 second difference accurate enough
+            }
+
+            Self.logger.debug("Current time difference is \(difference)s. Device time: \(String(describing: currentTime)). Updating time ...")
+        } else {
+            Self.logger.debug("Unknown current time (\(String(describing: self.currentTime)). Updating time ...")
+        }
+
+
+        // update time if it isn't present or if it is outdated
+        Task {
+            let exactTime = ExactTime256(from: now)
+            do {
+                try await $currentTime.write(CurrentTime(time: exactTime))
+                Self.logger.debug("Updated device time to \(String(describing: exactTime))")
+            } catch let error as NSError {
+                if error.domain == CBATTError.errorDomain {
+                    let attError = CBATTError(_nsError: error)
+                    if attError.code == CBATTError.Code(rawValue: 0x80) {
+                        Self.logger.debug("Device ignored some date fields. Updated device time to \(String(describing: exactTime)).")
+                        return
+                    }
+                }
+                Self.logger.warning("Failed to update current time: \(error)")
+            }
+        }
+    }
 }
