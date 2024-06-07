@@ -23,7 +23,3 @@ with standardized services and characteristics.
 
 - <doc:Characteristics>
 - <doc:Services>
-
-### Data Types
-
-- ``MedFloat16``
