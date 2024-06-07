@@ -17,17 +17,19 @@ extension CharacteristicAccessor where Value: ControlPointCharacteristic {
     /// - Important: The response is delivered using a notification. In order to use this method you must enable notifications
     ///     for the characteristics (see ``enableNotifications(_:)``).
     ///
-    /// - Parameter value: The request you want to send.
+    /// - Parameters:
+    ///     - value: The request you want to send.
+    ///     - timeout: The timeout to wait to receive a response via notify or indicate.
     /// - Returns: The response returned from the peripheral.
     /// - Throws: Throws an `CBError` or `CBATTError` if the write fails.
     ///     It might also throw a ``BluetoothError/notPresent(service:characteristic:)``,
     ///     ``BluetoothError/controlPointRequiresNotifying(service:characteristic:)`` or
     ///     ``BluetoothError/controlPointInProgress(service:characteristic:)`` error.
-    public func sendRequest(_ value: Value) async throws -> Value {
+    public func sendRequest(_ value: Value, timeout: Duration = .seconds(20)) async throws -> Value {
         guard let injection else {
             throw BluetoothError.notPresent(characteristic: configuration.id)
         }
 
-        return try await injection.sendRequest(value)
+        return try await injection.sendRequest(value, timeout: timeout)
     }
 }

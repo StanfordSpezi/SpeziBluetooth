@@ -8,7 +8,7 @@
 
 import SpeziBluetooth
 
-extension CharacteristicAccessor where Value: _RecordAccessControlPoint { // TODO: generalResponse overload!!
+extension CharacteristicAccessor where Value: _RecordAccessControlPoint {
     /// Send Record Access request expecting a general response.
     ///
     /// This method sends a request to the Record Access Control Point characteristic, expecting a response with the opcode
@@ -21,7 +21,7 @@ extension CharacteristicAccessor where Value: _RecordAccessControlPoint { // TOD
     /// - Parameter request: The request to send to the characteristic.
     /// - Throws: An Bluetooth error indicating if the write failed or an ``RecordAccessResponseFormatError`` if the ill-formatted
     ///     response was received.
-    ///     Throws the ``RecordAccessGeneralResponse/response`` value if it is not a ``success`` vakue.
+    ///     Throws the ``RecordAccessGeneralResponse/response`` value if it is not a ``success`` value (see ``RecordAccessResponseCode``).
     @_spi(APISupport)
     public func sendRequestExpectingGeneralResponse(_ request: Value) async throws {
         let response = try await sendRequest(request)
@@ -104,18 +104,39 @@ extension CharacteristicAccessor where Value: _RecordAccessControlPoint { // TOD
 
 
 extension CharacteristicAccessor where Value == RecordAccessControlPoint<RecordAccessGenericOperand> {
+    /// Send report stored records request.
+    ///
+    /// Send a request to request to report the stored records via notify of the respective measurement characteristic.
+    /// Once all records were notified, the method returns.
+    ///
+    /// - Parameter content: Select the records the request applies to.
+    /// - Throws: Throws a ``RecordAccessResponseFormatError`` if there was an unexpected response or a ``RecordAccessResponseCode`` if the request failed.
     public func reportStoredRecords(_ content: RecordAccessOperationContent<RecordAccessGenericOperand>) async throws {
         try await sendRequestExpectingGeneralResponse(.reportStoredRecords(content))
     }
 
+    /// Delete stored records.
+    ///
+    /// Sends a request to delete all stored records.
+    ///
+    /// - Parameter content: Select the records the request applies to.
+    /// - Throws: Throws a ``RecordAccessResponseFormatError`` if there was an unexpected response or a ``RecordAccessResponseCode`` if the request failed.
     public func deleteStoredRecords(_ content: RecordAccessOperationContent<RecordAccessGenericOperand>) async throws {
         try await sendRequestExpectingGeneralResponse(.deleteStoredRecords(content))
     }
 
+    /// Abort a currently ongoing request.
+    ///
+    /// - Throws: Throws a ``RecordAccessResponseFormatError`` if there was an unexpected response or a ``RecordAccessResponseCode`` if the request failed.
     public func abort() async throws {
         try await sendRequestExpectingGeneralResponse(.abort())
     }
 
+    /// Request the number of stored records.
+    ///
+    /// - Parameter content: Select the records the request applies to.
+    /// - Returns: The number of stored records.
+    /// - Throws: Throws a ``RecordAccessResponseFormatError`` if there was an unexpected response or a ``RecordAccessResponseCode`` if the request failed.
     public func reportNumberOfStoredRecords(_ content: RecordAccessOperationContent<RecordAccessGenericOperand>) async throws -> UInt16 {
         try await sendRequestExpectingValueResponse(
             .reportNumberOfStoredRecords(content),

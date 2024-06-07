@@ -287,7 +287,7 @@ extension CharacteristicPeripheralInjection where Value: ByteEncodable {
 // MARK: - Control Point Support
 
 extension CharacteristicPeripheralInjection where Value: ControlPointCharacteristic {
-    func sendRequest(_ value: Value) async throws -> Value {
+    func sendRequest(_ value: Value, timeout: Duration = .seconds(20)) async throws -> Value {
         guard let characteristic else {
             throw BluetoothError.notPresent(service: serviceId, characteristic: characteristicId)
         }
@@ -316,9 +316,9 @@ extension CharacteristicPeripheralInjection where Value: ControlPointCharacteris
         }
 
         let timeoutTask = Task {
-            try? await Task.sleep(for: .seconds(20)) // TODO: configurable?
+            try? await Task.sleep(for: timeout)
             if !Task.isCancelled {
-                transaction.signalCancellation() // TODO: throw a timeout error?
+                transaction.signalTimeout()
                 resetControlPointTransaction(with: transaction.id)
             }
         }

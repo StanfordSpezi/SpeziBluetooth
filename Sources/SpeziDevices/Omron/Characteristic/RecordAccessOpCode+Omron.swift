@@ -8,7 +8,6 @@
 
 import BluetoothServices
 
-// TODO: link to null?
 
 extension RecordAccessOpCode {
     /// Report the sequence number of the latest records.
@@ -18,7 +17,7 @@ extension RecordAccessOpCode {
     ///
     /// The number of stored records is returned using ``omronSequenceNumberOfLatestRecordsResponse``.
     /// Erroneous conditions are returned using the ``responseCode`` code.
-    public static let omronReportSequenceNumberOfLatestRecords = RecordAccessOpCode(rawValue: 0x10) // TODO: ref?
+    public static let omronReportSequenceNumberOfLatestRecords = RecordAccessOpCode(rawValue: 0x10)
     /// Response returning the sequence number of the latest records.
     ///
     /// This is the response code to ``omronReportSequenceNumberOfLatestRecords``.

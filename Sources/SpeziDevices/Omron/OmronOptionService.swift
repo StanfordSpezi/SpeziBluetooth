@@ -24,17 +24,30 @@ public final class OmronOptionService: BluetoothService, @unchecked Sendable {
     public init() {}
 
 
-    // TODO: docs
+    /// Send report stored records request.
+    ///
+    /// Send a request to request to report the stored records via notify of the respective measurement characteristic.
+    /// Once all records were notified, the method returns.
+    ///
+    /// - Parameter content: Select the records the request applies to.
+    /// - Throws: Throws a ``RecordAccessResponseFormatError`` if there was an unexpected response or a ``RecordAccessResponseCode`` if the request failed.
     public func reportStoredRecords(_ content: RecordAccessOperationContent<OmronRecordAccessOperand>) async throws {
         try await $recordAccessControlPoint.reportStoredRecords(content)
     }
 
-    // TODO: docs
+    /// Request the number of stored records.
+    ///
+    /// - Parameter content: Select the records the request applies to.
+    /// - Returns: The number of stored records.
+    /// - Throws: Throws a ``RecordAccessResponseFormatError`` if there was an unexpected response or a ``RecordAccessResponseCode`` if the request failed.
     public func reportNumberOfStoredRecords(_ content: RecordAccessOperationContent<OmronRecordAccessOperand>) async throws -> UInt16 {
         try await $recordAccessControlPoint.reportNumberOfStoredRecords(content)
     }
 
-    // TODO: docs
+    /// Request the sequence number of the latest records.
+    ///
+    /// - Returns: The sequence number of the latest record.
+    /// - Throws: Throws a ``RecordAccessResponseFormatError`` if there was an unexpected response or a ``RecordAccessResponseCode`` if the request failed.
     public func reportSequenceNumberOfLatestRecords() async throws -> UInt16 {
         try await $recordAccessControlPoint.reportSequenceNumberOfLatestRecords()
     }

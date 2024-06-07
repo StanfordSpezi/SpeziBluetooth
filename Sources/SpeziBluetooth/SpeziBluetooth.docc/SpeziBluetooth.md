@@ -271,9 +271,14 @@ due to their async nature.
 - ``PeripheralState``
 - ``BluetoothError``
 - ``AdvertisementData``
+- ``WriteType``
 
 ### Configuring Core Bluetooth
 
 - ``DeviceDescription``
 - ``ServiceDescription``
 - ``CharacteristicDescription``
+
+### Errors
+
+- ``ControlPointTimeoutError``

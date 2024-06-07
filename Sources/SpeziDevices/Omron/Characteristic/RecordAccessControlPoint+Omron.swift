@@ -9,7 +9,7 @@
 import BluetoothServices
 
 
-extension RecordAccessControlPoint { // TODO: docs ref
+extension RecordAccessControlPoint {
     /// Report the sequence number of the latest records.
     ///
     /// Reports the the sequence number of the latest records on the peripheral.

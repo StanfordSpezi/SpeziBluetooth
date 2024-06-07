@@ -30,20 +30,18 @@ final class ControlPointTransaction<Value>: @unchecked Sendable {
     }
 
     func signalCancellation() {
-        lock.lock()
-        defer {
-            lock.unlock()
-        }
+        resume(with: .failure(CancellationError()))
+    }
 
-        guard let continuation else {
-            return
-        }
-
-        continuation.resume(throwing: CancellationError())
-        self.continuation = nil
+    func signalTimeout() {
+        resume(with: .failure(ControlPointTimeoutError()))
     }
 
     func fulfill(_ value: Value) {
+        resume(with: .success(value))
+    }
+
+    private func resume(with result: Result<Value, Error>) {
         lock.lock()
         defer {
             lock.unlock()
@@ -53,7 +51,7 @@ final class ControlPointTransaction<Value>: @unchecked Sendable {
             return
         }
 
-        continuation.resume(returning: value)
+        continuation.resume(with: result)
         self.continuation = nil
     }
 }
