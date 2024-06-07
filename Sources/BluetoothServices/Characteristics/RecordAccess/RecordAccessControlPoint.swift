@@ -85,11 +85,11 @@ extension RecordAccessControlPoint: ByteCodable {
             return nil
         }
 
-        // TODO: differentiate between expected nil
-        // TODO: operand might be nil expectedly!
-        guard let operand = Operand(from: &byteBuffer, preferredEndianness: endianness, opCode: opCode, operator: `operator`) else {
-            return nil
-        }
+
+        // If an operand is required is dependent on the op code and operator.
+        // This might be implementation specific (e.g., custom op codes). Therefore, we can't enforce anything here.
+        // The receiver would need to unwrap the optional anyways.
+        let operand = Operand(from: &byteBuffer, preferredEndianness: endianness, opCode: opCode, operator: `operator`)
 
         self.init(opCode: opCode, operator: `operator`, operand: operand)
     }

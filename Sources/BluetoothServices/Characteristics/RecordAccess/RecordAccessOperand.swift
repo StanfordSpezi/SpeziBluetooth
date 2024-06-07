@@ -32,7 +32,7 @@ public protocol RecordAccessOperand: ByteEncodable {
     /// Decode a operand form the `ByteBuffer`.
     ///
     /// Initialize a new instance using the byte representation provided by the `ByteBuffer`.
-    /// This call should mvoe the `readerIndex` forwards.
+    /// This call should move the `readerIndex` forwards.
     ///
     /// The ``RecordAccessOpCode`` and ``RecordAccessOperator`` might be relevant to decide the byte representation of the operand.
     ///

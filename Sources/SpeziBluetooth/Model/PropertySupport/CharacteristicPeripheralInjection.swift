@@ -316,9 +316,9 @@ extension CharacteristicPeripheralInjection where Value: ControlPointCharacteris
         }
 
         let timeoutTask = Task {
-            try? await Task.sleep(for: .seconds(20))
+            try? await Task.sleep(for: .seconds(20)) // TODO: configurable?
             if !Task.isCancelled {
-                transaction.signalCancellation()
+                transaction.signalCancellation() // TODO: throw a timeout error?
                 resetControlPointTransaction(with: transaction.id)
             }
         }

@@ -21,7 +21,7 @@ extension CharacteristicAccessor where Value == RecordAccessControlPoint<OmronRe
             expectingResponse: .numberOfStoredRecordsResponse
         ) { response in
             guard case let .numberOfRecords(value) = response.operand else {
-                throw RecordAccessResponseFormatError.unexpectedResponse(response.opCode, response.operator)
+                throw RecordAccessResponseFormatError(response: response, reason: .unexpectedOperand)
             }
             return value
         }
@@ -33,7 +33,7 @@ extension CharacteristicAccessor where Value == RecordAccessControlPoint<OmronRe
             expectingResponse: .omronSequenceNumberOfLatestRecordsResponse
         ) { response in
             guard case let .sequenceNumber(value) = response.operand else {
-                throw RecordAccessResponseFormatError.unexpectedResponse(response.opCode, response.operator)
+                throw RecordAccessResponseFormatError(response: response, reason: .unexpectedOperand)
             }
             return value
         }

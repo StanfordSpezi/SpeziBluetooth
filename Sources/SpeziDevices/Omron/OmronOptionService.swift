@@ -11,6 +11,9 @@ import class CoreBluetooth.CBUUID
 import SpeziBluetooth
 
 
+/// The Omron Option Service.
+///
+/// Please refer to the respective Developer Guide for more information.
 public final class OmronOptionService: BluetoothService, @unchecked Sendable {
     public static let id = CBUUID(string: "5DF5E817-A945-4F81-89C0-3D4E9759C07C")
 
@@ -21,14 +24,17 @@ public final class OmronOptionService: BluetoothService, @unchecked Sendable {
     public init() {}
 
 
-    public func reportStoredRecords(_ content: RecordAccessOperationContent<RecordAccessGenericOperand>) async throws {
+    // TODO: docs
+    public func reportStoredRecords(_ content: RecordAccessOperationContent<OmronRecordAccessOperand>) async throws {
         try await $recordAccessControlPoint.reportStoredRecords(content)
     }
 
-    public func reportNumberOfStoredRecords(_ content: RecordAccessOperationContent<RecordAccessGenericOperand>) async throws -> UInt16 {
+    // TODO: docs
+    public func reportNumberOfStoredRecords(_ content: RecordAccessOperationContent<OmronRecordAccessOperand>) async throws -> UInt16 {
         try await $recordAccessControlPoint.reportNumberOfStoredRecords(content)
     }
 
+    // TODO: docs
     public func reportSequenceNumberOfLatestRecords() async throws -> UInt16 {
         try await $recordAccessControlPoint.reportSequenceNumberOfLatestRecords()
     }

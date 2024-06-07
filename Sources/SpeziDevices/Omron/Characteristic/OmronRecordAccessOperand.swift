@@ -10,12 +10,26 @@ import BluetoothServices
 import NIOCore
 
 
+/// The Record Access Operand format for the Omron Record Access Control Point characteristic.
 public enum OmronRecordAccessOperand {
+    // REQUEST
+
+    /// Specify filter criteria for supported requests.
+    ///
+    /// For more information refer to ``RecordAccessGenericOperand``.
     case filterCriteria(RecordAccessFilterCriteria)
+    /// Specify range-based filter criteria for supported requests.
+    ///
+    /// For more information refer to ``RecordAccessGenericOperand``.
     case rangeFilterCriteria(RecordAccessRangeFilterCriteria)
 
+    // RESPONSE
+
+    /// The general response operand used with the ``RecordAccessOpCode/responseCode`` operation.
     case generalResponse(RecordAccessGeneralResponse)
+    /// Reports the number of records in the ``RecordAccessOpCode/numberOfStoredRecordsResponse`` operation.
     case numberOfRecords(UInt16)
+    /// Reports the sequence number of the latest records in the ``BluetoothServices/RecordAccessOpCode/omronSequenceNumberOfLatestRecordsResponse`` operation.
     case sequenceNumber(UInt16)
 }
 

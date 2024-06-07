@@ -30,12 +30,12 @@ public enum RecordAccessGenericOperand {
     /// The filter criteria used in requests with the ``RecordAccessOperator/lessThanOrEqualTo`` and ``RecordAccessOperator/greaterThanOrEqual`` operator.
     ///
     /// This operator and operand are used with the ``RecordAccessOpCode/reportStoredRecords``, ``RecordAccessOpCode/deleteStoredRecords`` or
-    /// RecordAccessOpCode/reportNumberOfStoredRecords`` operations.
+    /// ``RecordAccessOpCode/reportNumberOfStoredRecords`` operations.
     case filterCriteria(RecordAccessFilterCriteria)
     /// The range filter criteria used in requests with the ``RecordAccessOperator/withinInclusiveRangeOf`` operator.
     ///
     /// This operator and operand are used with the ``RecordAccessOpCode/reportStoredRecords``, ``RecordAccessOpCode/deleteStoredRecords`` or
-    /// RecordAccessOpCode/reportNumberOfStoredRecords`` operations.
+    /// ``RecordAccessOpCode/reportNumberOfStoredRecords`` operations.
     case rangeFilterCriteria(RecordAccessRangeFilterCriteria)
 
     // RESPONSE

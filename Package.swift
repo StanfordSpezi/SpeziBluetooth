@@ -22,7 +22,8 @@ let package = Package(
     products: [
         .library(name: "BluetoothServices", targets: ["BluetoothServices"]),
         .library(name: "BluetoothViews", targets: ["BluetoothViews"]),
-        .library(name: "SpeziBluetooth", targets: ["SpeziBluetooth"])
+        .library(name: "SpeziBluetooth", targets: ["SpeziBluetooth"]),
+        .library(name: "SpeziDevices", targets: ["SpeziDevices"])
     ],
     dependencies: [
         .package(url: "https://github.com/StanfordSpezi/SpeziFoundation", from: "1.0.4"),
