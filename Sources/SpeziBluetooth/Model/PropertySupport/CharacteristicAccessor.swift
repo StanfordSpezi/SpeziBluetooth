@@ -12,6 +12,7 @@ import CoreBluetooth
 struct CharacteristicTestInjections<Value> {
     var writeClosure: ((Value, WriteType) async throws -> Void)?
     var readClosure: (() async throws -> Value)?
+    var requestClosure: ((Value) async throws -> Value)?
 }
 
 
@@ -102,6 +103,7 @@ extension CharacteristicAccessor {
     }
 }
 
+// MARK: - Readable
 
 extension CharacteristicAccessor where Value: ByteDecodable {
     /// Characteristic is currently notifying about updated values.
@@ -192,6 +194,7 @@ extension CharacteristicAccessor where Value: ByteDecodable {
     }
 }
 
+// MARK: - Writeable
 
 extension CharacteristicAccessor where Value: ByteEncodable {
     /// Write the value of a characteristic expecting a confirmation.
@@ -240,6 +243,37 @@ extension CharacteristicAccessor where Value: ByteEncodable {
     }
 }
 
+// MARK: - Control Point
+
+extension CharacteristicAccessor where Value: ControlPointCharacteristic {
+    /// Send request to a control point characteristics and await the response.
+    ///
+    /// This method can be used with ``ControlPointCharacteristic`` to send a request and await the response of the peripheral.
+    ///
+    /// - Important: The response is delivered using a notification. In order to use this method you must enable notifications
+    ///     for the characteristics (see ``enableNotifications(_:)``).
+    ///
+    /// - Parameters:
+    ///     - value: The request you want to send.
+    ///     - timeout: The timeout to wait to receive a response via notify or indicate.
+    /// - Returns: The response returned from the peripheral.
+    /// - Throws: Throws an `CBError` or `CBATTError` if the write fails.
+    ///     It might also throw a ``BluetoothError/notPresent(service:characteristic:)``,
+    ///     ``BluetoothError/controlPointRequiresNotifying(service:characteristic:)`` or
+    ///     ``BluetoothError/controlPointInProgress(service:characteristic:)`` error.
+    public func sendRequest(_ value: Value, timeout: Duration = .seconds(20)) async throws -> Value {
+        if let injectedRequestClosure = _testInjections.value.requestClosure {
+            return try await injectedRequestClosure(value)
+        }
+
+        guard let injection else {
+            throw BluetoothError.notPresent(characteristic: configuration.id)
+        }
+
+        return try await injection.sendRequest(value, timeout: timeout)
+    }
+}
+
 // MARK: - Testing Support
 
 @_spi(TestingSupport)
@@ -275,5 +309,15 @@ extension CharacteristicAccessor {
     /// - Parameter action: The action to inject. Called for every read.
     public func onRead(return action: @escaping () async throws -> Value) {
         _testInjections.value.readClosure = action
+    }
+
+    /// Inject a custom action that sinks all control point request operations for testing purposes.
+    ///
+    /// This method can be used to inject a custom action that is called whenever a control point request is send to the characteristic.
+    /// This is particularly helpful when writing unit test to validate the request payload and return a custom response payload.
+    ///
+    /// - Parameter action: The action to inject. Called for every control point request.
+    public func onRequest(perform action: @escaping (Value) async throws -> Value) {
+        _testInjections.value.requestClosure = action
     }
 }
