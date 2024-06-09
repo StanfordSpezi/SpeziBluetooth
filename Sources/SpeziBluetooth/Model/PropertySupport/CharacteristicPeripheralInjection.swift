@@ -292,7 +292,9 @@ extension CharacteristicPeripheralInjection where Value: ControlPointCharacteris
             throw BluetoothError.notPresent(service: serviceId, characteristic: characteristicId)
         }
 
-        guard characteristic.isNotifying else {
+        // It takes some time for the characteristic to acknowledge notification registration. Assuming the characteristic was injected,
+        // and notifications were requests is good enough for us to assume we will receive the notification. Allows to send request much earlier.
+        guard peripheral.didRequestNotifications(serviceId: serviceId, characteristicId: characteristicId) else {
             throw BluetoothError.controlPointRequiresNotifying(service: serviceId, characteristic: characteristicId)
         }
 

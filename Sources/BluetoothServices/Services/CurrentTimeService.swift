@@ -64,7 +64,7 @@ extension CurrentTimeService {
 
             Self.logger.debug("Current time difference is \(difference)s. Device time: \(String(describing: currentTime)). Updating time ...")
         } else {
-            Self.logger.debug("Unknown current time (\(String(describing: self.currentTime)). Updating time ...")
+            Self.logger.debug("Unknown current time (\(String(describing: self.currentTime))). Updating time ...")
         }
 
 
