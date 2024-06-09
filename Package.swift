@@ -22,8 +22,7 @@ let package = Package(
     products: [
         .library(name: "BluetoothServices", targets: ["BluetoothServices"]),
         .library(name: "BluetoothViews", targets: ["BluetoothViews"]),
-        .library(name: "SpeziBluetooth", targets: ["SpeziBluetooth"]),
-        .library(name: "SpeziDevices", targets: ["SpeziDevices"])
+        .library(name: "SpeziBluetooth", targets: ["SpeziBluetooth"])
     ],
     dependencies: [
         .package(url: "https://github.com/StanfordSpezi/SpeziFoundation", from: "1.0.4"),
@@ -60,13 +59,6 @@ let package = Package(
             dependencies: [
                 .target(name: "SpeziBluetooth"),
                 .product(name: "SpeziViews", package: "SpeziViews")
-            ]
-        ),
-        .target(
-            name: "SpeziDevices",
-            dependencies: [
-                .target(name: "SpeziBluetooth"),
-                .target(name: "BluetoothServices")
             ]
         ),
         .executableTarget(
