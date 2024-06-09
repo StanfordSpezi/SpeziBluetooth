@@ -149,7 +149,7 @@ import Foundation
 ///
 /// ### Control Point Characteristics
 /// - ``ControlPointCharacteristic``
-/// - ``CharacteristicAccessor/sendRequest(_:)``
+/// - ``CharacteristicAccessor/sendRequest(_:timeout:)``
 ///
 /// ### Property wrapper access
 /// - ``wrappedValue``

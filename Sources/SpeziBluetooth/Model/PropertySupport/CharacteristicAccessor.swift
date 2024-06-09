@@ -47,7 +47,7 @@ struct CharacteristicTestInjections<Value> {
 /// - ``onChange(initial:perform:)``
 ///
 /// ### Control Point Characteristics
-/// - ``sendRequest(_:)``
+/// - ``sendRequest(_:timeout:)``
 public struct CharacteristicAccessor<Value> {
     let configuration: Characteristic<Value>.Configuration
     let injection: CharacteristicPeripheralInjection<Value>?
