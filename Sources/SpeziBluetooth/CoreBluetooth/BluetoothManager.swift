@@ -386,8 +386,8 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
                 return
             }
 
-            candidate.assumeIsolated { peripheral in
-                peripheral.connect()
+            Task {
+                try await candidate.connect()
             }
         }
 
@@ -469,11 +469,11 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
         scheduleStaleTaskForOldestActivityDevice()
     }
 
-    private func discardDevice(device: BluetoothPeripheral) {
+    private func discardDevice(device: BluetoothPeripheral, error: Error?) {
         if !isScanning {
             device.assumeIsolated { device in
                 device.markLastActivity()
-                device.handleDisconnect()
+                device.handleDisconnect(error: error)
             }
             clearDiscoveredPeripheral(forKey: device.id)
         } else {
@@ -482,7 +482,7 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
 
             device.assumeIsolated { device in
                 device.markLastActivity(.now - interval)
-                device.handleDisconnect()
+                device.handleDisconnect(error: error)
             }
 
             // We just schedule the new timer if there is a device to schedule one for.
@@ -727,7 +727,7 @@ extension BluetoothManager {
                     // just to make sure
                     manager.centralManager.cancelPeripheralConnection(device.cbPeripheral)
 
-                    manager.discardDevice(device: device)
+                    manager.discardDevice(device: device, error: error)
                 }
             }
         }
@@ -752,7 +752,7 @@ extension BluetoothManager {
                         logger.debug("Peripheral \(peripheral.debugIdentifier) disconnected.")
                     }
 
-                    manager.discardDevice(device: device)
+                    manager.discardDevice(device: device, error: error)
                 }
             }
         }
