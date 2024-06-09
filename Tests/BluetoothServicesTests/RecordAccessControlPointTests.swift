@@ -93,7 +93,7 @@ final class RecordAccessControlPointTests: XCTestCase {
         var controlPoint: RACP?
 
         $controlPoint.onRequest { _ in
-            RACP(opCode: ._, operator: .null, operand: .generalResponse(.init(requestOpCode: .abortOperation, response: .success)))
+            RACP(opCode: .responseCode, operator: .null, operand: .generalResponse(.init(requestOpCode: .abortOperation, response: .success)))
         }
         try await $controlPoint.abort()
 
@@ -134,14 +134,14 @@ final class RecordAccessControlPointTests: XCTestCase {
         var controlPoint: RACP?
 
         $controlPoint.onRequest { _ in
-            return RACP(opCode: .numberOfStoredRecordsResponse, operator: .null, operand: .numberOfRecords(1234))
+            RACP(opCode: .numberOfStoredRecordsResponse, operator: .null, operand: .numberOfRecords(1234))
         }
         let count = try await $controlPoint.reportNumberOfStoredRecords(.allRecords)
         XCTAssertEqual(count, 1234)
 
         // unexpected response opcode
         $controlPoint.onRequest { _ in
-            return RACP(opCode: .abortOperation, operator: .null)
+            RACP(opCode: .abortOperation, operator: .null)
         }
         await XCTAssertThrowsErrorAsync(try await $controlPoint.reportNumberOfStoredRecords(.allRecords))
 
