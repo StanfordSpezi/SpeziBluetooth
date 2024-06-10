@@ -7,6 +7,7 @@
 //
 
 import class CoreBluetooth.CBUUID
+// TODO: import Foundation
 import SpeziBluetooth
 
 
@@ -16,8 +17,8 @@ public final class UserDataService: BluetoothService {
 
     // TODO: UDS characteristics?
 
-    @Characteristic(id: "2A85")
-    public var dateOfBirth: Date? // TODO: date overload?
+    // TODO: @Characteristic(id: "2A85")
+    // TODO: public var dateOfBirth: Date? // TODO: date overload?
     @Characteristic(id: "2A8C")
     public var gender: Gender?
     @Characteristic(id: "2A8E")

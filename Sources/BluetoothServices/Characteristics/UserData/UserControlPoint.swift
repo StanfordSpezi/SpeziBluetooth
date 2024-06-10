@@ -11,47 +11,36 @@ import NIOCore
 import SpeziBluetooth
 
 
-public struct UserControlPoint {
-    public struct OpCode {
-        public static let reserved = OpCode(rawValue: 0x00)
-        public static let registerNewUser = OpCode(rawValue: 0x01)
-        public static let consent = OpCode(rawValue: 0x02)
-        public static let deleteUserData = OpCode(rawValue: 0x03)
-        public static let listAllUsers = OpCode(rawValue: 0x04) // TODO: optional
-        public static let deleteUser = OpCode(rawValue: 0x05) // TODO: optional
-        public static let responseCode = OpCode(rawValue: 0x20)
-
-        public let rawValue: UInt8
-
-        public init(rawValue: UInt8) {
-            self.rawValue = rawValue
-        }
+public struct UserControlPoint<Parameter: UserControlPointParameter> {
+    public var opCode: UserControlPointOpCode {
+        parameter.opCode
     }
 
+    public let parameter: Parameter
 
-    public let opcode: OpCode
-    public let parameter: Any // TODO: what?
-}
-
-
-extension UserControlPoint.OpCode: RawRepresentable {}
-
-
-extension UserControlPoint.OpCode: Hashable, Sendable {}
-
-
-extension UserControlPoint.OpCode: ByteCodable {
-    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        guard let rawValue = UInt8(from: &byteBuffer, preferredEndianness: endianness) else {
-            return nil
-        }
-        self.init(rawValue: rawValue)
-    }
-
-    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        rawValue.encode(to: &byteBuffer, preferredEndianness: endianness)
+    public init(_ parameter: Parameter) {
+        self.parameter = parameter
     }
 }
+
+
+extension UserControlPoint: Hashable, Sendable {}
 
 
 extension UserControlPoint: ControlPointCharacteristic {}
+
+
+extension UserControlPoint: ByteCodable {
+    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
+        guard let opCode = UserControlPointOpCode(from: &byteBuffer, preferredEndianness: endianness),
+              let parameter = Parameter(from: &byteBuffer, preferredEndianness: endianness, opCode: opCode) else {
+            return nil
+        }
+
+        self.init(parameter)
+    }
+    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
+        opCode.encode(to: &byteBuffer, preferredEndianness: endianness) // TODO: should we move encoding to Parameter? could avoid custom initializer!
+        parameter.encode(to: &byteBuffer, preferredEndianness: endianness)
+    }
+}

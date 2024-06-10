@@ -60,7 +60,7 @@ public struct RecordAccessOpCode {
     /// The operator is ``RecordAccessOperator/null``.
     /// The operand should include information similar to ``RecordAccessGeneralResponse`` (specifically containing an error code
     /// of ``RecordAccessResponseCode``).
-    public static let responseCode = RecordAccessOpCode(rawValue: 0x06)
+    public static let responseCode = RecordAccessOpCode(rawValue: 0x06) // TODO: rename "response"?
     /// Request a combined report.
     ///
     /// After record transmission, the control point responds with the ``responseCode`` code.
