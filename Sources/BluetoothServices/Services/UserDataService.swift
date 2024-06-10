@@ -7,18 +7,15 @@
 //
 
 import class CoreBluetooth.CBUUID
-// TODO: import Foundation
 import SpeziBluetooth
 
 
-// TODO: non-final for custom instantiations?
-public final class UserDataService: BluetoothService {
-    public static let id = CBUUID(string: "181C")
-
+// TODO: Omron Parameter!
+public final class OmronUserDataService: UserDataService<UserControlPointGenericParameter>, @unchecked Sendable {
     // TODO: UDS characteristics?
 
-    // TODO: @Characteristic(id: "2A85")
-    // TODO: public var dateOfBirth: Date? // TODO: date overload?
+    @Characteristic(id: "2A85")
+    public var dateOfBirth: DateOfBirth?
     @Characteristic(id: "2A8C")
     public var gender: Gender?
     @Characteristic(id: "2A8E")
@@ -27,6 +24,14 @@ public final class UserDataService: BluetoothService {
     // TODO: depends on the characteristic presentation format descriptor!
 
     // TODO: end of Omron characteristics
+}
+
+
+// TODO: document subclassing approach, handing sendability
+open class UserDataService<Parameter: UserControlPointParameter>: BluetoothService {
+    public static var id: CBUUID {
+        CBUUID(string: "181C")
+    }
 
     /// Count of changes made to the set of related characteristics.
     ///
@@ -41,7 +46,8 @@ public final class UserDataService: BluetoothService {
     @Characteristic(id: "2A9A")
     public var userIndex: UInt8? // TODO: read only!
 
-    // TODO: user control point 2A9F
+    @Characteristic(id: "2A9F")
+    public var controlPoint: UserControlPoint<Parameter>?
 
     // TODO: does not support registered user characteristic??? [2B37]
 }
