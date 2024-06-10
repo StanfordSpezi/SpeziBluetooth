@@ -36,17 +36,17 @@ extension RecordAccessGeneralResponse: Hashable, Sendable {}
 
 
 extension RecordAccessGeneralResponse: ByteCodable {
-    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        guard let requestOpCode = RecordAccessOpCode(from: &byteBuffer, preferredEndianness: endianness),
-              let response = RecordAccessResponseCode(from: &byteBuffer, preferredEndianness: endianness) else {
+    public init?(from byteBuffer: inout ByteBuffer) {
+        guard let requestOpCode = RecordAccessOpCode(from: &byteBuffer),
+              let response = RecordAccessResponseCode(from: &byteBuffer) else {
             return nil
         }
 
         self.init(requestOpCode: requestOpCode, response: response)
     }
 
-    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        requestOpCode.encode(to: &byteBuffer, preferredEndianness: endianness)
-        response.encode(to: &byteBuffer, preferredEndianness: endianness)
+    public func encode(to byteBuffer: inout ByteBuffer) {
+        requestOpCode.encode(to: &byteBuffer)
+        response.encode(to: &byteBuffer)
     }
 }

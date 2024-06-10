@@ -97,9 +97,9 @@ extension DayDateTime: Hashable, Sendable {}
 
 
 extension DayDateTime: ByteCodable {
-    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        guard let dateTime = DateTime(from: &byteBuffer, preferredEndianness: endianness),
-              let dayOfWeek = DayOfWeek(from: &byteBuffer, preferredEndianness: endianness) else {
+    public init?(from byteBuffer: inout ByteBuffer) {
+        guard let dateTime = DateTime(from: &byteBuffer),
+              let dayOfWeek = DayOfWeek(from: &byteBuffer) else {
             return nil
         }
 
@@ -107,8 +107,8 @@ extension DayDateTime: ByteCodable {
     }
 
 
-    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        dateTime.encode(to: &byteBuffer, preferredEndianness: endianness)
-        dayOfWeek.encode(to: &byteBuffer, preferredEndianness: endianness)
+    public func encode(to byteBuffer: inout ByteBuffer) {
+        dateTime.encode(to: &byteBuffer)
+        dayOfWeek.encode(to: &byteBuffer)
     }
 }

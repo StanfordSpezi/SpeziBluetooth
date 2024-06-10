@@ -14,6 +14,10 @@ private protocol DecodableCharacteristic: Actor {
     func handleUpdateValueAssumingIsolation(_ data: Data?)
 }
 
+private protocol PrimitiveDecodableCharacteristic {
+    func decodePrimitiveValue<ValueType>(from data: Data, as value: ValueType.Type) -> ValueType?
+}
+
 
 /// Captures and synchronizes access to the state of a ``Characteristic`` property wrapper.
 actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
@@ -223,7 +227,7 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
 extension CharacteristicPeripheralInjection: DecodableCharacteristic where Value: ByteDecodable {
     func handleUpdateValueAssumingIsolation(_ data: Data?) {
         if let data {
-            guard let value = Value(data: data, preferredEndianness: .little) else {
+            guard let value = decodeValue(from: data) else {
                 Bluetooth.logger.error("Could decode updated value for characteristic \(self.characteristic?.debugDescription ?? self.characteristicId.uuidString). Invalid format!")
                 return
             }
@@ -244,6 +248,36 @@ extension CharacteristicPeripheralInjection: DecodableCharacteristic where Value
 }
 
 
+extension CharacteristicPeripheralInjection: PrimitiveDecodableCharacteristic where Value: PrimitiveByteDecodable {
+    fileprivate nonisolated func decodePrimitiveValue<ValueType>(from data: Data, as value: ValueType.Type) -> ValueType? {
+        guard let value = Value(data: data, endianness: .little) as? ValueType else {
+            preconditionFailure("Type \(Value.self) doesn't match requested \(ValueType.self).")
+        }
+        return value
+    }
+}
+
+
+extension CharacteristicPeripheralInjection where Value: ByteDecodable {
+    fileprivate func decodeValue(from data: Data) -> Value? {
+        if let injection = self as? (any PrimitiveDecodableCharacteristic) {
+            return injection.decodePrimitiveValue(from: data, as: Value.self)
+        }
+        return Value(data: data)
+    }
+}
+
+
+extension CharacteristicPeripheralInjection where Value: ByteEncodable {
+    fileprivate func encodeValue(_ value: Value) -> Data {
+        if let primitiveValue = value as? PrimitiveByteEncodable {
+            return primitiveValue.encode(endianness: .little)
+        }
+        return value.encode()
+    }
+}
+
+
 // MARK: - Accessors Support
 
 extension CharacteristicPeripheralInjection where Value: ByteDecodable {
@@ -253,7 +287,7 @@ extension CharacteristicPeripheralInjection where Value: ByteDecodable {
         }
 
         let data = try await peripheral.read(characteristic: characteristic)
-        guard let value = Value(data: data, preferredEndianness: .little) else {
+        guard let value = decodeValue(from: data) else {
             throw BluetoothError.incompatibleDataFormat
         }
 
@@ -268,8 +302,8 @@ extension CharacteristicPeripheralInjection where Value: ByteEncodable {
             throw BluetoothError.notPresent(service: serviceId, characteristic: characteristicId)
         }
 
-        let requestData = value.encode(preferredEndianness: .little)
-        try await peripheral.write(data: requestData, for: characteristic)
+        let data = encodeValue(value)
+        try await peripheral.write(data: data, for: characteristic)
         self.value = value
     }
 
@@ -278,7 +312,7 @@ extension CharacteristicPeripheralInjection where Value: ByteEncodable {
             throw BluetoothError.notPresent(service: serviceId, characteristic: characteristicId)
         }
 
-        let data = value.encode(preferredEndianness: .little)
+        let data = encodeValue(value)
         await peripheral.writeWithoutResponse(data: data, for: characteristic)
         self.value = value
     }

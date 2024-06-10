@@ -58,25 +58,24 @@ extension RecordAccessGenericOperand: RecordAccessOperand {
 
     public init?( // swiftlint:disable:this cyclomatic_complexity
         from byteBuffer: inout ByteBuffer,
-        preferredEndianness endianness: Endianness,
         opCode: RecordAccessOpCode,
         operator: RecordAccessOperator
     ) {
         switch opCode {
         case .responseCode:
-            guard let response = RecordAccessGeneralResponse(from: &byteBuffer, preferredEndianness: endianness) else {
+            guard let response = RecordAccessGeneralResponse(from: &byteBuffer) else {
                 return nil
             }
             self = .generalResponse(response)
         case .reportStoredRecords, .deleteStoredRecords, .reportNumberOfStoredRecords:
             switch `operator` {
             case .lessThanOrEqualTo, .greaterThanOrEqual:
-                guard let filterCriteria = RecordAccessFilterCriteria(from: &byteBuffer, preferredEndianness: endianness) else {
+                guard let filterCriteria = RecordAccessFilterCriteria(from: &byteBuffer) else {
                     return nil
                 }
                 self = .filterCriteria(filterCriteria)
             case .withinInclusiveRangeOf:
-                guard let filterCriteria = RecordAccessRangeFilterCriteria(from: &byteBuffer, preferredEndianness: endianness) else {
+                guard let filterCriteria = RecordAccessRangeFilterCriteria(from: &byteBuffer) else {
                     return nil
                 }
                 self = .rangeFilterCriteria(filterCriteria)
@@ -84,7 +83,7 @@ extension RecordAccessGenericOperand: RecordAccessOperand {
                 return nil
             }
         case .numberOfStoredRecordsResponse:
-            guard let count = UInt16(from: &byteBuffer, preferredEndianness: endianness) else {
+            guard let count = UInt16(from: &byteBuffer) else {
                 return nil
             }
             self = .numberOfRecords(count)
@@ -93,16 +92,16 @@ extension RecordAccessGenericOperand: RecordAccessOperand {
         }
     }
 
-    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
+    public func encode(to byteBuffer: inout ByteBuffer) {
         switch self {
         case let .generalResponse(response):
-            response.encode(to: &byteBuffer, preferredEndianness: endianness)
+            response.encode(to: &byteBuffer)
         case let .filterCriteria(criteria):
-            criteria.encode(to: &byteBuffer, preferredEndianness: endianness)
+            criteria.encode(to: &byteBuffer)
         case let .rangeFilterCriteria(criteria):
-            criteria.encode(to: &byteBuffer, preferredEndianness: endianness)
+            criteria.encode(to: &byteBuffer)
         case let .numberOfRecords(value):
-            value.encode(to: &byteBuffer, preferredEndianness: endianness)
+            value.encode(to: &byteBuffer)
         }
     }
 }

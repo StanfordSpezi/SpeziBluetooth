@@ -59,31 +59,31 @@ extension CurrentTime: Hashable, Sendable {}
 
 
 extension CurrentTime.AdjustReason: ByteCodable {
-    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        guard let rawValue = UInt8(from: &byteBuffer, preferredEndianness: endianness) else {
+    public init?(from byteBuffer: inout ByteBuffer) {
+        guard let rawValue = UInt8(from: &byteBuffer) else {
             return nil
         }
         self.init(rawValue: rawValue)
     }
 
-    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        rawValue.encode(to: &byteBuffer, preferredEndianness: endianness)
+    public func encode(to byteBuffer: inout ByteBuffer) {
+        rawValue.encode(to: &byteBuffer)
     }
 }
 
 
 extension CurrentTime: ByteCodable {
-    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        guard let time = ExactTime256(from: &byteBuffer, preferredEndianness: endianness),
-              let adjustReason = AdjustReason(from: &byteBuffer, preferredEndianness: endianness) else {
+    public init?(from byteBuffer: inout ByteBuffer) {
+        guard let time = ExactTime256(from: &byteBuffer),
+              let adjustReason = AdjustReason(from: &byteBuffer) else {
             return nil
         }
 
         self.init(time: time, adjustReason: adjustReason)
     }
 
-    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        time.encode(to: &byteBuffer, preferredEndianness: endianness)
-        adjustReason.encode(to: &byteBuffer, preferredEndianness: endianness)
+    public func encode(to byteBuffer: inout ByteBuffer) {
+        time.encode(to: &byteBuffer)
+        adjustReason.encode(to: &byteBuffer)
     }
 }

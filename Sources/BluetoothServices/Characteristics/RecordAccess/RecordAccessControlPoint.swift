@@ -79,9 +79,9 @@ extension RecordAccessControlPoint: ControlPointCharacteristic {}
 
 
 extension RecordAccessControlPoint: ByteCodable {
-    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        guard let opCode = RecordAccessOpCode(from: &byteBuffer, preferredEndianness: endianness),
-              let `operator` = RecordAccessOperator(from: &byteBuffer, preferredEndianness: endianness) else {
+    public init?(from byteBuffer: inout ByteBuffer) {
+        guard let opCode = RecordAccessOpCode(from: &byteBuffer),
+              let `operator` = RecordAccessOperator(from: &byteBuffer) else {
             return nil
         }
 
@@ -89,15 +89,15 @@ extension RecordAccessControlPoint: ByteCodable {
         // If an operand is required is dependent on the op code and operator.
         // This might be implementation specific (e.g., custom op codes). Therefore, we can't enforce anything here.
         // The receiver would need to unwrap the optional anyways.
-        let operand = Operand(from: &byteBuffer, preferredEndianness: endianness, opCode: opCode, operator: `operator`)
+        let operand = Operand(from: &byteBuffer, opCode: opCode, operator: `operator`)
 
         self.init(opCode: opCode, operator: `operator`, operand: operand)
     }
 
-    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        opCode.encode(to: &byteBuffer, preferredEndianness: endianness)
-        `operator`.encode(to: &byteBuffer, preferredEndianness: endianness)
+    public func encode(to byteBuffer: inout ByteBuffer) {
+        opCode.encode(to: &byteBuffer)
+        `operator`.encode(to: &byteBuffer)
 
-        operand?.encode(to: &byteBuffer, preferredEndianness: endianness)
+        operand?.encode(to: &byteBuffer)
     }
 }

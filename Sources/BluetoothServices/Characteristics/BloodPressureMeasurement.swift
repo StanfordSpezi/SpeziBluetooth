@@ -145,39 +145,39 @@ extension BloodPressureMeasurement: Sendable, Hashable {}
 
 
 extension BloodPressureMeasurement.Flags: ByteCodable {
-    init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        guard let rawValue = UInt8(from: &byteBuffer, preferredEndianness: endianness) else {
+    init?(from byteBuffer: inout ByteBuffer) {
+        guard let rawValue = UInt8(from: &byteBuffer) else {
             return nil
         }
         self.init(rawValue: rawValue)
     }
 
-    func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        rawValue.encode(to: &byteBuffer, preferredEndianness: endianness)
+    func encode(to byteBuffer: inout ByteBuffer) {
+        rawValue.encode(to: &byteBuffer)
     }
 }
 
 
 extension BloodPressureMeasurement.Status: ByteCodable {
-    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        guard let rawValue = UInt16(from: &byteBuffer, preferredEndianness: endianness) else {
+    public init?(from byteBuffer: inout ByteBuffer) {
+        guard let rawValue = UInt16(from: &byteBuffer) else {
             return nil
         }
         self.init(rawValue: rawValue)
     }
 
-    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        rawValue.encode(to: &byteBuffer, preferredEndianness: endianness)
+    public func encode(to byteBuffer: inout ByteBuffer) {
+        rawValue.encode(to: &byteBuffer)
     }
 }
 
 
 extension BloodPressureMeasurement: ByteCodable {
-    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        guard let flags = Flags(from: &byteBuffer, preferredEndianness: endianness),
-              let systolicValue = MedFloat16(from: &byteBuffer, preferredEndianness: endianness),
-              let diastolicValue = MedFloat16(from: &byteBuffer, preferredEndianness: endianness),
-              let meanArterialPressure = MedFloat16(from: &byteBuffer, preferredEndianness: endianness) else {
+    public init?(from byteBuffer: inout ByteBuffer) {
+        guard let flags = Flags(from: &byteBuffer),
+              let systolicValue = MedFloat16(from: &byteBuffer),
+              let diastolicValue = MedFloat16(from: &byteBuffer),
+              let meanArterialPressure = MedFloat16(from: &byteBuffer) else {
             return nil
         }
 
@@ -192,7 +192,7 @@ extension BloodPressureMeasurement: ByteCodable {
         }
 
         if flags.contains(.timeStampPresent) {
-            guard let timeStamp = DateTime(from: &byteBuffer, preferredEndianness: endianness) else {
+            guard let timeStamp = DateTime(from: &byteBuffer) else {
                 return nil
             }
             self.timeStamp = timeStamp
@@ -201,7 +201,7 @@ extension BloodPressureMeasurement: ByteCodable {
         }
 
         if flags.contains(.pulseRatePresent) {
-            guard let pulseRate = MedFloat16(from: &byteBuffer, preferredEndianness: endianness) else {
+            guard let pulseRate = MedFloat16(from: &byteBuffer) else {
                 return nil
             }
             self.pulseRate = pulseRate
@@ -210,7 +210,7 @@ extension BloodPressureMeasurement: ByteCodable {
         }
 
         if flags.contains(.userIdPresent) {
-            guard let userId = UInt8(from: &byteBuffer, preferredEndianness: endianness) else {
+            guard let userId = UInt8(from: &byteBuffer) else {
                 return nil
             }
             self.userId = userId
@@ -219,7 +219,7 @@ extension BloodPressureMeasurement: ByteCodable {
         }
 
         if flags.contains(.measurementStatusPresent) {
-            guard let status = Status(from: &byteBuffer, preferredEndianness: endianness) else {
+            guard let status = Status(from: &byteBuffer) else {
                 return nil
             }
             self.measurementStatus = status
@@ -228,16 +228,16 @@ extension BloodPressureMeasurement: ByteCodable {
         }
     }
 
-    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
+    public func encode(to byteBuffer: inout ByteBuffer) {
         var flags: Flags = []
 
         // write empty flags field for now to move writer index
         let flagsIndex = byteBuffer.writerIndex
-        flags.encode(to: &byteBuffer, preferredEndianness: endianness)
+        flags.encode(to: &byteBuffer)
 
-        systolicValue.encode(to: &byteBuffer, preferredEndianness: endianness)
-        diastolicValue.encode(to: &byteBuffer, preferredEndianness: endianness)
-        meanArterialPressure.encode(to: &byteBuffer, preferredEndianness: endianness)
+        systolicValue.encode(to: &byteBuffer)
+        diastolicValue.encode(to: &byteBuffer)
+        meanArterialPressure.encode(to: &byteBuffer)
 
         if case .kPa = unit {
             flags.insert(.kPaUnit)
@@ -245,22 +245,22 @@ extension BloodPressureMeasurement: ByteCodable {
 
         if let timeStamp {
             flags.insert(.timeStampPresent)
-            timeStamp.encode(to: &byteBuffer, preferredEndianness: endianness)
+            timeStamp.encode(to: &byteBuffer)
         }
 
         if let pulseRate {
             flags.insert(.pulseRatePresent)
-            pulseRate.encode(to: &byteBuffer, preferredEndianness: endianness)
+            pulseRate.encode(to: &byteBuffer)
         }
 
         if let userId {
             flags.insert(.userIdPresent)
-            userId.encode(to: &byteBuffer, preferredEndianness: endianness)
+            userId.encode(to: &byteBuffer)
         }
 
         if let measurementStatus {
             flags.insert(.measurementStatusPresent)
-            measurementStatus.encode(to: &byteBuffer, preferredEndianness: endianness)
+            measurementStatus.encode(to: &byteBuffer)
         }
 
         byteBuffer.setInteger(flags.rawValue, at: flagsIndex) // finally update the flags field

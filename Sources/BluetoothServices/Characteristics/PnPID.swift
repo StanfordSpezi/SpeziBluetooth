@@ -97,36 +97,36 @@ extension VendorIDSource: RawRepresentable {
 
 
 extension VendorIDSource: ByteCodable {
-    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        guard let source = UInt8(from: &byteBuffer, preferredEndianness: endianness) else {
+    public init?(from byteBuffer: inout ByteBuffer) {
+        guard let source = UInt8(from: &byteBuffer) else {
             return nil
         }
 
         self.init(rawValue: source)
     }
 
-    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        rawValue.encode(to: &byteBuffer, preferredEndianness: endianness)
+    public func encode(to byteBuffer: inout ByteBuffer) {
+        rawValue.encode(to: &byteBuffer)
     }
 }
 
 
 extension PnPID: ByteCodable {
-    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        guard let vendorIdSource = VendorIDSource(from: &byteBuffer, preferredEndianness: endianness),
-              let vendorId = UInt16(from: &byteBuffer, preferredEndianness: endianness),
-              let productId = UInt16(from: &byteBuffer, preferredEndianness: endianness),
-              let productVersion = UInt16(from: &byteBuffer, preferredEndianness: endianness) else {
+    public init?(from byteBuffer: inout ByteBuffer) {
+        guard let vendorIdSource = VendorIDSource(from: &byteBuffer),
+              let vendorId = UInt16(from: &byteBuffer),
+              let productId = UInt16(from: &byteBuffer),
+              let productVersion = UInt16(from: &byteBuffer) else {
             return nil
         }
 
         self.init(vendorIdSource: vendorIdSource, vendorId: vendorId, productId: productId, productVersion: productVersion)
     }
 
-    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        vendorIdSource.encode(to: &byteBuffer, preferredEndianness: endianness)
-        vendorId.encode(to: &byteBuffer, preferredEndianness: endianness)
-        productId.encode(to: &byteBuffer, preferredEndianness: endianness)
-        productVersion.encode(to: &byteBuffer, preferredEndianness: endianness)
+    public func encode(to byteBuffer: inout ByteBuffer) {
+        vendorIdSource.encode(to: &byteBuffer)
+        vendorId.encode(to: &byteBuffer)
+        productId.encode(to: &byteBuffer)
+        productVersion.encode(to: &byteBuffer)
     }
 }

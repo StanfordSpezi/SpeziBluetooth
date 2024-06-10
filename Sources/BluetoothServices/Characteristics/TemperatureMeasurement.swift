@@ -72,22 +72,22 @@ extension TemperatureMeasurement: Sendable, Hashable {}
 
 
 extension TemperatureMeasurement.Flags: ByteCodable {
-    init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        guard let rawValue = UInt8(from: &byteBuffer, preferredEndianness: endianness) else {
+    init?(from byteBuffer: inout ByteBuffer) {
+        guard let rawValue = UInt8(from: &byteBuffer) else {
             return nil
         }
         self.init(rawValue: rawValue)
     }
 
-    func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        rawValue.encode(to: &byteBuffer, preferredEndianness: endianness)
+    func encode(to byteBuffer: inout ByteBuffer) {
+        rawValue.encode(to: &byteBuffer)
     }
 }
 
 extension TemperatureMeasurement: ByteCodable {
-    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        guard let flags = Flags(from: &byteBuffer, preferredEndianness: endianness),
-              let temperature = UInt32(from: &byteBuffer, preferredEndianness: endianness) else {
+    public init?(from byteBuffer: inout ByteBuffer) {
+        guard let flags = Flags(from: &byteBuffer),
+              let temperature = UInt32(from: &byteBuffer) else {
             return nil
         }
 
@@ -100,7 +100,7 @@ extension TemperatureMeasurement: ByteCodable {
         }
 
         if flags.contains(.timeStampPresent) {
-            guard let timeStamp = DateTime(from: &byteBuffer, preferredEndianness: endianness) else {
+            guard let timeStamp = DateTime(from: &byteBuffer) else {
                 return nil
             }
             self.timeStamp = timeStamp
@@ -109,7 +109,7 @@ extension TemperatureMeasurement: ByteCodable {
         }
 
         if flags.contains(.temperatureTypePresent) {
-            guard let temperatureType = TemperatureType(from: &byteBuffer, preferredEndianness: endianness) else {
+            guard let temperatureType = TemperatureType(from: &byteBuffer) else {
                 return nil
             }
             self.temperatureType = temperatureType
@@ -118,14 +118,14 @@ extension TemperatureMeasurement: ByteCodable {
         }
     }
 
-    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
+    public func encode(to byteBuffer: inout ByteBuffer) {
         var flags: Flags = []
 
         // write empty flags field for now to move writer index
         let flagsIndex = byteBuffer.writerIndex
-        flags.encode(to: &byteBuffer, preferredEndianness: endianness)
+        flags.encode(to: &byteBuffer)
 
-        temperature.encode(to: &byteBuffer, preferredEndianness: endianness)
+        temperature.encode(to: &byteBuffer)
 
         if case .fahrenheit = unit {
             flags.insert(.fahrenheitUnit)
@@ -133,12 +133,12 @@ extension TemperatureMeasurement: ByteCodable {
 
         if let timeStamp {
             flags.insert(.timeStampPresent)
-            timeStamp.encode(to: &byteBuffer, preferredEndianness: endianness)
+            timeStamp.encode(to: &byteBuffer)
         }
 
         if let temperatureType {
             flags.insert(.temperatureTypePresent)
-            temperatureType.encode(to: &byteBuffer, preferredEndianness: endianness)
+            temperatureType.encode(to: &byteBuffer)
         }
 
         byteBuffer.setInteger(flags.rawValue, at: flagsIndex) // finally update the flags field

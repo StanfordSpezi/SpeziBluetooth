@@ -79,8 +79,8 @@ extension EventLog: ByteCodable {
         }
     }
 
-    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        guard let rawValue = UInt8(from: &byteBuffer, preferredEndianness: endianness),
+    public init?(from byteBuffer: inout ByteBuffer) {
+        guard let rawValue = UInt8(from: &byteBuffer),
               let type = EventType(rawValue: rawValue) else {
             return nil
         }
@@ -115,19 +115,19 @@ extension EventLog: ByteCodable {
         }
     }
 
-    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        type.rawValue.encode(to: &byteBuffer, preferredEndianness: endianness)
+    public func encode(to byteBuffer: inout ByteBuffer) {
+        type.rawValue.encode(to: &byteBuffer)
         switch self {
         case .none:
             break
         case let .subscribedToNotification(characteristic):
-            characteristic.data.encode(to: &byteBuffer, preferredEndianness: endianness)
+            characteristic.data.encode(to: &byteBuffer)
         case let .unsubscribedToNotification(characteristic):
-            characteristic.data.encode(to: &byteBuffer, preferredEndianness: endianness)
+            characteristic.data.encode(to: &byteBuffer)
         case let .receivedRead(characteristic):
-            characteristic.data.encode(to: &byteBuffer, preferredEndianness: endianness)
+            characteristic.data.encode(to: &byteBuffer)
         case let .receivedWrite(characteristic, value):
-            characteristic.data.encode(to: &byteBuffer, preferredEndianness: endianness)
+            characteristic.data.encode(to: &byteBuffer)
             byteBuffer.writeData(value)
         }
     }
