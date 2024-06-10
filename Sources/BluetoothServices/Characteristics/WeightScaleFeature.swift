@@ -16,7 +16,7 @@ import NIOCore
 /// Refer to GATT Specification Supplement, 3.253 Weight Scale Feature.
 public struct WeightScaleFeature: OptionSet {
     /// Weight resolutions for a weight measurement.
-    public struct WeightResolution: RawRepresentable {
+    public struct WeightResolution {
         /// Unspecified resolution, falling back to the default.
         public static let unspecified = WeightResolution(forceRawValue: 0)
         /// Resolution of 0.5 kg or 1 lb.
@@ -112,7 +112,8 @@ public struct WeightScaleFeature: OptionSet {
     }
 
 
-    public struct HeightResolution: RawRepresentable {
+    /// Height resolutions for the height in a weight measurement.
+    public struct HeightResolution {
         /// Unspecified resolution, falling back to the default.
         public static let unspecified = HeightResolution(forceRawValue: 0)
         /// Resolution of 0.01 meter or 1 inch.
@@ -203,8 +204,13 @@ public struct WeightScaleFeature: OptionSet {
     }
 }
 
+extension WeightScaleFeature.WeightResolution: RawRepresentable {}
+
 
 extension WeightScaleFeature.WeightResolution: Hashable, Sendable {}
+
+
+extension WeightScaleFeature.HeightResolution: RawRepresentable {}
 
 
 extension WeightScaleFeature.HeightResolution: Hashable, Sendable {}

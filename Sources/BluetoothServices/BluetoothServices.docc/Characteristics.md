@@ -53,3 +53,14 @@ which natively integrates with SpeziBluetooth-defined services.
 
 - ``WeightMeasurement``
 - ``WeightScaleFeature``
+
+
+### Record Access Control Point
+
+- ``RecordAccessControlPoint``
+- ``RecordAccessOpCode``
+- ``RecordAccessOperator``
+- ``RecordAccessOperand``
+- ``RecordAccessResponseCode``
+- ``RecordAccessOperationContent``
+- ``RecordAccessGenericOperand``

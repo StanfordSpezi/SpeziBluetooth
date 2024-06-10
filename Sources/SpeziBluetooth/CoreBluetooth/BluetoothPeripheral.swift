@@ -439,6 +439,11 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
         trySettingNotifyValue(enabled, serviceId: serviceId, characteristicId: characteristicId)
     }
 
+    func didRequestNotifications(serviceId: CBUUID, characteristicId: CBUUID) -> Bool {
+        let id = CharacteristicLocator(serviceId: serviceId, characteristicId: characteristicId)
+        return notifyRequested.contains(id)
+    }
+
     func deregisterOnChange(_ registration: OnChangeRegistration) {
         deregisterOnChange(locator: registration.locator, handlerId: registration.handlerId)
     }

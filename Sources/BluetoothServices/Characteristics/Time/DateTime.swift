@@ -16,7 +16,7 @@ import NIO
 /// Refer to GATT Specification Supplement, 3.70 Date Time.
 public struct DateTime {
     /// The month.
-    public struct Month: RawRepresentable {
+    public struct Month {
         /// Unknown month.
         public static let unknown = Month(rawValue: 0)
         /// The month January.
@@ -44,9 +44,12 @@ public struct DateTime {
         /// The month December.
         public static let december = Month(rawValue: 12)
 
+        /// The raw value month.
         public let rawValue: UInt8
 
 
+        /// Initialize using a raw value month.
+        /// - Parameter rawValue: The month.
         public init(rawValue: UInt8) {
             self.rawValue = rawValue
         }
@@ -162,6 +165,9 @@ extension DateTime {
         self.init(from: components)! // swiftlint:disable:this force_unwrapping
     }
 }
+
+
+extension DateTime.Month: RawRepresentable {}
 
 
 extension DateTime.Month: Hashable, Sendable {}

@@ -28,6 +28,11 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
     /// Don't access directly. Observable for the properties of ``CharacteristicAccessor``.
     private let _characteristic: WeakObservableBox<GATTCharacteristic>
 
+    /// State support for control point characteristics.
+    ///
+    /// Fore more information see ``ControlPointCharacteristic``.
+    private var controlPointTransaction: ControlPointTransaction<Value>?
+
     /// The user supplied onChange closure we use to forward notifications.
     private var onChangeClosure: ChangeClosureState<Value>
     /// The registration object we received from the ``BluetoothPeripheral`` for our instance onChange handler.
@@ -226,6 +231,8 @@ extension CharacteristicPeripheralInjection: DecodableCharacteristic where Value
             let previousValue = self.value
             self.value = value
 
+            self.fullFillControlPointRequest(value)
+
             let onChangeClosure = onChangeClosure // make sure we capture it now, not later where it might have changed.
             Task { @SpeziBluetooth in
                 await self.dispatchChangeHandler(previous: previousValue, new: value, with: onChangeClosure)
@@ -274,5 +281,86 @@ extension CharacteristicPeripheralInjection where Value: ByteEncodable {
         let data = value.encode(preferredEndianness: .little)
         await peripheral.writeWithoutResponse(data: data, for: characteristic)
         self.value = value
+    }
+}
+
+// MARK: - Control Point Support
+
+extension CharacteristicPeripheralInjection where Value: ControlPointCharacteristic {
+    func sendRequest(_ value: Value, timeout: Duration = .seconds(20)) async throws -> Value {
+        guard let characteristic else {
+            throw BluetoothError.notPresent(service: serviceId, characteristic: characteristicId)
+        }
+
+        if !characteristic.isNotifying { // shortcut that doesn't require actor isolation.
+            // It takes some time for the characteristic to acknowledge notification registration. Assuming the characteristic was injected,
+            // and notifications were requests is good enough for us to assume we will receive the notification. Allows to send request much earlier.
+            guard await peripheral.didRequestNotifications(serviceId: serviceId, characteristicId: characteristicId) else {
+                throw BluetoothError.controlPointRequiresNotifying(service: serviceId, characteristic: characteristicId)
+            }
+        }
+
+        guard controlPointTransaction == nil else {
+            throw BluetoothError.controlPointInProgress(service: serviceId, characteristic: characteristicId)
+        }
+
+        let transaction = ControlPointTransaction<Value>()
+        self.controlPointTransaction = transaction
+
+        async let response = controlPointContinuationTask(transaction)
+
+        do {
+            try await write(value)
+        } catch {
+            transaction.signalCancellation()
+            resetControlPointTransaction(with: transaction.id)
+            _ = try? await response
+            
+            throw error
+        }
+
+        let timeoutTask = Task {
+            try? await Task.sleep(for: timeout)
+            if !Task.isCancelled {
+                transaction.signalTimeout()
+                resetControlPointTransaction(with: transaction.id)
+            }
+        }
+
+        defer {
+            timeoutTask.cancel()
+        }
+
+
+        return try await response
+    }
+
+    private func controlPointContinuationTask(_ transaction: ControlPointTransaction<Value>) async throws -> Value {
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                transaction.assignContinuation(continuation)
+            }
+        } onCancel: {
+            transaction.signalCancellation()
+            Task {
+                await resetControlPointTransaction(with: transaction.id)
+            }
+        }
+    }
+
+    private func resetControlPointTransaction(with id: UUID) {
+        if controlPointTransaction?.id == id {
+            self.controlPointTransaction = nil
+        }
+    }
+}
+
+
+extension CharacteristicPeripheralInjection {
+    fileprivate func fullFillControlPointRequest(_ value: Value) {
+        if let controlPointTransaction {
+            controlPointTransaction.fulfill(value)
+            self.controlPointTransaction = nil
+        }
     }
 }
