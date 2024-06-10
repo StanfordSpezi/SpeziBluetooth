@@ -114,15 +114,15 @@ extension IntermediateCuffPressure: Hashable, Sendable {
 
 
 extension IntermediateCuffPressure: ByteCodable {
-    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        guard let representation = BloodPressureMeasurement(from: &byteBuffer, preferredEndianness: endianness) else {
+    public init?(from byteBuffer: inout ByteBuffer) {
+        guard let representation = BloodPressureMeasurement(from: &byteBuffer) else {
             return nil
         }
 
         self.representation = representation
     }
 
-    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        representation.encode(to: &byteBuffer, preferredEndianness: endianness)
+    public func encode(to byteBuffer: inout ByteBuffer) {
+        representation.encode(to: &byteBuffer)
     }
 }

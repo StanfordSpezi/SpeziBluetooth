@@ -61,19 +61,19 @@ extension RecordAccessRangeFilterCriteria: Hashable, Sendable {}
 
 
 extension RecordAccessFilterCriteria: ByteCodable {
-    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        guard let filterType = RecordAccessFilterType(from: &byteBuffer, preferredEndianness: endianness) else {
+    public init?(from byteBuffer: inout ByteBuffer) {
+        guard let filterType = RecordAccessFilterType(from: &byteBuffer) else {
             return nil
         }
 
         switch filterType {
         case .sequenceNumber:
-            guard let value = UInt16(from: &byteBuffer, preferredEndianness: endianness) else {
+            guard let value = UInt16(from: &byteBuffer) else {
                 return nil
             }
             self = .sequenceNumber(value)
         case .userFacingTime:
-            guard let value = Int16(from: &byteBuffer, preferredEndianness: endianness) else {
+            guard let value = Int16(from: &byteBuffer) else {
                 return nil
             }
             self = .userFacingTime(value)
@@ -82,35 +82,35 @@ extension RecordAccessFilterCriteria: ByteCodable {
         }
     }
 
-    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        filterType.encode(to: &byteBuffer, preferredEndianness: endianness)
+    public func encode(to byteBuffer: inout ByteBuffer) {
+        filterType.encode(to: &byteBuffer)
 
         switch self {
         case let .sequenceNumber(value):
-            value.encode(to: &byteBuffer, preferredEndianness: endianness)
+            value.encode(to: &byteBuffer)
         case let .userFacingTime(value):
-            value.encode(to: &byteBuffer, preferredEndianness: endianness)
+            value.encode(to: &byteBuffer)
         }
     }
 }
 
 
 extension RecordAccessRangeFilterCriteria: ByteCodable {
-    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        guard let filterType = RecordAccessFilterType(from: &byteBuffer, preferredEndianness: endianness) else {
+    public init?(from byteBuffer: inout ByteBuffer) {
+        guard let filterType = RecordAccessFilterType(from: &byteBuffer) else {
             return nil
         }
 
         switch filterType {
         case .sequenceNumber:
-            guard let min = UInt16(from: &byteBuffer, preferredEndianness: endianness),
-                  let max = UInt16(from: &byteBuffer, preferredEndianness: endianness)else {
+            guard let min = UInt16(from: &byteBuffer),
+                  let max = UInt16(from: &byteBuffer) else {
                 return nil
             }
             self = .sequenceNumber(min: min, max: max)
         case .userFacingTime:
-            guard let min = Int16(from: &byteBuffer, preferredEndianness: endianness),
-                  let max = Int16(from: &byteBuffer, preferredEndianness: endianness)else {
+            guard let min = Int16(from: &byteBuffer),
+                  let max = Int16(from: &byteBuffer) else {
                 return nil
             }
             self = .userFacingTime(min: min, max: max)
@@ -119,16 +119,16 @@ extension RecordAccessRangeFilterCriteria: ByteCodable {
         }
     }
 
-    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        filterType.encode(to: &byteBuffer, preferredEndianness: endianness)
+    public func encode(to byteBuffer: inout ByteBuffer) {
+        filterType.encode(to: &byteBuffer)
 
         switch self {
         case let .sequenceNumber(min, max):
-            min.encode(to: &byteBuffer, preferredEndianness: endianness)
-            max.encode(to: &byteBuffer, preferredEndianness: endianness)
+            min.encode(to: &byteBuffer)
+            max.encode(to: &byteBuffer)
         case let .userFacingTime(min, max):
-            min.encode(to: &byteBuffer, preferredEndianness: endianness)
-            max.encode(to: &byteBuffer, preferredEndianness: endianness)
+            min.encode(to: &byteBuffer)
+            max.encode(to: &byteBuffer)
         }
     }
 }

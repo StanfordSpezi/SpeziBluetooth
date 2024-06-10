@@ -119,17 +119,17 @@ extension ExactTime256: Hashable, Sendable {}
 
 
 extension ExactTime256: ByteCodable {
-    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        guard let dayDateTime = DayDateTime(from: &byteBuffer, preferredEndianness: endianness),
-              let fractions256 = UInt8(from: &byteBuffer, preferredEndianness: endianness) else {
+    public init?(from byteBuffer: inout ByteBuffer) {
+        guard let dayDateTime = DayDateTime(from: &byteBuffer),
+              let fractions256 = UInt8(from: &byteBuffer) else {
             return nil
         }
         self.init(dayDateTime: dayDateTime, fractions256: fractions256)
     }
 
 
-    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        dayDateTime.encode(to: &byteBuffer, preferredEndianness: endianness)
-        fractions256.encode(to: &byteBuffer, preferredEndianness: endianness)
+    public func encode(to byteBuffer: inout ByteBuffer) {
+        dayDateTime.encode(to: &byteBuffer)
+        fractions256.encode(to: &byteBuffer)
     }
 }

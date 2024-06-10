@@ -220,14 +220,14 @@ extension WeightScaleFeature: Hashable, Sendable {}
 
 
 extension WeightScaleFeature: ByteCodable {
-    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        guard let rawValue = UInt32(from: &byteBuffer, preferredEndianness: endianness) else {
+    public init?(from byteBuffer: inout ByteBuffer) {
+        guard let rawValue = UInt32(from: &byteBuffer) else {
             return nil
         }
         self.init(rawValue: rawValue)
     }
 
-    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        rawValue.encode(to: &byteBuffer, preferredEndianness: endianness)
+    public func encode(to byteBuffer: inout ByteBuffer) {
+        rawValue.encode(to: &byteBuffer)
     }
 }

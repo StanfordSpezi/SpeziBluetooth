@@ -141,39 +141,39 @@ extension WeightMeasurement: Hashable, Sendable {}
 
 
 extension WeightMeasurement.Flags: ByteCodable {
-    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        guard let rawValue = UInt8(from: &byteBuffer, preferredEndianness: endianness) else {
+    public init?(from byteBuffer: inout ByteBuffer) {
+        guard let rawValue = UInt8(from: &byteBuffer) else {
             return nil
         }
         self.init(rawValue: rawValue)
     }
 
-    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        rawValue.encode(to: &byteBuffer, preferredEndianness: endianness)
+    public func encode(to byteBuffer: inout ByteBuffer) {
+        rawValue.encode(to: &byteBuffer)
     }
 }
 
 
 extension WeightMeasurement.AdditionalInfo: ByteCodable {
-    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        guard let bmi = UInt16(from: &byteBuffer, preferredEndianness: endianness),
-              let height = UInt16(from: &byteBuffer, preferredEndianness: endianness) else {
+    public init?(from byteBuffer: inout ByteBuffer) {
+        guard let bmi = UInt16(from: &byteBuffer),
+              let height = UInt16(from: &byteBuffer) else {
             return nil
         }
         self.init(bmi: bmi, height: height)
     }
 
-    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        bmi.encode(to: &byteBuffer, preferredEndianness: endianness)
-        height.encode(to: &byteBuffer, preferredEndianness: endianness)
+    public func encode(to byteBuffer: inout ByteBuffer) {
+        bmi.encode(to: &byteBuffer)
+        height.encode(to: &byteBuffer)
     }
 }
 
 
 extension WeightMeasurement: ByteCodable {
-    public init?(from byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
-        guard let flags = Flags(from: &byteBuffer, preferredEndianness: endianness),
-              let weight = UInt16(from: &byteBuffer, preferredEndianness: endianness) else {
+    public init?(from byteBuffer: inout ByteBuffer) {
+        guard let flags = Flags(from: &byteBuffer),
+              let weight = UInt16(from: &byteBuffer) else {
             return nil
         }
 
@@ -186,7 +186,7 @@ extension WeightMeasurement: ByteCodable {
         }
 
         if flags.contains(.timeStampPresent) {
-            guard let timeStamp = DateTime(from: &byteBuffer, preferredEndianness: endianness) else {
+            guard let timeStamp = DateTime(from: &byteBuffer) else {
                 return nil
             }
             self.timeStamp = timeStamp
@@ -195,7 +195,7 @@ extension WeightMeasurement: ByteCodable {
         }
 
         if flags.contains(.userIdPresent) {
-            guard let userId = UInt8(from: &byteBuffer, preferredEndianness: endianness) else {
+            guard let userId = UInt8(from: &byteBuffer) else {
                 return nil
             }
             self.userId = userId
@@ -204,7 +204,7 @@ extension WeightMeasurement: ByteCodable {
         }
 
         if flags.contains(.bmiAndHeightPresent) {
-            guard let additionalInfo = AdditionalInfo(from: &byteBuffer, preferredEndianness: endianness) else {
+            guard let additionalInfo = AdditionalInfo(from: &byteBuffer) else {
                 return nil
             }
             self.additionalInfo = additionalInfo
@@ -213,28 +213,28 @@ extension WeightMeasurement: ByteCodable {
         }
     }
 
-    public func encode(to byteBuffer: inout ByteBuffer, preferredEndianness endianness: Endianness) {
+    public func encode(to byteBuffer: inout ByteBuffer) {
         var flags: Flags = []
 
         // write empty flags field for now to move writer index
         let flagsIndex = byteBuffer.writerIndex
-        flags.encode(to: &byteBuffer, preferredEndianness: endianness)
+        flags.encode(to: &byteBuffer)
 
-        weight.encode(to: &byteBuffer, preferredEndianness: endianness)
+        weight.encode(to: &byteBuffer)
 
         if let timeStamp {
             flags.insert(.timeStampPresent)
-            timeStamp.encode(to: &byteBuffer, preferredEndianness: endianness)
+            timeStamp.encode(to: &byteBuffer)
         }
 
         if let userId {
             flags.insert(.userIdPresent)
-            userId.encode(to: &byteBuffer, preferredEndianness: endianness)
+            userId.encode(to: &byteBuffer)
         }
 
         if let additionalInfo {
             flags.insert(.bmiAndHeightPresent)
-            additionalInfo.encode(to: &byteBuffer, preferredEndianness: endianness)
+            additionalInfo.encode(to: &byteBuffer)
         }
 
         byteBuffer.setInteger(flags.rawValue, at: flagsIndex) // finally update the flags field

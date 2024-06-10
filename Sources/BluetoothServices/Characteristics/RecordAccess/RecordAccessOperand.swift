@@ -38,13 +38,10 @@ public protocol RecordAccessOperand: ByteEncodable {
     ///
     /// - Parameters:
     ///   - byteBuffer: The ByteBuffer to read from.
-    ///   - endianness: The preferred endianness to use for decoding if applicable.
-    ///     This might not apply to certain data structures that operate on single byte level.
     ///   - opCode: The opcode of the ``RecordAccessControlPoint`` this operand is being decoded for.
     ///   - operator: The operator of the ``RecordAccessControlPoint`` this operand is being decoded for.
     init?(
         from byteBuffer: inout ByteBuffer,
-        preferredEndianness endianness: Endianness,
         opCode: RecordAccessOpCode,
         `operator`: RecordAccessOperator
     )
