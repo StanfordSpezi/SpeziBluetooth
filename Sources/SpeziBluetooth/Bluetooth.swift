@@ -426,6 +426,11 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
             // TODO: nearbyDevices[uuid] = device
         }
 
+        observePeripheralState(of: uuid) // register \.state onChange closure
+
+        spezi.loadModule(device)
+        handlePeripheralStateChange()
+
         // TODO: we need to store them int he discoveredPeripherals to properly forward delegate methods!!!
         // TODO: however, can we store them weak? => use deinit of the Device object to clean it up once the peripheral looses reference?
         // TODO: we are also not hooking this thing up into the Bluetooth module system!

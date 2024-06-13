@@ -274,6 +274,7 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
         shouldBeScanning = true
         self.autoConnect = autoConnect
 
+        // TODO: docs: silently fails if bluetooth isn't powered on!
         if case .poweredOn = centralManager.state {
             centralManager.scanForPeripherals(
                 withServices: serviceDiscoveryIds,
@@ -308,6 +309,12 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
 
 
     public func retrievePeripheral(for uuid: UUID) -> BluetoothPeripheral? {
+        // TODO: only works if state is powered on
+        guard case .poweredOn = centralManager.state else {
+            logger.warning("Cannot retrieve peripheral with id \(uuid) while central is not powered on \(state)")
+            return nil
+        }
+
         // TODO: does this need isolation?
         guard let peripheral = centralManager.retrievePeripherals(withIdentifiers: [uuid]).first else {
             checkForCentralDeinit()
@@ -315,13 +322,16 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
         }
 
 
-        return BluetoothPeripheral(
+        let peripheral = BluetoothPeripheral(
             manager: self,
             peripheral: peripheral,
             advertisementData: .init(advertisementData: [:]), // TODO: init for empty?
-            rssi: 127 // TOOD: what is the unknown value=
+            rssi: 127 // value of 127 signifies unavailability of RSSI value
         )
+
+        discoveredPeripherals.updateValue(device, forKey: peripheral.identifier)
         // TODO: when to deinit central?
+        return peripheral
     }
 
     func onChange<Value>(of keyPath: KeyPath<ObservableStorage, Value>, perform closure: @escaping (Value) -> Void) {
@@ -598,8 +608,8 @@ extension BluetoothManager {
                 return
             }
 
-            // All these delegate methods are actually running on the DispatchQueue the Actor is isolated though.
-            // So in theory we should just be able to spring into isolation with assumeIsolated().
+            // All these delegate methods are actually running on the DispatchQueue the Actor is isolated to.
+            // So in theory we should just be able to jump into isolation with assumeIsolated().
             // However, executing a scheduled Job is different to just running a scheduled Job in the dispatch queue
             // form a Swift Runtime perspective.
             // Refer to _isCurrentExecutor (checked in assumeIsolated):
