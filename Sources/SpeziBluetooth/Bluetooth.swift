@@ -409,6 +409,29 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
         }
     }
 
+
+    public func retrievePeripheral<Device: BluetoothDevice>(for uuid: UUID, as device: Device.Type = Device.self) -> Device? {
+        // TODO: this doesn't really need isolation?
+        guard let peripheral = bluetoothManager.assumeIsolated({ $0.retrievePeripheral(for: uuid) }) else {
+            return nil
+        }
+
+
+        let closures = ClosureRegistrar()
+        let device = ClosureRegistrar.$writeableView.withValue(closures) {
+            Device()
+        }
+        ClosureRegistrar.$readableView.withValue(closures) {
+            device.inject(peripheral: peripheral)
+            // TODO: nearbyDevices[uuid] = device
+        }
+
+        // TODO: we need to store them int he discoveredPeripherals to properly forward delegate methods!!!
+        // TODO: however, can we store them weak? => use deinit of the Device object to clean it up once the peripheral looses reference?
+        // TODO: we are also not hooking this thing up into the Bluetooth module system!
+        return device
+    }
+
     /// Scan for nearby bluetooth devices.
     ///
     /// Scans on nearby devices based on the ``Discover`` declarations provided in the initializer.

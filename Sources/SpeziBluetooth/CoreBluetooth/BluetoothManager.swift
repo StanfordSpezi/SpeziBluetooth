@@ -306,6 +306,24 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
         }
     }
 
+
+    public func retrievePeripheral(for uuid: UUID) -> BluetoothPeripheral? {
+        // TODO: does this need isolation?
+        guard let peripheral = centralManager.retrievePeripherals(withIdentifiers: [uuid]).first else {
+            checkForCentralDeinit()
+            return nil
+        }
+
+
+        return BluetoothPeripheral(
+            manager: self,
+            peripheral: peripheral,
+            advertisementData: .init(advertisementData: [:]), // TODO: init for empty?
+            rssi: 127 // TOOD: what is the unknown value=
+        )
+        // TODO: when to deinit central?
+    }
+
     func onChange<Value>(of keyPath: KeyPath<ObservableStorage, Value>, perform closure: @escaping (Value) -> Void) {
         _storage.onChange(of: keyPath, perform: closure)
     }
