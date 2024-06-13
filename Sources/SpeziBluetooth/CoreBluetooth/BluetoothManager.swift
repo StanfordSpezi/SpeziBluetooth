@@ -311,7 +311,7 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
     public func retrievePeripheral(for uuid: UUID) -> BluetoothPeripheral? {
         // TODO: only works if state is powered on
         guard case .poweredOn = centralManager.state else {
-            logger.warning("Cannot retrieve peripheral with id \(uuid) while central is not powered on \(state)")
+            logger.warning("Cannot retrieve peripheral with id \(uuid) while central is not powered on \(self.state)")
             return nil
         }
 
@@ -322,7 +322,7 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
         }
 
 
-        let peripheral = BluetoothPeripheral(
+        let device = BluetoothPeripheral(
             manager: self,
             peripheral: peripheral,
             advertisementData: .init(advertisementData: [:]), // TODO: init for empty?
@@ -331,7 +331,7 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
 
         discoveredPeripherals.updateValue(device, forKey: peripheral.identifier)
         // TODO: when to deinit central?
-        return peripheral
+        return device
     }
 
     func onChange<Value>(of keyPath: KeyPath<ObservableStorage, Value>, perform closure: @escaping (Value) -> Void) {
