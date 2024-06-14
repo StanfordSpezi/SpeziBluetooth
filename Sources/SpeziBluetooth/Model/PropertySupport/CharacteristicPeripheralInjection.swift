@@ -8,6 +8,7 @@
 
 import ByteCoding
 import CoreBluetooth
+import SpeziFoundation
 
 
 private protocol DecodableCharacteristic: Actor {
@@ -341,30 +342,27 @@ extension CharacteristicPeripheralInjection where Value: ControlPointCharacteris
         let transaction = ControlPointTransaction<Value>()
         self.controlPointTransaction = transaction
 
+        defer {
+            if controlPointTransaction?.id == transaction.id {
+                controlPointTransaction = nil
+            }
+        }
+
+        // make sure we are ready to receive the response
         async let response = controlPointContinuationTask(transaction)
 
         do {
             try await write(value)
         } catch {
             transaction.signalCancellation()
-            resetControlPointTransaction(with: transaction.id)
-            _ = try? await response
+            _ = try? await response // await response to avoid cancellation
             
             throw error
         }
 
-        let timeoutTask = Task {
-            try? await Task.sleep(for: timeout)
-            if !Task.isCancelled {
-                transaction.signalTimeout()
-                resetControlPointTransaction(with: transaction.id)
-            }
+        async let _ = withTimeout(of: timeout) {
+            transaction.signalTimeout()
         }
-
-        defer {
-            timeoutTask.cancel()
-        }
-
 
         return try await response
     }
@@ -376,15 +374,6 @@ extension CharacteristicPeripheralInjection where Value: ControlPointCharacteris
             }
         } onCancel: {
             transaction.signalCancellation()
-            Task {
-                await resetControlPointTransaction(with: transaction.id)
-            }
-        }
-    }
-
-    private func resetControlPointTransaction(with id: UUID) {
-        if controlPointTransaction?.id == id {
-            self.controlPointTransaction = nil
         }
     }
 }

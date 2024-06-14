@@ -278,6 +278,7 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
     }
 
     func handleConnect(consider configuredDevices: Set<DeviceDescription>) {
+        // TODO: store discovery description within device?
         if let description = configuredDevices.find(for: advertisementData, logger: logger),
            let services = description.services {
             requestedCharacteristics = services.reduce(into: [CBUUID: Set<CharacteristicDescription>?]()) { result, configuration in

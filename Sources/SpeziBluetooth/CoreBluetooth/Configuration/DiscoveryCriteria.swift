@@ -82,7 +82,7 @@ public enum DiscoveryCriteria: Sendable {
         switch self {
         case let .advertisedService(uuid):
             return advertisementData.serviceUUIDs?.contains(uuid) ?? false
-        case let .accessory(company, name, service):
+        case let .accessory(company, _, service):
             guard let manufacturerData = advertisementData.manufacturerData,
                   let identifier = ManufacturerIdentifier(data: manufacturerData) else {
                 return false

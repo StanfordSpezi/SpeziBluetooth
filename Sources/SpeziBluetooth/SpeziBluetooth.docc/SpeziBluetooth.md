@@ -278,7 +278,3 @@ due to their async nature.
 - ``DeviceDescription``
 - ``ServiceDescription``
 - ``CharacteristicDescription``
-
-### Errors
-
-- ``ControlPointTimeoutError``

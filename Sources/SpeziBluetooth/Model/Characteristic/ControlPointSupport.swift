@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import SpeziFoundation
 
 
 final class ControlPointTransaction<Value>: @unchecked Sendable {
@@ -34,7 +35,7 @@ final class ControlPointTransaction<Value>: @unchecked Sendable {
     }
 
     func signalTimeout() {
-        resume(with: .failure(ControlPointTimeoutError()))
+        resume(with: .failure(TimeoutError()))
     }
 
     func fulfill(_ value: Value) {

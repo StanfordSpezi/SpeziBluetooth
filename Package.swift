@@ -25,7 +25,7 @@ let package = Package(
         .library(name: "SpeziBluetooth", targets: ["SpeziBluetooth"])
     ],
     dependencies: [
-        .package(url: "https://github.com/StanfordSpezi/SpeziFoundation", from: "1.0.4"),
+        .package(url: "https://github.com/StanfordSpezi/SpeziFoundation", branch: "feature/timeout-support"),
         .package(url: "https://github.com/StanfordSpezi/Spezi", from: "1.3.0"),
         .package(url: "https://github.com/StanfordSpezi/SpeziNetworking", from: "2.0.1"),
         .package(url: "https://github.com/StanfordSpezi/SpeziViews", from: "1.3.0"),
