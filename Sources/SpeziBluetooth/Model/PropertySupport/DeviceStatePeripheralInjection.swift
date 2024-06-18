@@ -102,6 +102,8 @@ extension KeyPath where Root == BluetoothPeripheral {
         let anyKeyPath: AnyKeyPath? = switch self {
         case \.name:
             \PeripheralStorage.name
+        case \.localName:
+            \PeripheralStorage.localName
         case \.rssi:
             \PeripheralStorage.rssi
         case \.advertisementData:
@@ -110,6 +112,10 @@ extension KeyPath where Root == BluetoothPeripheral {
             \PeripheralStorage.state
         case \.services:
             \PeripheralStorage.services
+        case \.discarded:
+            \PeripheralStorage.discarded
+        case \.lastActivity:
+            \PeripheralStorage.lastActivity
         case \.id:
             nil
         default:
