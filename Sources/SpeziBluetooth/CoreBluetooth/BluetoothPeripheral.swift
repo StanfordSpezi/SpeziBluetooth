@@ -31,6 +31,8 @@ enum CharacteristicOnChangeHandler {
 /// - ``state``
 /// - ``rssi``
 /// - ``advertisementData``
+/// - ``discarded``
+/// - ``lastActivity``
 ///
 /// ### Accessing Services
 /// - ``services``
@@ -106,7 +108,12 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
         _storage.name
     }
 
-    nonisolated private(set) var localName: String? {
+    // TODO: change access/default of accessory name
+    // TODO: provide access to detect if peripheral is no longer considered discovered!
+
+
+    // TODO: docs
+    nonisolated public private(set) var localName: String? {
         get {
             _storage.localName
         }
@@ -171,7 +178,8 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
         }
     }
 
-    private(set) var lastActivity: Date {
+    // TODO: docs (and behavior!)
+    nonisolated public private(set) var lastActivity: Date {
         get {
             if case .disconnected = peripheral.state {
                 _storage.lastActivity
@@ -182,6 +190,16 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
         }
         set {
             _storage.update(lastActivity: newValue)
+        }
+    }
+
+    // TODO: docs!
+    nonisolated public private(set) var discarded: Bool {
+        get {
+            _storage.discarded
+        }
+        set {
+            _storage.update(discarded: newValue)
         }
     }
 
@@ -332,6 +350,10 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
             self.rssiContinuation = nil
             rssiContinuation.resume(throwing: CancellationError())
         }
+    }
+
+    func handleDiscarded() {
+        isolatedUpdate(of: \.discarded, true)
     }
 
     func markLastActivity(_ lastActivity: Date = .now) {

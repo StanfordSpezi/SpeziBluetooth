@@ -136,9 +136,11 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
         get {
             _storage.discoveredPeripherals
         }
+        /* TODO: reenable!
         _modify {
             yield &_storage.discoveredPeripherals
         }
+    */
         set {
             _storage.discoveredPeripherals = newValue
         }
@@ -322,6 +324,7 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
         }
 
 
+        // TODO: for every peripheral one needs to make sure that discarded is eventually set to true!
         let device = BluetoothPeripheral(
             manager: self,
             peripheral: peripheral,
@@ -362,6 +365,12 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
     }
 
     private func clearDiscoveredPeripheral(forKey id: UUID) {
+        if let peripheral = discoveredPeripherals[id] {
+            // `handleDiscarded` must be called before actually removing it from the dictionary to make sure peripherals can react to this event
+            peripheral.assumeIsolated { device in
+                device.handleDiscarded()
+            }
+        }
         discoveredPeripherals.removeValue(forKey: id)
 
         if lastManuallyDisconnectedDevice == id {

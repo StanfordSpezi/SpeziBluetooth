@@ -17,7 +17,7 @@ import Foundation
 @Observable
 final class PeripheralStorage: ValueObservable {
     var name: String? {
-        localName ?? peripheralName
+        peripheralName ?? localName
     }
 
     private(set) var peripheralName: String? {
@@ -25,32 +25,44 @@ final class PeripheralStorage: ValueObservable {
             _$simpleRegistrar.triggerDidChange(for: \.peripheralName, on: self)
         }
     }
+
     private(set) var localName: String? {
         didSet {
             _$simpleRegistrar.triggerDidChange(for: \.localName, on: self)
         }
     }
+
     private(set) var rssi: Int {
         didSet {
             _$simpleRegistrar.triggerDidChange(for: \.rssi, on: self)
         }
     }
+
     private(set) var advertisementData: AdvertisementData {
         didSet {
             _$simpleRegistrar.triggerDidChange(for: \.advertisementData, on: self)
         }
     }
+
     private(set) var state: PeripheralState {
         didSet {
             _$simpleRegistrar.triggerDidChange(for: \.state, on: self)
         }
     }
+
+    private(set) var discarded: Bool {
+        didSet {
+            _$simpleRegistrar.triggerDidChange(for: \.discarded, on: self)
+        }
+    }
+
     private(set) var services: [GATTService]? { // swiftlint:disable:this discouraged_optional_collection
         didSet {
             _$simpleRegistrar.triggerDidChange(for: \.services, on: self)
         }
     }
-    @ObservationIgnored var lastActivity: Date
+
+    @ObservationIgnored var lastActivity: Date // TODO: this needs to be observed now !
 
     // swiftlint:disable:next identifier_name
     @ObservationIgnored var _$simpleRegistrar = ValueObservationRegistrar<PeripheralStorage>()
@@ -61,6 +73,7 @@ final class PeripheralStorage: ValueObservable {
         self.advertisementData = advertisementData
         self.rssi = rssi
         self.state = .init(from: state)
+        self.discarded = false
         self.lastActivity = lastActivity
     }
 
@@ -93,6 +106,10 @@ final class PeripheralStorage: ValueObservable {
             }
             self.state = state
         }
+    }
+
+    func update(discarded: Bool) {
+        self.discarded = discarded
     }
 
     func signalFullyDiscovered() {
