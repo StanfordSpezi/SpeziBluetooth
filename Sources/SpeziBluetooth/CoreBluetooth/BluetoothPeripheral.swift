@@ -741,11 +741,13 @@ extension BluetoothPeripheral {
     }
 
     private func receivedUpdatedValue(for characteristic: CBCharacteristic, result: Result<Data, Error>) {
-        if case let .read(continuation) = characteristicAccesses.retrieveAccess(for: characteristic) {
+        if let access = characteristicAccesses.retrieveAccess(for: characteristic),
+           case let .read(continuation) = access.value {
             if case let .failure(error) = result {
                 logger.debug("Characteristic read for \(characteristic.debugIdentifier) returned with error: \(error)")
             }
 
+            access.consume()
             continuation.resume(with: result)
         } else if case let .failure(error) = result {
             logger.debug("Received unsolicited value update error for \(characteristic.debugIdentifier): \(error)")
@@ -771,7 +773,8 @@ extension BluetoothPeripheral {
     }
 
     private func receivedWriteResponse(for characteristic: CBCharacteristic, result: Result<Void, Error>) {
-        guard case let .write(continuation) = characteristicAccesses.retrieveAccess(for: characteristic) else {
+        guard let access = characteristicAccesses.retrieveAccess(for: characteristic),
+              case let .write(continuation) = access.value else {
             switch result {
             case .success:
                 logger.warning("Received write response for \(characteristic.debugIdentifier) without an ongoing access. Discarding write ...")
@@ -785,6 +788,7 @@ extension BluetoothPeripheral {
             logger.debug("Characteristic write for \(characteristic.debugIdentifier) returned with error: \(error)")
         }
 
+        access.consume()
         continuation.resume(with: result)
     }
 }

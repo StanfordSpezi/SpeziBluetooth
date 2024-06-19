@@ -20,7 +20,7 @@ class CharacteristicAccess {
 
     private let id: CBUUID
     private let semaphore = AsyncSemaphore()
-    private(set) var access: Access?
+    private(set) var value: Access?
 
 
     fileprivate init(id: CBUUID) {
@@ -32,22 +32,20 @@ class CharacteristicAccess {
         try await semaphore.waitCheckingCancellation()
     }
 
-    func store(_ access: Access) {
-        precondition(self.access == nil, "Access was unexpectedly not nil")
-        self.access = access
+    func store(_ value: Access) {
+        precondition(self.value == nil, "Access was unexpectedly not nil")
+        self.value = value
     }
 
-    func receive() -> Access? {
-        let access = access
-        self.access = nil
+    func consume() {
+        self.value = nil
         semaphore.signal()
-        return access
     }
 
     func cancelAll() {
         semaphore.cancelAll()
-        let access = access
-        self.access = nil
+        let access = value
+        self.value = nil
 
         switch access {
         case let .read(continuation):
@@ -75,12 +73,8 @@ struct CharacteristicAccesses {
         return access
     }
 
-    func retrieveAccess(for characteristic: CBCharacteristic) -> CharacteristicAccess.Access? {
-        guard let access = ongoingAccesses[characteristic] else {
-            return nil
-        }
-
-        return access.receive()
+    func retrieveAccess(for characteristic: CBCharacteristic) -> CharacteristicAccess? {
+        ongoingAccesses[characteristic]
     }
 
     mutating func cancelAll() {
