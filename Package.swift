@@ -11,6 +11,8 @@
 import PackageDescription
 
 
+let swiftLintPlugin: Target.PluginUsage = .plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLint")
+
 let package = Package(
     name: "SpeziBluetooth",
     defaultLocalization: "en",
@@ -30,7 +32,8 @@ let package = Package(
         .package(url: "https://github.com/StanfordSpezi/SpeziNetworking", from: "2.0.1"),
         .package(url: "https://github.com/StanfordSpezi/SpeziViews", from: "1.3.0"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.59.0"),
-        .package(url: "https://github.com/apple/swift-collections.git", from: "1.0.4")
+        .package(url: "https://github.com/apple/swift-collections.git", from: "1.0.4"),
+        .package(url: "https://github.com/realm/SwiftLint.git", .upToNextMinor(from: "0.55.1"))
     ],
     targets: [
         .target(
@@ -44,7 +47,8 @@ let package = Package(
             ],
             resources: [
                 .process("Resources")
-            ]
+            ],
+            plugins: [swiftLintPlugin]
         ),
         .target(
             name: "BluetoothServices",
@@ -52,14 +56,16 @@ let package = Package(
                 .target(name: "SpeziBluetooth"),
                 .product(name: "ByteCoding", package: "SpeziNetworking"),
                 .product(name: "SpeziNumerics", package: "SpeziNetworking")
-            ]
+            ],
+            plugins: [swiftLintPlugin]
         ),
         .target(
             name: "BluetoothViews",
             dependencies: [
                 .target(name: "SpeziBluetooth"),
                 .product(name: "SpeziViews", package: "SpeziViews")
-            ]
+            ],
+            plugins: [swiftLintPlugin]
         ),
         .executableTarget(
             name: "TestPeripheral",
@@ -67,7 +73,8 @@ let package = Package(
                 .target(name: "SpeziBluetooth"),
                 .target(name: "BluetoothServices"),
                 .product(name: "ByteCoding", package: "SpeziNetworking")
-            ]
+            ],
+            plugins: [swiftLintPlugin]
         ),
         .testTarget(
             name: "BluetoothServicesTests",
@@ -76,7 +83,8 @@ let package = Package(
                 .target(name: "SpeziBluetooth"),
                 .product(name: "XCTByteCoding", package: "SpeziNetworking"),
                 .product(name: "NIO", package: "swift-nio")
-            ]
+            ],
+            plugins: [swiftLintPlugin]
         )
     ]
 )

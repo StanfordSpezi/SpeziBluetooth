@@ -24,7 +24,7 @@ private protocol PrimitiveDecodableCharacteristic {
 actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
     let bluetoothQueue: DispatchSerialQueue
 
-    let peripheral: BluetoothPeripheral
+    fileprivate let peripheral: BluetoothPeripheral
     let serviceId: CBUUID
     let characteristicId: CBUUID
 

@@ -35,12 +35,4 @@ extension CharacteristicDescription: ExpressibleByStringLiteral {
 }
 
 
-extension CharacteristicDescription: Hashable {
-    public static func == (lhs: CharacteristicDescription, rhs: CharacteristicDescription) -> Bool {
-        lhs.characteristicId == rhs.characteristicId
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(characteristicId)
-    }
-}
+extension CharacteristicDescription: Hashable {}

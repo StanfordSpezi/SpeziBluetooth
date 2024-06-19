@@ -275,6 +275,7 @@ due to their async nature.
 
 ### Configuring Core Bluetooth
 
+- ``DiscoveryDescription``
 - ``DeviceDescription``
 - ``ServiceDescription``
 - ``CharacteristicDescription``

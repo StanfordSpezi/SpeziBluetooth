@@ -104,7 +104,7 @@ public final class DeviceState<Value>: @unchecked Sendable {
                 """
             )
         }
-        return injection.peripheral[keyPath: keyPath]
+        return injection.value
     }
 
 

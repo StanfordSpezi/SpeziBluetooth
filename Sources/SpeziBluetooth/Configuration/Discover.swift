@@ -20,8 +20,8 @@
 /// - ``init(_:by:)``
 ///
 /// ### Semantic Model
-/// - ``DiscoveryConfiguration``
-/// - ``DiscoveryConfigurationBuilder``
+/// - ``DeviceDiscoveryDescriptor``
+/// - ``DiscoveryDescriptorBuilder``
 public struct Discover<Device: BluetoothDevice> {
     let deviceType: Device.Type
     let discoveryCriteria: DiscoveryCriteria

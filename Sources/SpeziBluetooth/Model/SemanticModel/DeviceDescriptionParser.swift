@@ -29,25 +29,26 @@ private struct ServiceDescriptionBuilder: DeviceVisitor {
 }
 
 
-extension DiscoveryConfiguration {
-    func parseDeviceDescription() -> DeviceDescription {
+extension DeviceDiscoveryDescriptor {
+    func parseDeviceDescription() -> DiscoveryDescription {
         let device = anyDeviceType.init()
 
         var builder = ServiceDescriptionBuilder()
         device.accept(&builder)
-        return DeviceDescription(discoverBy: discoveryCriteria, services: builder.configurations)
+        let deviceDescription = DeviceDescription(services: builder.configurations)
+        return DiscoveryDescription(discoverBy: discoveryCriteria, device: deviceDescription)
     }
 }
 
 
-extension Set where Element == DiscoveryConfiguration {
+extension Set where Element == DeviceDiscoveryDescriptor {
     var deviceTypes: [any BluetoothDevice.Type] {
         map { configuration in
             configuration.anyDeviceType
         }
     }
 
-    func parseDeviceDescription() -> Set<DeviceDescription> {
-        Set<DeviceDescription>(map { $0.parseDeviceDescription() })
+    func parseDeviceDescription() -> Set<DiscoveryDescription> {
+        Set<DiscoveryDescription>(map { $0.parseDeviceDescription() })
     }
 }

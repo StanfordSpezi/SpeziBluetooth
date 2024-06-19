@@ -56,7 +56,7 @@
 /// - ``DeviceActions``
 @propertyWrapper
 public final class DeviceAction<Action: _BluetoothPeripheralAction>: @unchecked Sendable {
-    private var peripheral: BluetoothPeripheral?
+    private weak var peripheral: BluetoothPeripheral?
     /// Support injection of closures for testing support.
     private let _injectedClosure = Box<Action.ClosureType?>(nil)
 

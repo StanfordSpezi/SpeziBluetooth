@@ -7,8 +7,10 @@
 //
 
 
-/// Describes how to discover a given ``BluetoothDevice``.
-public struct DiscoveryConfiguration: Sendable {
+/// Describes how to discover a given `BluetoothDevice`.
+///
+/// Provides a strategy on how to discovery given ``BluetoothDevice`` device type.
+public struct DeviceDiscoveryDescriptor: Sendable {
     let discoveryCriteria: DiscoveryCriteria
     let anyDeviceType: any BluetoothDevice.Type
 
@@ -20,15 +22,15 @@ public struct DiscoveryConfiguration: Sendable {
 }
 
 
-extension DiscoveryConfiguration: Identifiable {
+extension DeviceDiscoveryDescriptor: Identifiable {
     public var id: DiscoveryCriteria {
         discoveryCriteria
     }
 }
 
 
-extension DiscoveryConfiguration: Hashable {
-    public static func == (lhs: DiscoveryConfiguration, rhs: DiscoveryConfiguration) -> Bool {
+extension DeviceDiscoveryDescriptor: Hashable {
+    public static func == (lhs: DeviceDiscoveryDescriptor, rhs: DeviceDiscoveryDescriptor) -> Bool {
         lhs.discoveryCriteria == rhs.discoveryCriteria
     }
 

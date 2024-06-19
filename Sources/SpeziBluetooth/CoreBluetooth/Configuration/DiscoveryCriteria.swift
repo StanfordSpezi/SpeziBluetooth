@@ -8,48 +8,6 @@
 
 @preconcurrency import CoreBluetooth
 
-/// Bluetooth SIG-assigned Manufacturer Identifier.
-///
-/// Refer to Assigned Numbers 7. Company Identifiers.
-public struct ManufacturerIdentifier {
-    public let rawValue: UInt16
-
-    public init(rawValue: UInt16) {
-        self.rawValue = rawValue
-    }
-}
-
-
-extension ManufacturerIdentifier: Hashable, Sendable {}
-
-
-extension ManufacturerIdentifier: RawRepresentable {}
-
-
-extension ManufacturerIdentifier: ExpressibleByIntegerLiteral {
-    public init(integerLiteral value: UInt16) {
-        self.init(rawValue: value)
-    }
-}
-
-
-import ByteCoding
-import NIOCore
-extension ManufacturerIdentifier: ByteCodable {
-    public init?(from byteBuffer: inout ByteBuffer) {
-        guard let rawValue = UInt16(from: &byteBuffer) else {
-            return nil
-        }
-        self.init(rawValue: rawValue)
-    }
-    
-    public func encode(to byteBuffer: inout ByteBuffer) {
-        rawValue.encode(to: &byteBuffer)
-    }
-    
-
-}
-
 
 /// The criteria by which we identify a discovered device.
 ///
@@ -62,17 +20,16 @@ extension ManufacturerIdentifier: ByteCodable {
 public enum DiscoveryCriteria: Sendable {
     /// Identify a device by their advertised service.
     case advertisedService(_ uuid: CBUUID)
-    case accessory(company: ManufacturerIdentifier, name: String, service: CBUUID)
-    // TODO: "company" vs "manufacturer"
-    // TODO: name as a substring?; not local name!
-    // TODO: how to communicate the "advertised" service?
+    /// Identify a device by its manufacturer and advertised service.
+    case accessory(manufacturer: ManufacturerIdentifier, advertising: CBUUID)
+    // TODO: research accessory setup kit, is "name" required?
 
 
-    var discoveryId: CBUUID { // TODO: make that custom able?
+    var discoveryId: CBUUID {
         switch self {
         case let .advertisedService(uuid):
             uuid
-        case let .accessory(_, _, service):
+        case let .accessory(_, service):
             service
         }
     }
@@ -82,17 +39,15 @@ public enum DiscoveryCriteria: Sendable {
         switch self {
         case let .advertisedService(uuid):
             return advertisementData.serviceUUIDs?.contains(uuid) ?? false
-        case let .accessory(company, _, service):
+        case let .accessory(manufacturer, service):
             guard let manufacturerData = advertisementData.manufacturerData,
                   let identifier = ManufacturerIdentifier(data: manufacturerData) else {
                 return false
             }
 
-            guard identifier == company else {
+            guard identifier == manufacturer else {
                 return false
             }
-
-            // TODO: compare peripheral name! (substring?)
 
 
             return advertisementData.serviceUUIDs?.contains(service) ?? false
@@ -101,10 +56,9 @@ public enum DiscoveryCriteria: Sendable {
 }
 
 
-// TODO: similar overloads for accessory!
 extension DiscoveryCriteria {
     /// Identify a device by their advertised service.
-    /// - Parameter uuid: The Bluetooth ServiceId in string format.
+    /// - Parameter uuid: The Bluetooth service id in string format.
     /// - Returns: A ``DiscoveryCriteria/advertisedService(_:)-swift.enum.case`` criteria.
     public static func advertisedService(_ uuid: String) -> DiscoveryCriteria {
         .advertisedService(CBUUID(string: uuid))
@@ -119,13 +73,34 @@ extension DiscoveryCriteria {
 }
 
 
+extension DiscoveryCriteria {
+    /// Identify a device by its manufacturer and advertised service.
+    /// - Parameters:
+    ///   - manufacturer: The Bluetooth SIG-assigned manufacturer identifier.
+    ///   - service: The Bluetooth service id in string format.
+    /// - Returns: A ``DiscoveryCriteria/accessory(manufacturer:advertising:)-swift.enum.case`` criteria.
+    public static func accessory(manufacturer: ManufacturerIdentifier, advertising service: String) -> DiscoveryCriteria {
+        .accessory(manufacturer: manufacturer, advertising: CBUUID(string: service))
+    }
+
+    /// Identify a device by its manufacturer and advertised service.
+    /// - Parameters:
+    ///   - manufacturer: The Bluetooth SIG-assigned manufacturer identifier.
+    ///   - service: The service type.
+    /// - Returns: A ``DiscoveryCriteria/accessory(manufacturer:advertising:)-swift.enum.case`` criteria.
+    public static func accessory<Service: BluetoothService>(manufacturer: ManufacturerIdentifier, advertising service: Service) -> DiscoveryCriteria {
+        .accessory(manufacturer: manufacturer, advertising: Service.id)
+    }
+}
+
+
 extension DiscoveryCriteria: Hashable, CustomStringConvertible {
     public var description: String {
         switch self {
         case let .advertisedService(uuid):
             ".advertisedService(\(uuid))"
-        case let .accessory(company, name, service):
-            "accessory(company: \(company), name: \(name), service: \(service))"
+        case let .accessory(manufacturer, service):
+            "accessory(company: \(manufacturer), advertised: \(service))"
         }
     }
 }

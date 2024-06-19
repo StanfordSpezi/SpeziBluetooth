@@ -206,7 +206,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
     let bluetoothQueue: DispatchSerialQueue
 
     private let bluetoothManager: BluetoothManager
-    private let deviceConfigurations: Set<DiscoveryConfiguration>
+    private let deviceConfigurations: Set<DeviceDiscoveryDescriptor>
 
     private let _storage = Storage()
 
@@ -252,7 +252,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
 
     /// Configure the Bluetooth Module.
     ///
-    /// Configures the Bluetooth Module with the provided set of ``DiscoveryConfiguration``s.
+    /// Configures the Bluetooth Module with the provided set of ``DeviceDiscoveryDescriptor``s.
     /// Below is a short code example on how you would discover a `ExampleDevice` by its advertised service id.
     ///
     /// ```swift
@@ -269,18 +269,18 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
     public init(
         minimumRSSI: Int = BluetoothManager.Defaults.defaultMinimumRSSI,
         advertisementStaleInterval: TimeInterval = BluetoothManager.Defaults.defaultStaleTimeout,
-        @DiscoveryConfigurationBuilder _ devices: @Sendable () -> Set<DiscoveryConfiguration>
+        @DiscoveryDescriptorBuilder _ devices: @Sendable () -> Set<DeviceDiscoveryDescriptor>
     ) {
         let configuration = devices()
         let deviceTypes = configuration.deviceTypes
 
-        let devices = ClosureRegistrar.$writeableView.withValue(.init()) {
+        let discovery = ClosureRegistrar.$writeableView.withValue(.init()) {
             // we provide a closure registrar just to silence any out-of-band usage warnings!
-            configuration.parseDeviceDescription()
+            configuration.parseDeviceDescription() // TODO: rename!
         }
 
         let bluetoothManager = BluetoothManager(
-            devices: devices,
+            discovery: discovery,
             minimumRSSI: minimumRSSI,
             advertisementStaleInterval: advertisementStaleInterval
         )
@@ -298,6 +298,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
     private func observeDiscoveredDevices() {
         self.assertIsolated("This didn't move to the actor even if it should.")
         bluetoothManager.assumeIsolated { manager in
+            // TODO: support retrievedPeripherals
             manager.onChange(of: \.discoveredPeripherals) { [weak self] discoveredDevices in
                 guard let self = self else {
                     return
@@ -342,7 +343,8 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
             checkForConnected = true
             let device = nearbyDevices.removeValue(forKey: key)
 
-            if let device {
+            // TODO: make everything weak and uninject everything once the BluetoothPeripheral itself is deinited?
+            if let device { // TODO: refactor out!
                 device.clearState(isolatedTo: self)
                 spezi.unloadModule(device)
             }
@@ -410,14 +412,14 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
     }
 
 
-    public func retrievePeripheral<Device: BluetoothDevice>(for uuid: UUID, as device: Device.Type = Device.self) -> Device? {
+    public func retrievePeripheral<Device: BluetoothDevice>(for uuid: UUID, as device: Device.Type = Device.self) async -> Device? {
         // TODO: this doesn't really need isolation?
-        guard let peripheral = bluetoothManager.assumeIsolated({ $0.retrievePeripheral(for: uuid) }) else {
+        guard let peripheral = await bluetoothManager.retrievePeripheral(for: uuid) else {
             return nil
         }
 
 
-        let closures = ClosureRegistrar()
+        let closures = ClosureRegistrar() // TODO: code duplication!!
         let device = ClosureRegistrar.$writeableView.withValue(closures) {
             Device()
         }
@@ -434,6 +436,8 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
         // TODO: we need to store them int he discoveredPeripherals to properly forward delegate methods!!!
         // TODO: however, can we store them weak? => use deinit of the Device object to clean it up once the peripheral looses reference?
         // TODO: we are also not hooking this thing up into the Bluetooth module system!
+
+        // TODO: this will instantly deinit now!!! BluetoothDevice has weak-only references now?
         return device
     }
 

@@ -43,12 +43,4 @@ public struct ServiceDescription: Sendable {
 }
 
 
-extension ServiceDescription: Hashable {
-    public static func == (lhs: ServiceDescription, rhs: ServiceDescription) -> Bool {
-        lhs.serviceId == rhs.serviceId
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(serviceId)
-    }
-}
+extension ServiceDescription: Hashable {}

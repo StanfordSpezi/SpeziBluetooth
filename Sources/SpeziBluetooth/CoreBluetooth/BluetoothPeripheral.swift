@@ -65,6 +65,7 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
 
     private weak var manager: BluetoothManager?
     private let peripheral: CBPeripheral
+    private let configuration: DeviceDescription
 
     private let delegate: Delegate
     private let stateObserver: KVOStateObserver<BluetoothPeripheral>
@@ -104,15 +105,14 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
     }
 
     /// The name of the peripheral.
+    ///
+    /// Returns the name reported through the Generic Access Profile, otherwise falls back to the local name.
     nonisolated public var name: String? {
         _storage.name
     }
 
-    // TODO: change access/default of accessory name
-    // TODO: provide access to detect if peripheral is no longer considered discovered!
 
-
-    // TODO: docs
+    /// The local name included in the advertisement.
     nonisolated public private(set) var localName: String? {
         get {
             _storage.localName
@@ -178,9 +178,13 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
         }
     }
 
-    // TODO: docs (and behavior!)
+    /// The last device activity.
+    ///
+    /// Returns the date of the last advertisement received from the device or the point in time the device disconnected.
+    /// Returns `now` if the device is currently connected.
     nonisolated public private(set) var lastActivity: Date {
         get {
+            // TODO: how does this react to LONG connecting states? generally we need to think of us treating connecting essentially as connected!
             if case .disconnected = peripheral.state {
                 _storage.lastActivity
             } else {
@@ -193,8 +197,12 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
         }
     }
 
-    // TODO: docs!
-    nonisolated public private(set) var discarded: Bool {
+    /// Indicates that the peripheral was discarded.
+    ///
+    /// For devices that were found through nearby device search, this property indicates that the device was discarded
+    /// as it was considered stale and no new advertisement was received. This also happens when such a devices disconnects and no new
+    /// advertisement is received.
+    nonisolated public private(set) var discarded: Bool { // TODO: revise docs for retrieved peripherals
         get {
             _storage.discarded
         }
@@ -207,6 +215,7 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
     init(
         manager: BluetoothManager,
         peripheral: CBPeripheral,
+        configuration: DeviceDescription,
         advertisementData: AdvertisementData,
         rssi: Int
     ) {
@@ -214,6 +223,7 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
 
         self.manager = manager
         self.peripheral = peripheral
+        self.configuration = configuration
 
         self._storage = PeripheralStorage(
             peripheralName: peripheral.name,
@@ -295,10 +305,8 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
         _storage.onChange(of: keyPath, perform: closure)
     }
 
-    func handleConnect(consider configuredDevices: Set<DeviceDescription>) {
-        // TODO: store discovery description within device?
-        if let description = configuredDevices.find(for: advertisementData, logger: logger),
-           let services = description.services {
+    func handleConnect() {
+        if let services = configuration.services {
             requestedCharacteristics = services.reduce(into: [CBUUID: Set<CharacteristicDescription>?]()) { result, configuration in
                 if let characteristics = configuration.characteristics {
                     result[configuration.serviceId, default: []]?.formUnion(characteristics)
@@ -353,6 +361,9 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
     }
 
     func handleDiscarded() {
+        guard !discarded else {
+            return
+        }
         isolatedUpdate(of: \.discarded, true)
     }
 
@@ -670,6 +681,23 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
     private func isolatedUpdate<Value>(of keyPath: WritableKeyPath<BluetoothPeripheral, Value>, _ value: Value) {
         var peripheral = self
         peripheral[keyPath: keyPath] = value
+    }
+
+    deinit {
+        if !_storage.discarded { // make sure peripheral gets discarded
+            _storage.update(discarded: true) // TODO: test that this works for retrieved peripherals!
+        }
+
+
+        guard let manager else {
+            self.logger.warning("Orphaned device \(self.id), \(self.name ?? "unnamed") was deinitialized")
+            return
+        }
+
+        let id = id
+        Task { @SpeziBluetooth in
+            await manager.handlePeripheralDeinit(id: id)
+        }
     }
 }
 

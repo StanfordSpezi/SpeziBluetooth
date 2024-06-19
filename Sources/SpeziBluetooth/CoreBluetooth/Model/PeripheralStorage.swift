@@ -62,7 +62,11 @@ final class PeripheralStorage: ValueObservable {
         }
     }
 
-    @ObservationIgnored var lastActivity: Date // TODO: this needs to be observed now !
+    private(set) var lastActivity: Date {
+        didSet {
+            _$simpleRegistrar.triggerDidChange(for: \.lastActivity, on: self)
+        }
+    }
 
     // swiftlint:disable:next identifier_name
     @ObservationIgnored var _$simpleRegistrar = ValueObservationRegistrar<PeripheralStorage>()

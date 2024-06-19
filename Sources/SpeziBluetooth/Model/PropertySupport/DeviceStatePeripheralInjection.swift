@@ -12,10 +12,14 @@ import Foundation
 actor DeviceStatePeripheralInjection<Value>: BluetoothActor {
     let bluetoothQueue: DispatchSerialQueue
 
-    let peripheral: BluetoothPeripheral
+    private let peripheral: BluetoothPeripheral
     private let accessKeyPath: KeyPath<BluetoothPeripheral, Value>
     private let observationKeyPath: KeyPath<PeripheralStorage, Value>?
     private var onChangeClosure: ChangeClosureState<Value>
+
+    nonisolated var value: Value {
+        peripheral[keyPath: accessKeyPath]
+    }
 
 
     init(peripheral: BluetoothPeripheral, keyPath: KeyPath<BluetoothPeripheral, Value>, onChangeClosure: OnChangeClosure<Value>?) {
@@ -98,6 +102,7 @@ actor DeviceStatePeripheralInjection<Value>: BluetoothActor {
 
 
 extension KeyPath where Root == BluetoothPeripheral {
+    // swiftlint:disable:next cyclomatic_complexity
     func storageEquivalent() -> KeyPath<PeripheralStorage, Value>? {
         let anyKeyPath: AnyKeyPath? = switch self {
         case \.name:
