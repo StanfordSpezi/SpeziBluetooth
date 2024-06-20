@@ -300,9 +300,12 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
     }
 
 
+    // TODO: docs: weak reference semantics!
     public func retrievePeripheral(for uuid: UUID, with description: DeviceDescription = DeviceDescription()) async -> BluetoothPeripheral? {
         // TODO: only works if state is powered on => await poweredOn!
-        await awaitCentralPoweredOn() // TODO: how to notify other modules of that event?
+
+        // TODO: how should API users generally await for poweredOn state? => Module Events?
+        await awaitCentralPoweredOn()
 
         guard case .poweredOn = centralManager.state else {
             logger.warning("Cannot retrieve peripheral with id \(uuid) while central is not powered on \(self.state)")

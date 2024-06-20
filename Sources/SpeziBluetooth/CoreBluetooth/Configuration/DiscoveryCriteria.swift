@@ -68,7 +68,7 @@ extension DiscoveryCriteria {
     /// - Parameter service: The service type.
     /// - Returns: A ``DiscoveryCriteria/advertisedService(_:)-swift.enum.case`` criteria.
     public static func advertisedService<Service: BluetoothService>(_ service: Service.Type) -> DiscoveryCriteria {
-        .advertisedService(Service.id)
+        .advertisedService(service.id)
     }
 }
 
@@ -88,8 +88,8 @@ extension DiscoveryCriteria {
     ///   - manufacturer: The Bluetooth SIG-assigned manufacturer identifier.
     ///   - service: The service type.
     /// - Returns: A ``DiscoveryCriteria/accessory(manufacturer:advertising:)-swift.enum.case`` criteria.
-    public static func accessory<Service: BluetoothService>(manufacturer: ManufacturerIdentifier, advertising service: Service) -> DiscoveryCriteria {
-        .accessory(manufacturer: manufacturer, advertising: Service.id)
+    public static func accessory<Service: BluetoothService>(manufacturer: ManufacturerIdentifier, advertising service: Service.Type) -> DiscoveryCriteria {
+        .accessory(manufacturer: manufacturer, advertising: service.id)
     }
 }
 
