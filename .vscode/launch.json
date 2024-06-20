@@ -1,0 +1,28 @@
+{
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "sourceLanguages": [
+                "swift"
+            ],
+            "args": [],
+            "cwd": "${workspaceFolder:SpeziBluetooth}",
+            "name": "Debug TestPeripheral",
+            "program": "${workspaceFolder:SpeziBluetooth}/.build/debug/TestPeripheral",
+            "preLaunchTask": "swift: Build Debug TestPeripheral"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "sourceLanguages": [
+                "swift"
+            ],
+            "args": [],
+            "cwd": "${workspaceFolder:SpeziBluetooth}",
+            "name": "Release TestPeripheral",
+            "program": "${workspaceFolder:SpeziBluetooth}/.build/release/TestPeripheral",
+            "preLaunchTask": "swift: Build Release TestPeripheral"
+        }
+    ]
+}
