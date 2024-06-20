@@ -276,7 +276,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
 
         let discovery = ClosureRegistrar.$writeableView.withValue(.init()) {
             // we provide a closure registrar just to silence any out-of-band usage warnings!
-            configuration.parseDeviceDescription() // TODO: rename!
+            configuration.parseDiscoveryDescription() // TODO: rename!
         }
 
         let bluetoothManager = BluetoothManager(
@@ -414,7 +414,14 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
 
     public func retrievePeripheral<Device: BluetoothDevice>(for uuid: UUID, as device: Device.Type = Device.self) async -> Device? {
         // TODO: this doesn't really need isolation?
-        guard let peripheral = await bluetoothManager.retrievePeripheral(for: uuid) else {
+        let configuration = ClosureRegistrar.$writeableView.withValue(.init()) {
+            // we provide a closure registrar just to silence any out-of-band usage warnings!
+            device.parseDeviceDescription()
+
+            // TODO: we could just save the device?
+        }
+
+        guard let peripheral = await bluetoothManager.retrievePeripheral(for: uuid, with: configuration) else {
             return nil
         }
 
@@ -430,6 +437,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
 
         observePeripheralState(of: uuid) // register \.state onChange closure
 
+        // TODO: spezi currently only allows one module of a type!!!!
         spezi.loadModule(device)
         handlePeripheralStateChange()
 

@@ -301,7 +301,7 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
 
 
     // TODO: docs: weak reference semantics!
-    public func retrievePeripheral(for uuid: UUID, with description: DeviceDescription = DeviceDescription()) async -> BluetoothPeripheral? {
+    public func retrievePeripheral(for uuid: UUID, with description: DeviceDescription) async -> BluetoothPeripheral? {
         // TODO: only works if state is powered on => await poweredOn!
 
         // TODO: how should API users generally await for poweredOn state? => Module Events?
