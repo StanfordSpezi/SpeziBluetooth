@@ -71,7 +71,7 @@ import OSLog
 /// - ``stopScanning()``
 public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable:this type_body_length
     @Observable
-    class ObservableStorage: ValueObservable {
+    final class ObservableStorage: ValueObservable {
         var state: BluetoothState = .unknown {
             didSet {
                 _$simpleRegistrar.triggerDidChange(for: \.state, on: self)
