@@ -88,7 +88,10 @@ extension DiscoveryCriteria {
     ///   - manufacturer: The Bluetooth SIG-assigned manufacturer identifier.
     ///   - service: The service type.
     /// - Returns: A ``DiscoveryCriteria/accessory(manufacturer:advertising:)-swift.enum.case`` criteria.
-    public static func accessory<Service: BluetoothService>(manufacturer: ManufacturerIdentifier, advertising service: Service.Type) -> DiscoveryCriteria {
+    public static func accessory<Service: BluetoothService>(
+        manufacturer: ManufacturerIdentifier,
+        advertising service: Service.Type
+    ) -> DiscoveryCriteria {
         .accessory(manufacturer: manufacturer, advertising: service.id)
     }
 }
