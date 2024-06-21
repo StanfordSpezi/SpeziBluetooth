@@ -327,7 +327,7 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
             manager: self,
             peripheral: peripheral,
             configuration: description,
-            advertisementData: .init(advertisementData: [:]), // there was no advertisement
+            advertisementData: .init([:]), // there was no advertisement
             rssi: 127 // value of 127 signifies unavailability of RSSI value
         )
 
@@ -746,7 +746,7 @@ extension BluetoothManager {
                         return // logging this would just be to verbose, so we don't.
                     }
 
-                    let data = AdvertisementData(advertisementData: advertisementData)
+                    let data = AdvertisementData(advertisementData)
 
 
                     // check if we already seen this device!
