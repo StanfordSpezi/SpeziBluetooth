@@ -210,7 +210,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
     /// The Bluetooth device configuration.
     ///
     /// Set of configured ``BluetoothDevice`` with their corresponding ``DiscoveryCriteria``.
-    public let configuration: Set<DeviceDiscoveryDescriptor>
+    public nonisolated let configuration: Set<DeviceDiscoveryDescriptor>
 
     private let _storage = Storage()
 
