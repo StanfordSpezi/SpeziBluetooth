@@ -10,16 +10,21 @@
 /// Describes how to discover a given `BluetoothDevice`.
 ///
 /// Provides a strategy on how to discovery given ``BluetoothDevice`` device type.
-public struct DeviceDiscoveryDescriptor: Sendable {
-    let discoveryCriteria: DiscoveryCriteria
-    let anyDeviceType: any BluetoothDevice.Type
+public struct DeviceDiscoveryDescriptor {
+    /// The criteria by which we identify a discovered device.
+    public let discoveryCriteria: DiscoveryCriteria
+    /// The associated device type.
+    public let deviceType: any BluetoothDevice.Type
 
 
-    init(discoveryCriteria: DiscoveryCriteria, anyDeviceType: any BluetoothDevice.Type) {
+    init(discoveryCriteria: DiscoveryCriteria, deviceType: any BluetoothDevice.Type) {
         self.discoveryCriteria = discoveryCriteria
-        self.anyDeviceType = anyDeviceType
+        self.deviceType = deviceType
     }
 }
+
+
+extension DeviceDiscoveryDescriptor: Sendable {}
 
 
 extension DeviceDiscoveryDescriptor: Identifiable {

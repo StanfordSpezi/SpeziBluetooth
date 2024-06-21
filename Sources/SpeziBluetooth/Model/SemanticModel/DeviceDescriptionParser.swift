@@ -42,7 +42,7 @@ extension BluetoothDevice {
 
 extension DeviceDiscoveryDescriptor {
     func parseDiscoveryDescription() -> DiscoveryDescription {
-        let deviceDescription = anyDeviceType.parseDeviceDescription()
+        let deviceDescription = deviceType.parseDeviceDescription()
         return DiscoveryDescription(discoverBy: discoveryCriteria, device: deviceDescription)
     }
 }
@@ -51,7 +51,7 @@ extension DeviceDiscoveryDescriptor {
 extension Set where Element == DeviceDiscoveryDescriptor {
     var deviceTypes: [any BluetoothDevice.Type] {
         map { configuration in
-            configuration.anyDeviceType
+            configuration.deviceType
         }
     }
 

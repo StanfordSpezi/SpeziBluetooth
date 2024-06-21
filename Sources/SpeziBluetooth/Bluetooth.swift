@@ -206,7 +206,11 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
     let bluetoothQueue: DispatchSerialQueue
 
     private let bluetoothManager: BluetoothManager
-    private let deviceConfigurations: Set<DeviceDiscoveryDescriptor>
+
+    /// The Bluetooth device configuration.
+    ///
+    /// Set of configured ``BluetoothDevice`` with their corresponding ``DiscoveryCriteria``.
+    public let configuration: Set<DeviceDiscoveryDescriptor>
 
     private let _storage = Storage()
 
@@ -287,7 +291,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
 
         self.bluetoothQueue = bluetoothManager.bluetoothQueue
         self.bluetoothManager = bluetoothManager
-        self.deviceConfigurations = configuration
+        self.configuration = configuration
         self._devicesInjector = Modifier(wrappedValue: ConnectedDevicesEnvironmentModifier(configuredDeviceTypes: deviceTypes))
 
         Task {
@@ -353,7 +357,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
         // add devices for new keys
         for (uuid, peripheral) in discoveredDevices where nearbyDevices[uuid] == nil {
             let advertisementData = peripheral.advertisementData
-            guard let configuration = deviceConfigurations.find(for: advertisementData, logger: logger) else {
+            guard let configuration = configuration.find(for: advertisementData, logger: logger) else {
                 logger.warning("Ignoring peripheral \(peripheral.debugDescription) that cannot be mapped to a device class.")
                 continue
             }
@@ -361,7 +365,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
 
             let closures = ClosureRegistrar()
             let device = ClosureRegistrar.$writeableView.withValue(closures) {
-                configuration.anyDeviceType.init()
+                configuration.deviceType.init()
             }
             ClosureRegistrar.$readableView.withValue(closures) {
                 device.inject(peripheral: peripheral)
