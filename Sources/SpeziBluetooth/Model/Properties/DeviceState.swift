@@ -159,7 +159,7 @@ extension DeviceState {
         case \.state:
             PeripheralState.disconnected
         case \.advertisementData:
-            AdvertisementData(advertisementData: [:])
+            AdvertisementData([:])
         case \.rssi:
             Int(UInt8.max)
         case \.services:
