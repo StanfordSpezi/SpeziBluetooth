@@ -22,9 +22,7 @@ let package = Package(
         .macOS(.v14)
     ],
     products: [
-        // TODO: re-evaluate naming: SpeziBluetoothUI, SpeziBluetoothServices
-        .library(name: "BluetoothServices", targets: ["BluetoothServices"]),
-        .library(name: "BluetoothViews", targets: ["BluetoothViews"]),
+        .library(name: "SpeziBluetoothServices", targets: ["SpeziBluetoothServices"]),
         .library(name: "SpeziBluetooth", targets: ["SpeziBluetooth"])
     ],
     dependencies: [
@@ -52,7 +50,7 @@ let package = Package(
             plugins: [swiftLintPlugin]
         ),
         .target(
-            name: "BluetoothServices",
+            name: "SpeziBluetoothServices",
             dependencies: [
                 .target(name: "SpeziBluetooth"),
                 .product(name: "ByteCoding", package: "SpeziNetworking"),
@@ -60,19 +58,11 @@ let package = Package(
             ],
             plugins: [swiftLintPlugin]
         ),
-        .target(
-            name: "BluetoothViews",
-            dependencies: [
-                .target(name: "SpeziBluetooth"),
-                .product(name: "SpeziViews", package: "SpeziViews")
-            ],
-            plugins: [swiftLintPlugin]
-        ),
         .executableTarget(
             name: "TestPeripheral",
             dependencies: [
                 .target(name: "SpeziBluetooth"),
-                .target(name: "BluetoothServices"),
+                .target(name: "SpeziBluetoothServices"),
                 .product(name: "ByteCoding", package: "SpeziNetworking")
             ],
             plugins: [swiftLintPlugin]
@@ -80,7 +70,7 @@ let package = Package(
         .testTarget(
             name: "BluetoothServicesTests",
             dependencies: [
-                .target(name: "BluetoothServices"),
+                .target(name: "SpeziBluetoothServices"),
                 .target(name: "SpeziBluetooth"),
                 .product(name: "XCTByteCoding", package: "SpeziNetworking"),
                 .product(name: "NIO", package: "swift-nio")
