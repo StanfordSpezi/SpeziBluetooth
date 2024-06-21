@@ -412,6 +412,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
     }
 
 
+    // TODO: rename to something like "makePersistentDevice" or "withPersistentDevice" => communicates that you need to manually close device!
     public func retrievePeripheral<Device: BluetoothDevice>(for uuid: UUID, as device: Device.Type = Device.self) async -> Device? {
         // TODO: this doesn't really need isolation?
         let configuration = ClosureRegistrar.$writeableView.withValue(.init()) {
