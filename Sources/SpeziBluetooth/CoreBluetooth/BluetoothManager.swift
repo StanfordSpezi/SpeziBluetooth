@@ -116,11 +116,9 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
         get {
             _storage.discoveredPeripherals
         }
-        /* TODO: reenable!
         _modify {
             yield &_storage.discoveredPeripherals
         }
-    */
         set {
             _storage.discoveredPeripherals = newValue
         }
@@ -130,7 +128,9 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
         get {
             _storage.retrievedPeripherals
         }
-        // TODO: support modify?
+        _modify {
+            yield &_storage.retrievedPeripherals
+        }
         set {
             _storage.retrievedPeripherals = newValue
         }
@@ -582,7 +582,7 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
 
         state = .unknown
         _storage.discoveredPeripherals = [:]
-        // TODO: also reset retrieve peripherals? doesn't make a difference!
+        _storage.retrievedPeripherals = [:]
         centralDelegate = nil
 
         logger.debug("BluetoothManager destroyed")
@@ -646,9 +646,14 @@ extension BluetoothManager: BluetoothScanner {
         // We make sure to loop over all peripherals here. This ensures observability subscribes to all changing states.
         // swiftlint:disable:next reduce_boolean
         _storage.discoveredPeripherals.values.reduce(into: false) { partialResult, peripheral in
-            // TODO: also consider retrieved peripherals?
             partialResult = partialResult || (peripheral.unsafeState.state != .disconnected)
-        }
+        } || _storage.retrievedPeripherals.values.reduce(into: false, { partialResult, reference in
+            // swiftlint:disable:previous reduce_boolean
+            // TODO: observation of weak reference, does that work?
+            if let peripheral = reference.value {
+                partialResult = partialResult || (peripheral.unsafeState.state != .disconnected)
+            }
+        })
     }
 }
 

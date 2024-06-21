@@ -22,7 +22,6 @@ public enum DiscoveryCriteria: Sendable {
     case advertisedService(_ uuid: CBUUID)
     /// Identify a device by its manufacturer and advertised service.
     case accessory(manufacturer: ManufacturerIdentifier, advertising: CBUUID)
-    // TODO: research accessory setup kit, is "name" required?
 
 
     var discoveryId: CBUUID {

@@ -184,12 +184,11 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
     /// Returns `now` if the device is currently connected.
     nonisolated public private(set) var lastActivity: Date {
         get {
-            // TODO: how does this react to LONG connecting states? generally we need to think of us treating connecting essentially as connected!
-            if case .disconnected = peripheral.state {
-                _storage.lastActivity
-            } else {
+            if case .connected = state {
                 // we are currently connected or connecting/disconnecting, therefore last activity is defined as "now"
                 .now
+            } else {
+                _storage.lastActivity
             }
         }
         set {

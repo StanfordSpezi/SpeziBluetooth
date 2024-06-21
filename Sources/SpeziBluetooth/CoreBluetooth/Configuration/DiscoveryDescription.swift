@@ -26,7 +26,6 @@ public struct DiscoveryDescription {
     ///   - services: The set of service configurations we expect from the device.
     ///     Use `nil` to discover all services.
     public init(discoverBy discoveryCriteria: DiscoveryCriteria, device: DeviceDescription) {
-        // swiftlint:disable:previous discouraged_optional_collection
         self.discoveryCriteria = discoveryCriteria
         self.device = device
     }

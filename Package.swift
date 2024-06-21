@@ -22,6 +22,7 @@ let package = Package(
         .macOS(.v14)
     ],
     products: [
+        // TODO: re-evaluate naming: SpeziBluetoothUI, SpeziBluetoothServices
         .library(name: "BluetoothServices", targets: ["BluetoothServices"]),
         .library(name: "BluetoothViews", targets: ["BluetoothViews"]),
         .library(name: "SpeziBluetooth", targets: ["SpeziBluetooth"])
