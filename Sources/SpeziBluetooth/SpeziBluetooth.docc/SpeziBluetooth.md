@@ -136,9 +136,10 @@ class ExampleDelegate: SpeziAppDelegate {
 Once you have the `Bluetooth` module configured within your Spezi app, you can access the module within your
 [`Environment`](https://developer.apple.com/documentation/swiftui/environment).
 
-You can use the ``SwiftUI/View/scanNearbyDevices(enabled:with:autoConnect:)`` and ``SwiftUI/View/autoConnect(enabled:with:)``
+You can use the ``SwiftUI/View/scanNearbyDevices(enabled:with:minimumRSSI:advertisementStaleInterval:autoConnect:)``
+and ``SwiftUI/View/autoConnect(enabled:with:minimumRSSI:advertisementStaleInterval:)``
 modifiers to scan for nearby devices and/or auto connect to the first available device. Otherwise, you can also manually start and stop scanning for nearby devices
-using ``Bluetooth/scanNearbyDevices(autoConnect:)`` and ``Bluetooth/stopScanning()``.
+using ``Bluetooth/scanNearbyDevices(minimumRSSI:advertisementStaleInterval:autoConnect:)`` and ``Bluetooth/stopScanning()``.
 
 To retrieve the list of nearby devices you may use ``Bluetooth/nearbyDevices(for:)``.
 
@@ -249,8 +250,8 @@ due to their async nature.
 
 ### Discovering nearby devices
 
-- ``SwiftUI/View/scanNearbyDevices(enabled:with:autoConnect:)``
-- ``SwiftUI/View/autoConnect(enabled:with:)``
+- ``SwiftUI/View/scanNearbyDevices(enabled:with:minimumRSSI:advertisementStaleInterval:autoConnect:)``
+- ``SwiftUI/View/autoConnect(enabled:with:minimumRSSI:advertisementStaleInterval:)``
 
 ### Declaring a Bluetooth Device
 
@@ -271,6 +272,7 @@ due to their async nature.
 - ``PeripheralState``
 - ``BluetoothError``
 - ``AdvertisementData``
+- ``ManufacturerIdentifier``
 - ``WriteType``
 
 ### Configuring Core Bluetooth

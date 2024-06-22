@@ -45,12 +45,13 @@ import OSLog
 ///
 /// ### Searching for nearby devices
 ///
-/// You can scan for nearby devices using the ``scanNearbyDevices(autoConnect:)`` and stop scanning with ``stopScanning()``.
+/// You can scan for nearby devices using the ``scanNearbyDevices(discovery:minimumRSSI:advertisementStaleInterval:autoConnect:)`` and stop scanning with ``stopScanning()``.
 /// All discovered peripherals will be populated through the ``nearbyPeripherals`` properties.
 ///
 /// Refer to the documentation of ``BluetoothPeripheral`` on how to interact with a Bluetooth peripheral.
 ///
-/// - Tip: You can also use the ``SwiftUI/View/scanNearbyDevices(enabled:with:autoConnect:)`` and ``SwiftUI/View/autoConnect(enabled:with:)``
+/// - Tip: You can also use the ``SwiftUI/View/scanNearbyDevices(enabled:with:discovery:minimumRSSI:advertisementStaleInterval:autoConnect:)``
+///     and ``SwiftUI/View/autoConnect(enabled:with:discovery:minimumRSSI:advertisementStaleInterval:)``
 ///     modifiers within your SwiftUI view to automatically manage device scanning and/or auto connect to the
 ///     first available device.
 ///
@@ -58,7 +59,7 @@ import OSLog
 ///
 /// ### Create a Bluetooth Manager
 ///
-/// - ``init(devices:minimumRSSI:advertisementStaleInterval:)``
+/// - ``init()``
 ///
 /// ### Bluetooth State
 ///
@@ -68,7 +69,7 @@ import OSLog
 ///
 /// ### Discovering nearby Peripherals
 /// - ``nearbyPeripherals``
-/// - ``scanNearbyDevices(autoConnect:)``
+/// - ``scanNearbyDevices(discovery:minimumRSSI:advertisementStaleInterval:autoConnect:)``
 /// - ``stopScanning()``
 ///
 /// ### Retrieving known Peripherals
@@ -154,6 +155,25 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
         }
         set {
             isolatedStorage.retrievedPeripherals = newValue
+        }
+    }
+
+    /// The combined collection of `discoveredPeripherals` and `retrievedPeripherals`.
+    ///
+    /// Don't store this dictionary as this will accidentally reference retrieved peripherals strongly.
+    var knownPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> {
+        let keysAndValues = retrievedPeripherals.elements
+            .map { ($0, $1.value) }
+            .compactMap { id, value in
+                if let value {
+                    return (id, value)
+                }
+                return nil
+            }
+
+        return discoveredPeripherals.merging(keysAndValues) { lhs, rhs in
+            assertionFailure("Peripheral was present in both, discovered and retrieved set, lhs: \(lhs), rhs: \(rhs)")
+            return lhs
         }
     }
 

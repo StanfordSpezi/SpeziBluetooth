@@ -1,4 +1,4 @@
-# ``BluetoothServices``
+# ``SpeziBluetoothServices``
 
 Reusable Bluetooth Service and Characteristic implementations.
 

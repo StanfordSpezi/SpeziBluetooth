@@ -15,6 +15,8 @@ class ConnectedDevices {
     @MainActor private var connectedDevices: [ObjectIdentifier: any BluetoothDevice] = [:]
     @MainActor private var connectedDeviceIds: [ObjectIdentifier: UUID] = [:]
 
+    // TODO: provide access to the list of connected devices?
+
 
     @MainActor
     func update(with devices: [UUID: any BluetoothDevice]) {

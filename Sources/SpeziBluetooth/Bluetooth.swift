@@ -10,6 +10,9 @@ import OrderedCollections
 import OSLog
 import Spezi
 
+// TODO: re-generate docc bundle!
+// TODO: update code examples with scanNearbyDevices?
+
 
 /// Connect and communicate with Bluetooth devices using modern programming paradigms.
 ///
@@ -92,9 +95,10 @@ import Spezi
 /// Once you have the `Bluetooth` module configured within your Spezi app, you can access the module within your
 /// [`Environment`](https://developer.apple.com/documentation/swiftui/environment).
 ///
-/// You can use the ``SwiftUI/View/scanNearbyDevices(enabled:with:autoConnect:)`` and ``SwiftUI/View/autoConnect(enabled:with:)``
+/// You can use the ``SwiftUI/View/scanNearbyDevices(enabled:with:minimumRSSI:advertisementStaleInterval:autoConnect:)``
+///  and ``SwiftUI/View/autoConnect(enabled:with:minimumRSSI:advertisementStaleInterval:)``
 /// modifiers to scan for nearby devices and/or auto connect to the first available device. Otherwise, you can also manually start and stop scanning for nearby devices
-/// using ``scanNearbyDevices(autoConnect:)`` and ``stopScanning()``.
+/// using ``scanNearbyDevices(minimumRSSI:advertisementStaleInterval:autoConnect:)`` and ``stopScanning()``.
 ///
 /// To retrieve the list of nearby devices you may use ``nearbyDevices(for:)``.
 ///
@@ -184,7 +188,8 @@ import Spezi
 /// ## Topics
 ///
 /// ### Configure the Bluetooth Module
-/// - ``init(minimumRSSI:advertisementStaleInterval:_:)``
+/// - ``init(_:)``
+/// - ``configuration``
 ///
 /// ### Bluetooth State
 /// - ``state``
@@ -193,8 +198,12 @@ import Spezi
 ///
 /// ### Nearby Devices
 /// - ``nearbyDevices(for:)``
-/// - ``scanNearbyDevices(autoConnect:)``
+/// - ``scanNearbyDevices(minimumRSSI:advertisementStaleInterval:autoConnect:)``
 /// - ``stopScanning()``
+///
+/// ### Persistent Devices
+/// - ``makePersistentDevice(for:as:)``
+/// - ``makePersistentDevice(from:)``
 ///
 /// ### Manually Manage Powered State
 /// - ``powerOn()``
@@ -259,6 +268,12 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
             _storage.nearbyDevices = newValue
         }
     }
+
+    /// Nearby devices that should be retained as persistent devices.
+    ///
+    /// Devices that are currently in the list of nearby devices but shouldn't be cleared once they leave the nearby devices list as
+    /// they have been converted to a persistent device using ``makePersistentDevice(from:)``.
+    private var nearbyDevicesFlaggedForPersistence: Set<UUID> = []
 
     @Application(\.spezi)
     private var spezi
@@ -333,7 +348,6 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
     private func observeDiscoveredDevices() {
         self.assertIsolated("This didn't move to the actor even if it should.")
         bluetoothManager.assumeIsolated { manager in
-            // TODO: support retrievedPeripherals
             manager.onChange(of: \.discoveredPeripherals) { [weak self] discoveredDevices in
                 guard let self = self else {
                     return
@@ -345,6 +359,10 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
                     bluetooth.handleUpdatedNearbyDevicesChange(discoveredDevices)
                 }
             }
+
+            // we currently do not track the `retrievedPeripherals` collection of the BluetoothManager. The assumption is that
+            // `retrievePeripheral` is always called through the `Bluetooth` module so we are aware of everything anyways.
+            // And we don't care about the rest.
         }
     }
 
@@ -352,7 +370,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
         // We must make sure that we don't capture the `peripheral` within the `onChange` closure as otherwise
         // this would require a reference cycle within the `BluetoothPeripheral` class.
         // Therefore, we have this indirection via the uuid here.
-        guard let peripheral = bluetoothManager.assumeIsolated({ $0.discoveredPeripherals[uuid] }) else { // TODO: this might be a retrieved device!
+        guard let peripheral = bluetoothManager.assumeIsolated({ $0.knownPeripherals[uuid] }) else {
             return
         }
 
@@ -378,8 +396,8 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
             checkForConnected = true
             let device = nearbyDevices.removeValue(forKey: key)
 
-            if let device {
-                releaseDevice(device)
+            if let device, !nearbyDevicesFlaggedForPersistence.contains(key) {
+                releaseDevice(device, with: key)
             }
         }
 
@@ -405,11 +423,12 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
 
     private func handlePeripheralStateChange() {
         // check for active connected device
-        let connectedDevices = bluetoothManager.assumeIsolated { $0.discoveredPeripherals }
+        let connectedDevices = bluetoothManager.assumeIsolated { $0.knownPeripherals }
             .filter { _, value in
                 value.assumeIsolated { $0.state } == .connected
             }
             .compactMap { key, _ in
+                // TODO: we need a set of persistent devices!
                 (key, nearbyDevices[key]) // map them to their devices class
             }
             .reduce(into: [:]) { result, tuple in
@@ -440,12 +459,26 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
         for uuid: UUID,
         as device: Device.Type = Device.self
     ) async -> PersistentDevice<Device>? {
-        // TODO: forcing to have these devices known statically known in the configuration would be great!
+        if let anyNearbyDevice = nearbyDevices[uuid] {
+            guard let nearbyDevice = anyNearbyDevice as? Device else {
+                preconditionFailure("""
+                                    Tried to make persistent device for nearby device with differing types. \
+                                    Found \(type(of: anyNearbyDevice)), requested \(Device.self)
+                                    """)
+            }
+            return makePersistentDevice(from: nearbyDevice)
+        }
+
+        // This condition is fine, every device type that wants to be paired has to be discovered at least once.
+        // This helps also with building the `ConnectedDevices` statically and have the SwiftUI view hierarchy not re-rendered every time.
+        precondition(
+            configuration.contains(where: { $0.deviceType == device }),
+            "Tried to make persistent device for non-configured device class \(Device.self)"
+        )
+
         let configuration = ClosureRegistrar.$writeableView.withValue(.init()) {
             // we provide a closure registrar just to silence any out-of-band usage warnings!
             device.parseDeviceDescription()
-
-            // TODO: we could just save the device instance? (or just retrieve it from the stored ones?)
         }
 
         guard let peripheral = await bluetoothManager.retrievePeripheral(for: uuid, with: configuration) else {
@@ -454,9 +487,9 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
 
 
         let device = prepareDevice(Device.self, peripheral: peripheral)
-        // TODO: the connectable devices must be known beforehand for the ConnectedDevices modifier to not flicker!
 
-        // TODO: is that required?
+
+        observePeripheralState(of: uuid) // ensure we observe state changes of these devices!
         handlePeripheralStateChange() // ensure that we get notified about, e.g., a connected peripheral that is instantly removed
 
         // The semantics of retrievePeripheral is as follows: it returns a BluetoothPeripheral that is weakly allocated by the BluetoothManager.´
@@ -465,7 +498,19 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
         // deallocation. Therefore, we introduce this helper RAII structure `PersistentDevice` that equally moves into the ownership of the caller.
         // If they happen to release their reference, the deinit of the class is called informing the Bluetooth Module of de-initialization, allowing us
         // to clean up the underlying BluetoothDevice instance (removing all self references) and therefore allowing to deinit the underlying BluetoothPeripheral.
-        return PersistentDevice(self, device) // RAII
+        return PersistentDevice(self, device, uuid) // RAII
+    }
+
+    public func makePersistentDevice<Device: BluetoothDevice>(from device: Device) -> PersistentDevice<Device> { // TODO: docs
+        guard let (id, _) = nearbyDevices.first(where: { _, value in
+            ObjectIdentifier(value) == ObjectIdentifier(device)
+        }) else {
+            preconditionFailure("Tried to convert device to persistent device for a device we couldn't locate in the list of nearby devices.")
+        }
+
+        nearbyDevicesFlaggedForPersistence.insert(id)
+
+        return PersistentDevice(self, device, id)
     }
 
     /// Scan for nearby bluetooth devices.
@@ -551,7 +596,8 @@ extension Bluetooth {
         return device
     }
 
-    func releaseDevice(_ device: some BluetoothDevice) {
+    func releaseDevice(_ device: some BluetoothDevice, with id: UUID) {
+        nearbyDevicesFlaggedForPersistence.remove(id)
         device.clearState(isolatedTo: self)
         spezi.unloadModule(device)
     }

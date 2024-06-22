@@ -145,9 +145,10 @@ class ExampleDelegate: SpeziAppDelegate {
 Once you have the `Bluetooth` module configured within your Spezi app, you can access the module within your
 [`Environment`](https://developer.apple.com/documentation/swiftui/environment).
 
-You can use the [`scanNearbyDevices(enabled:with:autoConnect:)`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/swiftui/view/scanNearbyDevices(enabled:with:autoConnect:)) and [`autoConnect(enabled:with:)`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/swiftui/view/autoConnect(enabled:with:))
+You can use the [`scanNearbyDevices(enabled:with:minimumRSSI:advertisementStaleInterval:autoConnect:)`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/swiftui/view/scanNearbyDevices(enabled:with:minimumRSSI:advertisementStaleInterval:autoConnect:))
+and [`autoConnect(enabled:with:minimumRSSI:advertisementStaleInterval:)`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/swiftui/view/autoConnect(enabled:with:minimumRSSI:advertisementStaleInterval:))
 modifiers to scan for nearby devices and/or auto connect to the first available device. Otherwise, you can also manually start and stop scanning for nearby devices
-using [`scanNearbyDevices(autoConnect:)`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth/scanNearbyDevices(autoConnect:)) and [`stopScanning()`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth/stopScanning()).
+using [`scanNearbyDevices(minimumRSSI:advertisementStaleInterval:autoConnect:)`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth/scanNearbyDevices(minimumRSSI:advertisementStaleInterval:autoConnect:)) and [`stopScanning()`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth/stopScanning()).
 
 To retrieve the list of nearby devices you may use [`nearbyDevices(for:)`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth/nearbyDevices(for:)).
 
