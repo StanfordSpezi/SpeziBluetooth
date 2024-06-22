@@ -189,11 +189,16 @@ import Spezi
 /// ### Bluetooth State
 /// - ``state``
 /// - ``isScanning``
+/// - ``stateSubscription``
 ///
 /// ### Nearby Devices
 /// - ``nearbyDevices(for:)``
 /// - ``scanNearbyDevices(autoConnect:)``
 /// - ``stopScanning()``
+///
+/// ### Manually Manage Powered State
+/// - ``powerOn()``
+/// - ``powerOff()``
 public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
     @Observable
     class Storage {
@@ -223,6 +228,15 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
     /// Represents the current state of Bluetooth.
     nonisolated public var state: BluetoothState {
         bluetoothManager.state
+    }
+
+    /// Subscribe to changes of the `state` property.
+    ///
+    /// Creates an `AsyncStream` that yields all **future** changes to the ``state`` property.
+    public var stateSubscription: AsyncStream<BluetoothState> {
+        bluetoothManager.assumeIsolated { manager in
+            manager.stateSubscription
+        }
     }
 
     /// Whether or not we are currently scanning for nearby devices.
@@ -265,7 +279,9 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
     ///     Discover(ExampleDevice.self, by: .advertisedService(MyExampleService.self))
     /// }
     /// ```
-    public init( // TODO: docs devices
+    ///
+    /// - Parameter devices: The set of configured devices.
+    public init(
         @DiscoveryDescriptorBuilder _ devices: @Sendable () -> Set<DeviceDiscoveryDescriptor>
     ) {
         let configuration = devices()
@@ -273,7 +289,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
 
         let discovery = ClosureRegistrar.$writeableView.withValue(.init()) {
             // we provide a closure registrar just to silence any out-of-band usage warnings!
-            configuration.parseDiscoveryDescription() // TODO: rename!
+            configuration.parseDiscoveryDescription()
         }
 
         let bluetoothManager = BluetoothManager()
@@ -286,6 +302,31 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
 
         Task {
             await self.observeDiscoveredDevices()
+        }
+    }
+
+    /// Request to power up the Bluetooth Central.
+    ///
+    /// This method manually instantiates the underlying Central Manager and ensure that it stays allocated.
+    /// Balance this call with a call to ``powerOff()``.
+    ///
+    /// - Note : The underlying `CBCentralManager` is lazily allocated and deallocated once it isn't needed anymore.
+    ///     This is used to delay Bluetooth permission prompts to the latest possible moment avoiding to unexpectedly display power alerts.
+    public func powerOn() {
+        bluetoothManager.assumeIsolated { manager in
+            manager.powerOn()
+        }
+    }
+
+    /// Request to power down the Bluetooth Central.
+    ///
+    /// This method request to power off the central. This is delay if the central is still used (e.g., currently scanning or connected peripherals).
+    ///
+    /// - Note : The underlying `CBCentralManager` is lazily allocated and deallocated once it isn't needed anymore.
+    ///     This is used to delay Bluetooth permission prompts to the latest possible moment avoiding to unexpectedly display power alerts.
+    public func powerOff() {
+        bluetoothManager.assumeIsolated { manager in
+            manager.powerOff()
         }
     }
 
@@ -311,7 +352,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
         // We must make sure that we don't capture the `peripheral` within the `onChange` closure as otherwise
         // this would require a reference cycle within the `BluetoothPeripheral` class.
         // Therefore, we have this indirection via the uuid here.
-        guard let peripheral = bluetoothManager.assumeIsolated({ $0.discoveredPeripherals[uuid] }) else {
+        guard let peripheral = bluetoothManager.assumeIsolated({ $0.discoveredPeripherals[uuid] }) else { // TODO: this might be a retrieved device!
             return
         }
 
@@ -337,10 +378,8 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
             checkForConnected = true
             let device = nearbyDevices.removeValue(forKey: key)
 
-            // TODO: make everything weak and uninject everything once the BluetoothPeripheral itself is deinited?
-            if let device { // TODO: refactor out!
-                device.clearState(isolatedTo: self)
-                spezi.unloadModule(device)
+            if let device {
+                releaseDevice(device)
             }
         }
 
@@ -352,20 +391,10 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
                 continue
             }
 
-
-            let closures = ClosureRegistrar()
-            let device = ClosureRegistrar.$writeableView.withValue(closures) {
-                configuration.deviceType.init()
-            }
-            ClosureRegistrar.$readableView.withValue(closures) {
-                device.inject(peripheral: peripheral)
-                nearbyDevices[uuid] = device
-            }
+            let device = prepareDevice(configuration.deviceType, peripheral: peripheral)
+            nearbyDevices[uuid] = device
 
             checkForConnected = true
-            observePeripheralState(of: uuid) // register \.state onChange closure
-
-            spezi.loadModule(device)
         }
 
         if checkForConnected {
@@ -406,14 +435,17 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
     }
 
 
-    // TODO: rename to something like "makePersistentDevice" or "withPersistentDevice" => communicates that you need to manually close device!
-    public func retrievePeripheral<Device: BluetoothDevice>(for uuid: UUID, as device: Device.Type = Device.self) async -> Device? {
-        // TODO: this doesn't really need isolation?
+    // TODO: docs
+    public func makePersistentDevice<Device: BluetoothDevice>(
+        for uuid: UUID,
+        as device: Device.Type = Device.self
+    ) async -> PersistentDevice<Device>? {
+        // TODO: forcing to have these devices known statically known in the configuration would be great!
         let configuration = ClosureRegistrar.$writeableView.withValue(.init()) {
             // we provide a closure registrar just to silence any out-of-band usage warnings!
             device.parseDeviceDescription()
 
-            // TODO: we could just save the device?
+            // TODO: we could just save the device instance? (or just retrieve it from the stored ones?)
         }
 
         guard let peripheral = await bluetoothManager.retrievePeripheral(for: uuid, with: configuration) else {
@@ -421,26 +453,19 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
         }
 
 
-        let closures = ClosureRegistrar() // TODO: code duplication!!
-        let device = ClosureRegistrar.$writeableView.withValue(closures) {
-            Device()
-        }
-        ClosureRegistrar.$readableView.withValue(closures) {
-            device.inject(peripheral: peripheral)
-            // TODO: nearbyDevices[uuid] = device
-        }
+        let device = prepareDevice(Device.self, peripheral: peripheral)
+        // TODO: the connectable devices must be known beforehand for the ConnectedDevices modifier to not flicker!
 
-        observePeripheralState(of: uuid) // register \.state onChange closure
+        // TODO: is that required?
+        handlePeripheralStateChange() // ensure that we get notified about, e.g., a connected peripheral that is instantly removed
 
-        spezi.loadModule(device) // TODO: spezi currently only allows one module of a type!!!!
-        handlePeripheralStateChange()
-
-        // TODO: we need to store them int he discoveredPeripherals to properly forward delegate methods!!!
-        // TODO: however, can we store them weak? => use deinit of the Device object to clean it up once the peripheral looses reference?
-        // TODO: we are also not hooking this thing up into the Bluetooth module system!
-
-        // TODO: this will instantly deinit now!!! BluetoothDevice has weak-only references now?
-        return device
+        // The semantics of retrievePeripheral is as follows: it returns a BluetoothPeripheral that is weakly allocated by the BluetoothManager.´
+        // Therefore, the BluetoothPeripheral is owned by the caller and is automatically deallocated if the caller decides to not require the instance anymore.
+        // We want to replicate this behavior with the Bluetooth Module as well, however `BluetoothDevice`s do have reference cycles and require explicit
+        // deallocation. Therefore, we introduce this helper RAII structure `PersistentDevice` that equally moves into the ownership of the caller.
+        // If they happen to release their reference, the deinit of the class is called informing the Bluetooth Module of de-initialization, allowing us
+        // to clean up the underlying BluetoothDevice instance (removing all self references) and therefore allowing to deinit the underlying BluetoothPeripheral.
+        return PersistentDevice(self, device) // RAII
     }
 
     /// Scan for nearby bluetooth devices.
@@ -504,6 +529,31 @@ extension Bluetooth: BluetoothScanner {
         bluetoothManager.assumeIsolated { manager in
             manager.updateScanningState(managerState)
         }
+    }
+}
+
+// MARK: - Device Handling
+
+extension Bluetooth {
+    func prepareDevice<Device: BluetoothDevice>(_ device: Device.Type, peripheral: BluetoothPeripheral) -> Device {
+        let closures = ClosureRegistrar()
+        let device = ClosureRegistrar.$writeableView.withValue(closures) {
+            device.init()
+        }
+        ClosureRegistrar.$readableView.withValue(closures) {
+            device.inject(peripheral: peripheral)
+        }
+
+        observePeripheralState(of: peripheral.id) // register \.state onChange closure
+
+        spezi.loadModule(device) // TODO: spezi currently only allows one module of a type!!!!
+
+        return device
+    }
+
+    func releaseDevice(_ device: some BluetoothDevice) {
+        device.clearState(isolatedTo: self)
+        spezi.unloadModule(device)
     }
 }
 

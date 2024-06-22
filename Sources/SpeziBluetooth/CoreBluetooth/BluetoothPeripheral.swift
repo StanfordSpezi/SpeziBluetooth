@@ -201,7 +201,7 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
     /// For devices that were found through nearby device search, this property indicates that the device was discarded
     /// as it was considered stale and no new advertisement was received. This also happens when such a devices disconnects and no new
     /// advertisement is received.
-    nonisolated public private(set) var discarded: Bool { // TODO: revise docs for retrieved peripherals
+    nonisolated public private(set) var discarded: Bool {
         get {
             _storage.discarded
         }
@@ -320,6 +320,9 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
 
         // ensure that it is updated instantly.
         self.isolatedUpdate(of: \.state, PeripheralState(from: peripheral.state))
+        if discarded {
+            self.isolatedUpdate(of: \.discarded, false)
+        }
 
         logger.debug("Discovering services for \(self.peripheral.debugIdentifier) ...")
         let services = requestedCharacteristics.map { Array($0.keys) }
@@ -360,9 +363,6 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
     }
 
     func handleDiscarded() {
-        guard !discarded else {
-            return
-        }
         isolatedUpdate(of: \.discarded, true)
     }
 
@@ -684,12 +684,13 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
 
     deinit {
         if !_storage.discarded { // make sure peripheral gets discarded
+            self.logger.debug("Discarding de-initialized peripheral \(self.id), \(self.name ?? "unnamed")")
             _storage.update(discarded: true) // TODO: test that this works for retrieved peripherals!
         }
 
 
         guard let manager else {
-            self.logger.warning("Orphaned device \(self.id), \(self.name ?? "unnamed") was deinitialized")
+            self.logger.warning("Orphaned device \(self.id), \(self.name ?? "unnamed") was de-initialized")
             return
         }
 
