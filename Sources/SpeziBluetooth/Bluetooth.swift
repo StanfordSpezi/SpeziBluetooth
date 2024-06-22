@@ -194,7 +194,7 @@ import Spezi
 /// - ``nearbyDevices(for:)``
 /// - ``scanNearbyDevices(autoConnect:)``
 /// - ``stopScanning()``
-public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, BluetoothActor {
+public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
     @Observable
     class Storage {
         var nearbyDevices: OrderedDictionary<UUID, any BluetoothDevice> = [:]
@@ -211,6 +211,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
     ///
     /// Set of configured ``BluetoothDevice`` with their corresponding ``DiscoveryCriteria``.
     public nonisolated let configuration: Set<DeviceDiscoveryDescriptor>
+    private let discoveryConfiguration: Set<DiscoveryDescription>
 
     private let _storage = Storage()
 
@@ -264,15 +265,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
     ///     Discover(ExampleDevice.self, by: .advertisedService(MyExampleService.self))
     /// }
     /// ```
-    ///
-    /// - Parameters:
-    ///   - minimumRSSI: The minimum rssi a nearby peripheral must have to be considered nearby.
-    ///   - advertisementStaleInterval: The time interval after which a peripheral advertisement is considered stale
-    ///     if we don't hear back from the device. Minimum is 1 second.
-    ///   - devices:
-    public init(
-        minimumRSSI: Int = BluetoothManager.Defaults.defaultMinimumRSSI,
-        advertisementStaleInterval: TimeInterval = BluetoothManager.Defaults.defaultStaleTimeout,
+    public init( // TODO: docs devices
         @DiscoveryDescriptorBuilder _ devices: @Sendable () -> Set<DeviceDiscoveryDescriptor>
     ) {
         let configuration = devices()
@@ -283,15 +276,12 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
             configuration.parseDiscoveryDescription() // TODO: rename!
         }
 
-        let bluetoothManager = BluetoothManager(
-            discovery: discovery,
-            minimumRSSI: minimumRSSI,
-            advertisementStaleInterval: advertisementStaleInterval
-        )
+        let bluetoothManager = BluetoothManager()
 
         self.bluetoothQueue = bluetoothManager.bluetoothQueue
         self.bluetoothManager = bluetoothManager
         self.configuration = configuration
+        self.discoveryConfiguration = discovery
         self._devicesInjector = Modifier(wrappedValue: ConnectedDevicesEnvironmentModifier(configuredDeviceTypes: deviceTypes))
 
         Task {
@@ -442,8 +432,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
 
         observePeripheralState(of: uuid) // register \.state onChange closure
 
-        // TODO: spezi currently only allows one module of a type!!!!
-        spezi.loadModule(device)
+        spezi.loadModule(device) // TODO: spezi currently only allows one module of a type!!!!
         handlePeripheralStateChange()
 
         // TODO: we need to store them int he discoveredPeripherals to properly forward delegate methods!!!
@@ -462,23 +451,27 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
     /// The first connected device can be accessed through the
     /// [Environment(_:)](https://developer.apple.com/documentation/swiftui/environment/init(_:)-8slkf) in your SwiftUI view.
     ///
-    /// - Tip: Scanning for nearby devices can easily be managed via the ``SwiftUI/View/scanNearbyDevices(enabled:with:autoConnect:)``
+    /// - Tip: Scanning for nearby devices can easily be managed via the ``SwiftUI/View/scanNearbyDevices(enabled:with:minimumRSSI:advertisementStaleInterval:autoConnect:)``
     ///     modifier.
     ///
-    /// - Parameter autoConnect: If enabled, the bluetooth manager will automatically connect to
+    /// - Parameters:
+    ///   - minimumRSSI: The minimum rssi a nearby peripheral must have to be considered nearby.
+    ///   - advertisementStaleInterval: The time interval after which a peripheral advertisement is considered stale
+    ///     if we don't hear back from the device. Minimum is 1 second.
+    ///   - autoConnect: If enabled, the bluetooth manager will automatically connect to
     ///     the nearby device if only one is found for a given time threshold.
-    public func scanNearbyDevices(autoConnect: Bool = false) {
+    public func scanNearbyDevices(
+        minimumRSSI: Int = BluetoothManager.Defaults.defaultMinimumRSSI,
+        advertisementStaleInterval: TimeInterval = BluetoothManager.Defaults.defaultStaleTimeout,
+        autoConnect: Bool = false
+    ) {
         bluetoothManager.assumeIsolated { manager in
-            manager.scanNearbyDevices(autoConnect: autoConnect)
-        }
-    }
-
-    /// If scanning, toggle the auto-connect feature.
-    /// - Parameter autoConnect: Flag to turn on or off auto-connect
-    @_documentation(visibility: internal)
-    public func setAutoConnect(_ autoConnect: Bool) {
-        bluetoothManager.assumeIsolated { manager in
-            manager.setAutoConnect(autoConnect)
+            manager.scanNearbyDevices(
+                discovery: discoveryConfiguration,
+                minimumRSSI: minimumRSSI,
+                advertisementStaleInterval: advertisementStaleInterval,
+                autoConnect: autoConnect
+            )
         }
     }
 
@@ -489,3 +482,29 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
         }
     }
 }
+
+
+extension Bluetooth: BluetoothScanner {
+    func scanNearbyDevices(_ state: BluetoothModuleDiscoveryState) {
+        scanNearbyDevices(
+            minimumRSSI: state.minimumRSSI,
+            advertisementStaleInterval: state.advertisementStaleInterval,
+            autoConnect: state.autoConnect
+        )
+    }
+
+    func updateScanningState(_ state: BluetoothModuleDiscoveryState) {
+        let managerState = BluetoothManagerDiscoveryState(
+            configuredDevices: discoveryConfiguration,
+            minimumRSSI: state.minimumRSSI,
+            advertisementStaleInterval: state.advertisementStaleInterval,
+            autoConnect: state.autoConnect
+        )
+
+        bluetoothManager.assumeIsolated { manager in
+            manager.updateScanningState(managerState)
+        }
+    }
+}
+
+// swiftlint:disable:this file_length

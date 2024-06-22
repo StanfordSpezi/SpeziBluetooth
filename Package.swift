@@ -29,7 +29,6 @@ let package = Package(
         .package(url: "https://github.com/StanfordSpezi/SpeziFoundation", from: "1.1.0"),
         .package(url: "https://github.com/StanfordSpezi/Spezi", from: "1.3.0"),
         .package(url: "https://github.com/StanfordSpezi/SpeziNetworking", from: "2.0.1"),
-        .package(url: "https://github.com/StanfordSpezi/SpeziViews", from: "1.3.0"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.59.0"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.0.4"),
         .package(url: "https://github.com/realm/SwiftLint.git", .upToNextMinor(from: "0.55.1"))

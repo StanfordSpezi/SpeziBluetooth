@@ -11,7 +11,7 @@ import SwiftUI
 
 
 struct BluetoothManagerView: View {
-    @State private var bluetooth = BluetoothManager(discovery: []) // discovery any devices!
+    @State private var bluetooth = BluetoothManager()
 
     var body: some View {
         List {
@@ -27,7 +27,7 @@ struct BluetoothManagerView: View {
                 Text(verbatim: "This is a list of nearby Bluetooth peripherals.")
             }
         }
-            .scanNearbyDevices(with: bluetooth)
+            .scanNearbyDevices(with: bluetooth, discovery: []) // discovery any devices!
             .navigationTitle("Nearby Devices")
     }
 }

@@ -14,11 +14,11 @@ class DiscoveryStaleTimer {
     /// The dispatch work item that schedules the next stale timer.
     private let workItem: BluetoothWorkItem
 
-    init(device: UUID, manager: BluetoothManager, handler: @escaping (isolated BluetoothManager) -> Void) {
+    init<Actor: BluetoothActor>(device: UUID, boundTo actor: Actor, handler: @escaping (isolated Actor) -> Void) {
         // make sure that you don't create a reference cycle through the closure above!
 
         self.targetDevice = device
-        self.workItem = BluetoothWorkItem(manager: manager, handler: handler)
+        self.workItem = BluetoothWorkItem(boundTo: actor, handler: handler)
     }
 
 
