@@ -592,7 +592,7 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
 
 extension BluetoothManager {
     @Observable
-    class ObservableStorage: ValueObservable {
+    final class ObservableStorage: ValueObservable {
         var state: BluetoothState = .unknown {
             didSet {
                 _$simpleRegistrar.triggerDidChange(for: \.state, on: self)
