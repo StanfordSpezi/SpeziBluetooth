@@ -6,7 +6,6 @@
 // SPDX-License-Identifier: MIT
 //
 
-import BluetoothViews
 import SpeziBluetooth
 import SwiftUI
 
@@ -28,7 +27,7 @@ struct BluetoothModuleView: View {
                     DeviceRowView(peripheral: device)
                 }
             } header: {
-                LoadingSectionHeaderView(verbatim: "Devices", loading: bluetooth.isScanning)
+                Text(verbatim: "Devices")
             } footer: {
                 Text(verbatim: "This is a list of nearby test peripherals. Auto connect is enabled.")
             }

@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
-import BluetoothServices
+import SpeziBluetoothServices
 @_spi(TestingSupport)
 import SpeziBluetooth
 import SpeziViews

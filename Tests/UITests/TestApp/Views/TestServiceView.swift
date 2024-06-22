@@ -7,8 +7,7 @@
 //
 
 @_spi(TestingSupport)
-import BluetoothServices
-import BluetoothViews
+import SpeziBluetoothServices
 import CoreBluetooth
 @_spi(TestingSupport)
 import SpeziBluetooth
