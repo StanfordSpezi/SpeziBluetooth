@@ -32,15 +32,10 @@ import SwiftUI
 /// ```
 @Observable
 public final class ConnectedDevices<Device: BluetoothDevice> {
-    private var devices: [Device]
+    private let devices: [Device]
 
     init(_ devices: [Device] = []) {
         self.devices = devices
-    }
-
-    func update(_ devices: [Device]) -> EmptyView {
-        self.devices = devices
-        return EmptyView()
     }
 }
 

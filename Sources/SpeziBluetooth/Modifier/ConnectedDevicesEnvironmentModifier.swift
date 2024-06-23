@@ -25,7 +25,7 @@ private struct ConnectedDeviceEnvironmentModifier<Device: BluetoothDevice>: View
             device as? Device
         }
 
-        devicesList.update(connectedDevicesList)
+        let devicesList = ConnectedDevices(connectedDevicesList)
 
         content
             .environment(firstConnectedDevice)

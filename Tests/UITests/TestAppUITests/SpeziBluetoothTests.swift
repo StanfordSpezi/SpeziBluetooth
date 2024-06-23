@@ -136,6 +136,7 @@ final class SpeziBluetoothTests: XCTestCase {
         sleep(5)
         // check that it stays disconnected
         XCTAssert(app.staticTexts["disconnected"].waitForExistence(timeout: 2.0))
+        XCTAssertFalse(app.staticTexts["Connected TestDevice"].waitForExistence(timeout: 0.5))
     }
 }
 
