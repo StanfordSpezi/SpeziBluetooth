@@ -29,6 +29,7 @@ class ConnectedDevices {
         // add newly connected devices that are not injected yet
         for (uuid, device) in devices {
             guard connectedDevices[device.typeIdentifier] == nil else {
+                // TODO: just inject all in order!
                 continue // already present, we just inject the first device of a particular type into the environment
             }
 

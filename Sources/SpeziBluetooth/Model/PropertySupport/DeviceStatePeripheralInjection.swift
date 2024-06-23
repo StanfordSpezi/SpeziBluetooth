@@ -12,22 +12,23 @@ import Foundation
 actor DeviceStatePeripheralInjection<Value>: BluetoothActor {
     let bluetoothQueue: DispatchSerialQueue
 
+    private let bluetooth: Bluetooth
     private let peripheral: BluetoothPeripheral
     private let accessKeyPath: KeyPath<BluetoothPeripheral, Value>
     private let observationKeyPath: KeyPath<PeripheralStorage, Value>?
-    private var onChangeClosure: ChangeClosureState<Value>
+    private let subscriptions = ChangeSubscriptions<Value>()
 
     nonisolated var value: Value {
         peripheral[keyPath: accessKeyPath]
     }
 
 
-    init(peripheral: BluetoothPeripheral, keyPath: KeyPath<BluetoothPeripheral, Value>, onChangeClosure: OnChangeClosure<Value>?) {
+    init(bluetooth: Bluetooth, peripheral: BluetoothPeripheral, keyPath: KeyPath<BluetoothPeripheral, Value>) {
+        self.bluetooth = bluetooth
         self.bluetoothQueue = peripheral.bluetoothQueue
         self.peripheral = peripheral
         self.accessKeyPath = keyPath
         self.observationKeyPath = keyPath.storageEquivalent()
-        self.onChangeClosure = onChangeClosure.map { .value($0) } ?? .none
     }
 
     func setup() {
@@ -39,8 +40,6 @@ actor DeviceStatePeripheralInjection<Value>: BluetoothActor {
             return
         }
 
-        dispatchOnChangeWithInitialValue()
-
         peripheral.assumeIsolated { peripheral in
             peripheral.onChange(of: observationKeyPath) { [weak self] value in
                 guard let self = self else {
@@ -50,53 +49,31 @@ actor DeviceStatePeripheralInjection<Value>: BluetoothActor {
                 self.assumeIsolated { injection in
                     injection.trackStateUpdate()
 
-                    // The onChange handler of global Bluetooth module is called right after this to clear this
-                    // injection if the state changed to `disconnected`. So we must capture the onChangeClosure before
-                    // that to still be able to deliver `disconnected` events.
-                    let onChangeClosure = injection.onChangeClosure
-                    Task { @SpeziBluetooth in
-                        await injection.dispatchChangeHandler(value, with: onChangeClosure)
-                    }
+                    self.subscriptions.notifySubscribers(with: value)
                 }
             }
         }
     }
 
-    /// Returns once the change handler completes.
-    private func dispatchChangeHandler(_ value: Value, with onChangeClosure: ChangeClosureState<Value>, isInitial: Bool = false) async {
-        guard case let .value(closure) = onChangeClosure else {
-            return
-        }
+    nonisolated func newSubscription() -> AsyncStream<Value> {
+        subscriptions.newSubscription()
+    }
 
-        if closure.initial || !isInitial {
-            await closure(value)
+    nonisolated func newOnChangeSubscription(initial: Bool, perform action: @escaping (Value) async -> Void) {
+        subscriptions.newOnChangeSubscription(perform: action)
+
+        if initial {
+            let value = peripheral[keyPath: accessKeyPath]
+            Task { @SpeziBluetooth in
+                await self.isolated { _ in
+                    await action(value)
+                }
+            }
         }
     }
 
-    func setOnChangeClosure(_ closure: OnChangeClosure<Value>) {
-        if case .cleared = onChangeClosure {
-            // object is about to be cleared. Make sure we don't create a self reference last minute.
-            return
-        }
-
-        self.onChangeClosure = .value(closure)
-        dispatchOnChangeWithInitialValue()
-    }
-
-    private func dispatchOnChangeWithInitialValue() {
-        // For most values, this just delivers a nil value (e.g., name or localName).
-        // However, there might be a use case to retrieve the initial value for the deviceState or advertisement data.
-        let value = peripheral[keyPath: accessKeyPath]
-        Task { @SpeziBluetooth in
-            await dispatchChangeHandler(value, with: onChangeClosure, isInitial: true)
-        }
-    }
-
-    /// Remove any onChangeClosure and mark injection as cleared.
-    ///
-    /// This important to ensure to clear any potential reference cycles because of a captured self in the closure.
-    func clearOnChangeClosure() {
-        onChangeClosure = .cleared
+    deinit {
+        bluetooth.notifyDeviceDeinit(for: peripheral.id)
     }
 }
 
@@ -117,8 +94,8 @@ extension KeyPath where Root == BluetoothPeripheral {
             \PeripheralStorage.state
         case \.services:
             \PeripheralStorage.services
-        case \.discarded:
-            \PeripheralStorage.discarded
+        case \.nearby:
+            \PeripheralStorage.nearby
         case \.lastActivity:
             \PeripheralStorage.lastActivity
         case \.id:

@@ -28,7 +28,9 @@ import OSLog
 /// Below is a short code example to discover devices with a Heart Rate service.
 ///
 /// ```swift
-/// let manager = BluetoothManager(devices [
+/// let manager = BluetoothManager()
+///
+/// manager.scanNearbyDevices(discovery: devices [
 ///     DeviceDescription(discoverBy: .advertisedService("180D"), services: [
 ///         ServiceDescription(serviceId: "180D", characteristics: [
 ///             "2A37", // heart rate measurement
@@ -37,8 +39,6 @@ import OSLog
 ///         ])
 ///     ])
 /// ])
-///
-/// manager.scanNearbyDevices()
 /// // ...
 /// manager.stopScanning()
 /// ```
@@ -363,16 +363,16 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
 
     /// Retrieve a known `BluetoothPeripheral` by its identifier.
     ///
-    /// This queries the list of known `BluetoothPeripheral`s (e.g., recently paired peripherals).
+    /// This method queries the list of known ``BluetoothPeripheral``s (e.g., paired peripherals).
     ///
     /// - Tip: You can use this method to connect to a known peripheral. Retrieve the peripheral using this method and call the ``BluetoothPeripheral/connect()`` method.
     ///     The `connect()` method doesn't time out and will make sure to connect to the peripheral once it is available without the need for continuous scanning.
     ///
     /// - Important: Make sure to keep a strong reference to the returned peripheral. The `BluetoothManager` only keeps a weak reference to the peripheral.
-    ///     If you don't need the peripheral anymore, just dereference it.
+    ///     If you don't need the peripheral anymore, ``BluetoothPeripheral/disconnect()`` and dereference it.
     ///
     /// - Parameters:
-    ///   - uuid: The peripheral identifier.
+    ///   - uuid: The Bluetooth peripheral identifier.
     ///   - description: The expected device configuration of the peripheral. This is used to discover service and characteristics if you connect to the peripheral-
     /// - Returns: The retrieved Peripheral. Returns nil if the Bluetooth Central could not be powered on (e.g., not authorized) or if no peripheral with the requested identifier was found.
     public func retrievePeripheral(for uuid: UUID, with description: DeviceDescription) async -> BluetoothPeripheral? {
@@ -520,6 +520,15 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
         discoverySession?.assumeIsolated { session in
             session.deviceManuallyDisconnected(id: peripheral.id)
         }
+    }
+
+    private func handledConnected(device: BluetoothPeripheral) {
+        device.assumeIsolated { device in
+            device.handleConnect()
+        }
+
+        // we might have connected a bluetooth peripheral that was weakly referenced
+        ensurePeripheralReference(device)
     }
 
     private func discardDevice(device: BluetoothPeripheral) {
@@ -831,9 +840,7 @@ extension BluetoothManager {
                     }
 
                     logger.debug("Peripheral \(peripheral.debugIdentifier) connected.")
-                    device.assumeIsolated { device in
-                        device.handleConnect()
-                    }
+                    manager.handledConnected(device: device)
                 }
             }
         }

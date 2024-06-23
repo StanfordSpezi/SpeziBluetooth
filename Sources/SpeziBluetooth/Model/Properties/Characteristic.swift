@@ -211,19 +211,16 @@ public final class Characteristic<Value>: @unchecked Sendable {
     }
 
 
-    func inject(peripheral: BluetoothPeripheral, serviceId: CBUUID, service: GATTService?) {
+    func inject(bluetooth: Bluetooth, peripheral: BluetoothPeripheral, serviceId: CBUUID, service: GATTService?) {
         let characteristic = service?.getCharacteristic(id: configuration.id)
 
-        // Any potential onChange closure registration that happened within the initializer. Forward them to the injection.
-        let onChangeClosure = ClosureRegistrar.readableView?.retrieve(for: configuration.objectId, value: Value.self)
-
         let injection = CharacteristicPeripheralInjection<Value>(
+            bluetooth: bluetooth,
             peripheral: peripheral,
             serviceId: serviceId,
             characteristicId: configuration.id,
             value: _value,
-            characteristic: characteristic,
-            onChangeClosure: onChangeClosure
+            characteristic: characteristic
         )
 
         // mutual access with `CharacteristicAccessor/enableNotifications`

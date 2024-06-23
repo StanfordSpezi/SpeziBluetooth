@@ -121,10 +121,8 @@ public final class DeviceState<Value>: @unchecked Sendable {
     }
 
 
-    func inject(peripheral: BluetoothPeripheral) {
-        let changeClosure = ClosureRegistrar.readableView?.retrieve(for: objectId, value: Value.self)
-
-        let injection = DeviceStatePeripheralInjection(peripheral: peripheral, keyPath: keyPath, onChangeClosure: changeClosure)
+    func inject(bluetooth: Bluetooth, peripheral: BluetoothPeripheral) {
+        let injection = DeviceStatePeripheralInjection(bluetooth: bluetooth, peripheral: peripheral, keyPath: keyPath)
         self.injection = injection
 
         injection.assumeIsolated { injection in

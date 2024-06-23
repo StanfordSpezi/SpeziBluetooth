@@ -31,7 +31,7 @@ enum CharacteristicOnChangeHandler {
 /// - ``state``
 /// - ``rssi``
 /// - ``advertisementData``
-/// - ``discarded``
+/// - ``nearby``
 /// - ``lastActivity``
 ///
 /// ### Accessing Services
@@ -196,17 +196,16 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
         }
     }
 
-    /// Indicates that the peripheral was discarded.
+    /// Indicates that the peripheral is nearby.
     ///
-    /// For devices that were found through nearby device search, this property indicates that the device was discarded
-    /// as it was considered stale and no new advertisement was received. This also happens when such a devices disconnects and no new
-    /// advertisement is received.
-    nonisolated public private(set) var discarded: Bool {
+    /// A device is nearby if either we consider it discovered because we are currently scanning or the device is connected.
+    nonisolated public private(set) var nearby: Bool {
         get {
-            _storage.discarded
+            // TODO: we also consider them nearby currently while connecting => we need to clear discovered devices that are currently connecting?
+            _storage.nearby
         }
         set {
-            _storage.update(discarded: newValue)
+            _storage.update(nearby: newValue)
         }
     }
 
@@ -320,9 +319,6 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
 
         // ensure that it is updated instantly.
         self.isolatedUpdate(of: \.state, PeripheralState(from: peripheral.state))
-        if discarded {
-            self.isolatedUpdate(of: \.discarded, false)
-        }
 
         logger.debug("Discovering services for \(self.peripheral.debugIdentifier) ...")
         let services = requestedCharacteristics.map { Array($0.keys) }
@@ -363,7 +359,7 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
     }
 
     func handleDiscarded() {
-        isolatedUpdate(of: \.discarded, true)
+        isolatedUpdate(of: \.nearby, false)
     }
 
     func markLastActivity(_ lastActivity: Date = .now) {
@@ -374,6 +370,7 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
         self.isolatedUpdate(of: \.localName, advertisement.localName)
         self.isolatedUpdate(of: \.advertisementData, advertisement)
         self.isolatedUpdate(of: \.rssi, rssi)
+        self.isolatedUpdate(of: \.nearby, true)
     }
 
     /// Determines if the device is considered stale.
@@ -683,9 +680,8 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
     }
 
     deinit {
-        if !_storage.discarded { // make sure peripheral gets discarded
-            self.logger.debug("Discarding de-initialized peripheral \(self.id), \(self.name ?? "unnamed")")
-            _storage.update(discarded: true) // TODO: test that this works for retrieved peripherals!
+        if !_storage.nearby { // make sure signal is sent
+            _storage.update(nearby: false)
         }
 
 

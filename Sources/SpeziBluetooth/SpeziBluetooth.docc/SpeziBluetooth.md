@@ -189,6 +189,25 @@ struct MyView: View {
 }
 ```
 
+#### Retrieving Devices
+
+The previous section explained how to discover nearby devices and retrieve the currently connected one from the environment.
+This is great ad-hoc connection establishment with devices currently nearby.
+However, this might not be the most efficient approach, if you want to connect to a specific, previously paired device.
+In these situations you can use the ``Bluetooth/retrieveDevice(for:as:)`` method to retrieve a known device.
+
+Below is a short code example illustrating this method.
+
+```swift
+let id: UUID = ... // a Bluetooth peripheral identifier (e.g., previously retrieved when pairing the device)
+
+let device = bluetooth.retrieveDevice(for: id, as: MyDevice.self)
+
+await device.connect() // assume declaration of @DeviceAction(\.connect)
+
+// Connect doesn't time out. Connection with the device will be established as soon as the device is in reach.
+```
+
 ### Integration with Spezi Modules
 
 A Spezi [`Module`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module) is a great way of structuring your application into

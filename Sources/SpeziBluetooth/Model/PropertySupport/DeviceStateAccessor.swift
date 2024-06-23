@@ -27,43 +27,56 @@ public struct DeviceStateAccessor<Value> {
         self.injection = injection
         self._injectedValue = injectedValue
     }
+}
 
+
+extension DeviceStateAccessor {
+    /// Retrieve a subscription to changes to the device state.
+    ///
+    /// This property creates an AsyncStream that yields all future updates to the device state.
+    public var subscription: AsyncStream<Value> {
+        guard let injection else {
+            preconditionFailure(
+                "The `subscription` of a @DeviceState cannot be accessed within the initializer. Defer access to the `configure() method"
+            )
+        }
+        return injection.newSubscription()
+    }
 
     /// Perform action whenever the state value changes.
     ///
-    /// - Important: This closure is called from the Bluetooth Serial Executor, if you don't pass in an async method
+    /// Register a change handler with the device state that is called every time the value changes.
+    ///
+    /// Note that you cannot set up onChange handlers within the initializers.
+    /// Use the [`configure()`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module/configure()-5pa83) to set up
+    /// all your handlers.
+    /// - Important: You must capture `self` weakly only. Capturing `self` strongly causes a memory leak.
+    ///
+    /// - Note: This closure is called from the Bluetooth Serial Executor, if you don't pass in an async method
     ///     that has an annotated actor isolation (e.g., `@MainActor` or actor isolated methods).
     ///
-    /// - Note: It is perfectly fine if you capture strongly self within your closure. The framework will
-    ///     resolve any reference cycles for you.
     /// - Parameters:
     ///     - initial: Whether the action should be run with the initial state value. Otherwise, the action will only run
     ///     strictly if the value changes.
     ///     - action: The change handler to register.
     public func onChange(initial: Bool = false, perform action: @escaping (Value) async -> Void) {
-        let closure = OnChangeClosure(initial: initial, closure: action)
-
         guard let injection else {
-            guard let closures = ClosureRegistrar.writeableView else {
-                Bluetooth.logger.warning(
-                    """
-                    Tried to register onChange(perform:) closure out-of-band. Make sure to register your onChange closure \
-                    within the initializer or when the peripheral is fully injected. This is expected if you manually initialized your device. \
-                    The closure was discarded and won't have any effect.
-                    """
-                )
-                return
-            }
-            // Similar to CharacteristicAccessor/onChange(perform:), we save it in a global registrar
-            // to avoid reference cycles we can't control.
-            closures.insert(for: id, closure: closure)
-            return
+            preconditionFailure(
+                """
+                Register onChange(perform:) inside the initializer is not supported anymore. \
+                Further, they no longer support capturing `self` without causing a memory leak. \
+                Please migrate your code to register onChange listeners in the `configure()` method and make sure to weakly capture self.
+
+                func configure() {
+                    $state.onChange { [weak self] value in
+                        self?.handleStateChange(value)
+                    }
+                }
+                """
+            )
         }
 
-        // global actor ensures these tasks are queued serially and are executed in order.
-        Task { @SpeziBluetooth in
-            await injection.setOnChangeClosure(closure)
-        }
+        injection.newOnChangeSubscription(initial: initial, perform: action)
     }
 }
 

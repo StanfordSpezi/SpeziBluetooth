@@ -10,37 +10,48 @@ import CoreBluetooth
 
 
 private struct SetupServiceVisitor: ServiceVisitor {
+    private let bluetooth: Bluetooth
     private let peripheral: BluetoothPeripheral
     private let serviceId: CBUUID
     private let service: GATTService?
+    private let didInjectAnything: Box<Bool>
 
 
-    init(peripheral: BluetoothPeripheral, serviceId: CBUUID, service: GATTService?) {
+    init(bluetooth: Bluetooth, peripheral: BluetoothPeripheral, serviceId: CBUUID, service: GATTService?, didInjectAnything: Box<Bool>) {
+        self.bluetooth = bluetooth
         self.peripheral = peripheral
         self.serviceId = serviceId
         self.service = service
+        self.didInjectAnything = didInjectAnything
     }
 
     func visit<Value>(_ characteristic: Characteristic<Value>) {
-        characteristic.inject(peripheral: peripheral, serviceId: serviceId, service: service)
+        characteristic.inject(bluetooth: bluetooth, peripheral: peripheral, serviceId: serviceId, service: service)
+        didInjectAnything.value = true
     }
 
     func visit<Action: _BluetoothPeripheralAction>(_ action: DeviceAction<Action>) {
-        action.inject(peripheral: peripheral)
+        action.inject(bluetooth: bluetooth, peripheral: peripheral)
+        didInjectAnything.value = true
     }
 
     func visit<Value>(_ state: DeviceState<Value>) {
-        state.inject(peripheral: peripheral)
+        state.inject(bluetooth: bluetooth, peripheral: peripheral)
+        didInjectAnything.value = true
     }
 }
 
 
 private struct SetupDeviceVisitor: DeviceVisitor {
+    private let bluetooth: Bluetooth
     private let peripheral: BluetoothPeripheral
+    private let didInjectAnything: Box<Bool>
 
 
-    init(peripheral: BluetoothPeripheral) {
+    init(bluetooth: Bluetooth, peripheral: BluetoothPeripheral, didInjectAnything: Box<Bool>) {
+        self.bluetooth = bluetooth
         self.peripheral = peripheral
+        self.didInjectAnything = didInjectAnything
     }
 
 
@@ -48,24 +59,38 @@ private struct SetupDeviceVisitor: DeviceVisitor {
         let blService = peripheral.assumeIsolated { $0.getService(id: service.id) }
         service.inject(peripheral: peripheral, service: blService)
 
-        var visitor = SetupServiceVisitor(peripheral: peripheral, serviceId: service.id, service: blService)
+        var visitor = SetupServiceVisitor(
+            bluetooth: bluetooth,
+            peripheral: peripheral,
+            serviceId: service.id,
+            service: blService,
+            didInjectAnything: didInjectAnything
+        )
         service.wrappedValue.accept(&visitor)
     }
 
     func visit<Action: _BluetoothPeripheralAction>(_ action: DeviceAction<Action>) {
-        action.inject(peripheral: peripheral)
+        action.inject(bluetooth: bluetooth, peripheral: peripheral)
+        didInjectAnything.value = true
     }
 
     func visit<Value>(_ state: DeviceState<Value>) {
-        state.inject(peripheral: peripheral)
+        state.inject(bluetooth: bluetooth, peripheral: peripheral)
+        didInjectAnything.value = true
     }
 }
 
 
 extension BluetoothDevice {
-    func inject(peripheral: BluetoothPeripheral) {
+    func inject(peripheral: BluetoothPeripheral, using bluetooth: Bluetooth) -> Bool {
         peripheral.bluetoothQueue.assertIsolated("SetupDeviceVisitor must be called within the Bluetooth SerialExecutor!")
-        var visitor = SetupDeviceVisitor(peripheral: peripheral)
+
+        // if we don't inject anything, we do not need to retain the device
+        let didInjectAnything = Box(false)
+
+        var visitor = SetupDeviceVisitor(bluetooth: bluetooth, peripheral: peripheral, didInjectAnything: didInjectAnything)
         accept(&visitor)
+
+        return didInjectAnything.value
     }
 }

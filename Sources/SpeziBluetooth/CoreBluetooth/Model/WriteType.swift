@@ -7,7 +7,7 @@
 //
 
 
-/// Determine the type of Bluetooth write operation.
+/// Determine the type of a Bluetooth write operation.
 public enum WriteType {
     /// A write expecting an acknowledgment.
     case withResponse

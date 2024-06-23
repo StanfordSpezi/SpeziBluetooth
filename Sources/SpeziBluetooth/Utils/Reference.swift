@@ -6,11 +6,28 @@
 // SPDX-License-Identifier: MIT
 //
 
+protocol AnyWeakDeviceReference {
+    var anyValue: (any BluetoothDevice)? { get }
+
+    var typeName: String { get }
+}
+
 
 struct WeakReference<Value: AnyObject> {
     weak var value: Value?
 
     init(_ value: Value? = nil) {
         self.value = value
+    }
+}
+
+
+extension WeakReference: AnyWeakDeviceReference where Value: BluetoothDevice {
+    var anyValue: (any BluetoothDevice)? {
+        value
+    }
+
+    var typeName: String {
+        "\(Value.self)"
     }
 }
