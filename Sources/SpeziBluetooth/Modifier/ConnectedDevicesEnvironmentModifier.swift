@@ -10,18 +10,26 @@ import SwiftUI
 
 
 private struct ConnectedDeviceEnvironmentModifier<Device: BluetoothDevice>: ViewModifier {
-    @Environment(ConnectedDevices.self)
+    @Environment(ConnectedDevicesModel.self)
     var connectedDevices
+
+    @State private var devicesList = ConnectedDevices<Device>()
 
     init() {}
 
 
     func body(content: Content) -> some View {
         let connectedDeviceAny = connectedDevices[ObjectIdentifier(Device.self)]
-        let connectedDevice = connectedDeviceAny as? Device
+        let firstConnectedDevice = connectedDeviceAny.first as? Device
+        let connectedDevicesList = connectedDeviceAny.compactMap { device in
+            device as? Device
+        }
+
+        devicesList.update(connectedDevicesList)
 
         content
-            .environment(connectedDevice)
+            .environment(firstConnectedDevice)
+            .environment(devicesList)
     }
 }
 
@@ -29,7 +37,7 @@ private struct ConnectedDeviceEnvironmentModifier<Device: BluetoothDevice>: View
 struct ConnectedDevicesEnvironmentModifier: ViewModifier {
     private let configuredDeviceTypes: [any BluetoothDevice.Type]
 
-    @Environment(ConnectedDevices.self)
+    @Environment(ConnectedDevicesModel.self)
     var connectedDevices
 
 

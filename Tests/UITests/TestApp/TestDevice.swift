@@ -6,10 +6,10 @@
 // SPDX-License-Identifier: MIT
 //
 
-@_spi(TestingSupport)
-import SpeziBluetoothServices
 import Foundation
 import SpeziBluetooth
+@_spi(TestingSupport)
+import SpeziBluetoothServices
 
 
 final class TestDevice: BluetoothDevice, Identifiable, SomePeripheral, @unchecked Sendable {
@@ -41,12 +41,14 @@ final class TestDevice: BluetoothDevice, Identifiable, SomePeripheral, @unchecke
 
     let testState = State()
 
-    required init() {
-        deviceInformation.$modelNumber.onChange(initial: true) { @MainActor _ in
-            self.testState.didReceiveModel = true
+    required init() {}
+
+    func configure() {
+        deviceInformation.$modelNumber.onChange(initial: true) { @MainActor [weak self] _ in
+            self?.testState.didReceiveModel = true
         }
-        deviceInformation.$manufacturerName.onChange { @MainActor _ in
-            self.testState.didReceiveManufacturer = true // this should never be called
+        deviceInformation.$manufacturerName.onChange { @MainActor [weak self] _ in
+            self?.testState.didReceiveManufacturer = true // this should never be called
         }
     }
 

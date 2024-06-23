@@ -201,7 +201,6 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
     /// A device is nearby if either we consider it discovered because we are currently scanning or the device is connected.
     nonisolated public private(set) var nearby: Bool {
         get {
-            // TODO: we also consider them nearby currently while connecting => we need to clear discovered devices that are currently connecting?
             _storage.nearby
         }
         set {

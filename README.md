@@ -96,7 +96,8 @@ class DeviceInformationService: BluetoothService {
 
 We can use this Bluetooth service now in the `MyDevice` implementation as follows.
 
-> Tip: We use the [`DeviceState`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/devicestate) and [`DeviceAction`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/deviceaction) property wrappers to get access to the device state and its actions. Those two
+> [!TIP]
+> We use the [`DeviceState`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/devicestate) and [`DeviceAction`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/deviceaction) property wrappers to get access to the device state and its actions. Those two
   property wrappers can also be used within a [`BluetoothService`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetoothservice) type.
 
 ```swift
@@ -152,9 +153,10 @@ using [`scanNearbyDevices(minimumRSSI:advertisementStaleInterval:autoConnect:)`]
 
 To retrieve the list of nearby devices you may use [`nearbyDevices(for:)`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/bluetooth/nearbyDevices(for:)).
 
-> Tip: To easily access the first connected device, you can just query the SwiftUI Environment for your `BluetoothDevice` type.
-Make sure to declare the property as optional using the respective [`Environment(_:)`](https://developer.apple.com/documentation/swiftui/environment/init(_:)-8slkf)
-initializer.
+> [!TIP]
+> To easily access the first connected device, you can just query the SwiftUI Environment for your `BluetoothDevice` type.
+  Make sure to declare the property as optional using the respective [`Environment(_:)`](https://developer.apple.com/documentation/swiftui/environment/init(_:)-8slkf)
+  initializer.
 
 The below code example demonstrates all these steps of retrieving the `Bluetooth` module from the environment, listing all nearby devices,
 auto connecting to the first one and displaying some basic information of the currently connected device.
@@ -197,6 +199,9 @@ struct MyView: View {
     }
 }
 ```
+
+> [!TIP]
+> Use [`ConnectedDevices`](https://swiftpackageindex.com/stanfordspezi/spezibluetooth/documentation/spezibluetooth/ConnectedDevices) to retrieve the full list of connected devices from the SwiftUI environment.
 
 #### Retrieving Devices
 

@@ -532,20 +532,9 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
     }
 
     private func discardDevice(device: BluetoothPeripheral) {
-        if !isScanning {
-            device.assumeIsolated { device in
-                device.markLastActivity()
-                device.handleDisconnect()
-            }
-            clearDiscoveredPeripheral(forKey: device.id)
-        } else {
-            let backdateInterval: TimeInterval
-            if let discoverySession {
-                // we will keep discarded devices for max 2s before the stale timer kicks off
-                backdateInterval = max(0, discoverySession.assumeIsolated { $0.configuration.advertisementStaleInterval } - 2)
-            } else {
-                backdateInterval = 0
-            }
+        if let discoverySession, isScanning {
+            // we will keep discarded devices for max 2s before the stale timer kicks off
+            let backdateInterval = max(0, discoverySession.assumeIsolated { $0.configuration.advertisementStaleInterval } - 2)
 
             device.assumeIsolated { device in
                 device.markLastActivity(.now - backdateInterval)
@@ -553,9 +542,15 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
             }
 
             // We just schedule the new timer if there is a device to schedule one for.
-            discoverySession?.assumeIsolated { session in
+            discoverySession.assumeIsolated { session in
                 session.scheduleStaleTaskForOldestActivityDevice()
             }
+        } else {
+            device.assumeIsolated { device in
+                device.markLastActivity()
+                device.handleDisconnect()
+            }
+            clearDiscoveredPeripheral(forKey: device.id)
         }
     }
 
@@ -899,4 +894,6 @@ extension BluetoothManager {
             }
         }
     }
-} // swiftlint:disable:this file_length
+}
+
+// swiftlint:disable:this file_length

@@ -6,9 +6,9 @@
 // SPDX-License-Identifier: MIT
 //
 
-@_spi(TestingSupport)
-import BluetoothServices
 import CoreBluetooth
+@_spi(TestingSupport)
+import SpeziBluetoothServices
 import XCTest
 import XCTestExtensions
 
@@ -35,6 +35,7 @@ final class SpeziBluetoothTests: XCTestCase {
         // wait till the device is automatically connected.
         XCTAssert(app.staticTexts["Spezi"].waitForExistence(timeout: 1.0)) // our peripheral name
         XCTAssert(app.staticTexts["connected"].waitForExistence(timeout: 10.0))
+        XCTAssert(app.staticTexts["Connected Spezi"].exists) // tests retrieval via ConnectedDevices
 
         XCTAssert(app.buttons["Test Interactions"].exists)
         app.buttons["Test Interactions"].tap()

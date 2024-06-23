@@ -15,6 +15,8 @@ struct BluetoothModuleView: View {
     private var bluetooth
     @Environment(TestDevice.self)
     private var device: TestDevice?
+    @Environment(ConnectedDevices<TestDevice>.self)
+    private var connectedDevices
 
     var body: some View {
         List {
@@ -30,6 +32,18 @@ struct BluetoothModuleView: View {
                 Text(verbatim: "Devices")
             } footer: {
                 Text(verbatim: "This is a list of nearby test peripherals. Auto connect is enabled.")
+            }
+
+            if !connectedDevices.isEmpty {
+                Section {
+                    ForEach(connectedDevices) { device in
+                        Text("Connected \(device.name ?? "unknown")")
+                    }
+                } header: {
+                    Text("Connected Devices")
+                } footer: {
+                    Text("This tests the retrieval of connected devices using ConnectedDevices.")
+                }
             }
 
             if let device {

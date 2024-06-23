@@ -189,6 +189,8 @@ struct MyView: View {
 }
 ```
 
+> Tip: Use ``ConnectedDevices`` to retrieve the full list of connected devices from the SwiftUI environment.
+
 #### Retrieving Devices
 
 The previous section explained how to discover nearby devices and retrieve the currently connected one from the environment.
@@ -271,6 +273,7 @@ due to their async nature.
 
 - ``SwiftUI/View/scanNearbyDevices(enabled:with:minimumRSSI:advertisementStaleInterval:autoConnect:)``
 - ``SwiftUI/View/autoConnect(enabled:with:minimumRSSI:advertisementStaleInterval:)``
+- ``ConnectedDevices``
 
 ### Declaring a Bluetooth Device
 

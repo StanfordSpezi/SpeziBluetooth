@@ -146,7 +146,7 @@ import Spezi
 /// }
 /// ```
 ///
-/// // TODO: tip to how to use connected devices list (e.g., we could also do that for nearby devices?)
+/// - Tip: Use ``ConnectedDevices`` to retrieve the full list of connected devices from the SwiftUI environment.
 ///
 /// #### Retrieving Devices
 ///
@@ -298,7 +298,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
     private var spezi
 
     /// Stores the connected device instance for every configured ``BluetoothDevice`` type.
-    @Model private var connectedDevicesModel = ConnectedDevices()
+    @Model private var connectedDevicesModel = ConnectedDevicesModel()
     /// Injects the ``BluetoothDevice`` instances from the `ConnectedDevices` model into the SwiftUI environment.
     @Modifier private var devicesInjector: ConnectedDevicesEnvironmentModifier
 
