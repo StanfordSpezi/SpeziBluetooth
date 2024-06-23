@@ -37,7 +37,14 @@ struct BluetoothModuleView: View {
             if !connectedDevices.isEmpty {
                 Section {
                     ForEach(connectedDevices) { device in
-                        Text("Connected \(device.name ?? "unknown")")
+                        VStack {
+                            Text(verbatim: "Connected \(type(of: device))")
+                            if let name = device.name {
+                                Text(name)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
                     }
                 } header: {
                     Text("Connected Devices")

@@ -33,9 +33,9 @@ final class SpeziBluetoothTests: XCTestCase {
         try app.assertMinimalSimulatorInformation()
 
         // wait till the device is automatically connected.
-        XCTAssert(app.staticTexts["Spezi"].waitForExistence(timeout: 1.0)) // our peripheral name
+        XCTAssert(app.staticTexts["TestDevice"].waitForExistence(timeout: 1.0))
         XCTAssert(app.staticTexts["connected"].waitForExistence(timeout: 10.0))
-        XCTAssert(app.staticTexts["Connected Spezi"].exists) // tests retrieval via ConnectedDevices
+        XCTAssert(app.staticTexts["Connected TestDevice"].exists) // tests retrieval via ConnectedDevices
 
         XCTAssert(app.buttons["Test Interactions"].exists)
         app.buttons["Test Interactions"].tap()
