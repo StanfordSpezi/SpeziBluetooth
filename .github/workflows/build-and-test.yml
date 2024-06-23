@@ -43,7 +43,7 @@ jobs:
       path: 'Tests/UITests'
       artifactname: TestApp-macOS.xcresult
       resultBundle: TestApp-macOS.xcresult
-      customcommand: "set -o pipefail && xcodebuild test -scheme 'TestApp' -configuration 'Test' -destination 'platform=macOS,arch=arm64,variant=Mac Catalyst' -derivedDataPath '.derivedData' -resultBundlePath 'TestApp-macOS.xcresult' | xcpretty"
+      customcommand: "set -o pipefail && xcodebuild test -scheme 'TestApp' -configuration 'Test' -destination 'platform=macOS,arch=arm64,variant=Mac Catalyst' -derivedDataPath '.derivedData' -resultBundlePath 'TestApp-macOS.xcresult' -skipPackagePluginValidation -skipMacroValidation | xcpretty"
     secrets: inherit
   uploadcoveragereport:
     name: Upload Coverage Report
