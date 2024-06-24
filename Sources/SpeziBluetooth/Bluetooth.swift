@@ -369,8 +369,6 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
                     return
                 }
 
-                print("Discovered peripherals UPDATE: \(discoveredDevices)")
-
                 self.assertIsolated("BluetoothManager peripherals change closure was unexpectedly not called on the Bluetooth SerialExecutor.")
                 self.assumeIsolated { bluetooth in
                     bluetooth.observeDiscoveredDevices()
@@ -394,7 +392,6 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
             nearbyDevices.removeValue(forKey: key)
 
             // device instances will be automatically deallocated via `notifyDeviceDeinit`
-            print("Removed nearby bluetooth device: \(nearbyDevices)")
         }
 
         // add devices for new keys
