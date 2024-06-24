@@ -68,6 +68,16 @@ struct DeviceInformationView: View {
                     Text(regulatoryCertificationDataList.hexString())
                 }
             }
+
+            ListRow("Retain Count Check") {
+                if device.passedRetainCountCheck {
+                    Text("Passed")
+                        .foregroundStyle(.green)
+                } else {
+                    Text("Failed")
+                        .foregroundStyle(.red)
+                }
+            }
         } header: {
             Text("Device Information")
         } footer: {

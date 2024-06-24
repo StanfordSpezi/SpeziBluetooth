@@ -7,6 +7,7 @@
 //
 
 import SpeziBluetooth
+import SpeziViews
 import SwiftUI
 
 
@@ -18,8 +19,10 @@ struct BluetoothModuleView: View {
     @Environment(ConnectedDevices<TestDevice>.self)
     private var connectedDevices
 
+    @Binding private var pairedDeviceId: UUID?
+
     var body: some View {
-        List {
+        List { // swiftlint:disable:this closure_body_length
             BluetoothStateSection(state: bluetooth.state, isScanning: bluetooth.isScanning)
 
             let nearbyDevices = bluetooth.nearbyDevices(for: TestDevice.self)
@@ -37,14 +40,20 @@ struct BluetoothModuleView: View {
             if !connectedDevices.isEmpty {
                 Section {
                     ForEach(connectedDevices) { device in
-                        VStack {
-                            Text(verbatim: "Connected \(type(of: device))")
-                            if let name = device.name {
-                                Text(name)
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
+                        AsyncButton {
+                            pairedDeviceId = device.id
+                            await device.disconnect()
+                        } label: {
+                            VStack {
+                                Text(verbatim: "Pair \(type(of: device))")
+                                if let name = device.name {
+                                    Text(name)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
                             }
                         }
+                            .accessibilityLabel("Pair \(type(of: device))")
                     }
                 } header: {
                     Text("Connected Devices")
@@ -62,12 +71,17 @@ struct BluetoothModuleView: View {
             .scanNearbyDevices(with: bluetooth, autoConnect: true)
             .navigationTitle("Nearby Devices")
     }
+
+
+    init(pairedDeviceId: Binding<UUID?>) {
+        self._pairedDeviceId = pairedDeviceId
+    }
 }
 
 
 #Preview {
     NavigationStack {
-        BluetoothModuleView()
+        BluetoothModuleView(pairedDeviceId: .constant(nil))
             .previewWith {
                 Bluetooth {
                     Discover(TestDevice.self, by: .advertisedService("FFF0"))

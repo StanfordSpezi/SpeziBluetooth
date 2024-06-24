@@ -7,6 +7,9 @@
 //
 
 import Spezi
+@_spi(Internal)
+import SpeziBluetooth
+import SpeziViews
 import SwiftUI
 
 struct NearbyDevices: View {
@@ -15,11 +18,36 @@ struct NearbyDevices: View {
     }
 }
 
+struct DeviceCountButton: View {
+    @Environment(Bluetooth.self)
+    private var bluetooth
+
+    @State private var lastReadCount: Int?
+
+    var body: some View {
+        Section {
+            AsyncButton("Query Count") {
+                lastReadCount = await bluetooth._initializedDevicesCount()
+            }
+            .onDisappear {
+                lastReadCount = nil
+            }
+        } footer: {
+            if let lastReadCount {
+                Text("Currently initialized devices: \(lastReadCount)")
+            }
+        }
+    }
+}
+
 @main
 struct UITestsApp: App {
     @UIApplicationDelegateAdaptor(TestAppDelegate.self)
     var appDelegate
-    
+
+    @State private var pairedDeviceId: UUID?
+    @State private var retrievedDevice: TestDevice?
+
 
     var body: some Scene {
         WindowGroup {
@@ -29,8 +57,13 @@ struct UITestsApp: App {
                         NearbyDevices()
                     }
                     NavigationLink("Test Peripheral") {
-                        BluetoothModuleView()
+                        BluetoothModuleView(pairedDeviceId: $pairedDeviceId)
                     }
+                    NavigationLink("Paired Device") {
+                        RetrievePairedDevicesView(pairedDeviceId: $pairedDeviceId, retrievedDevice: $retrievedDevice)
+                    }
+
+                    DeviceCountButton()
                 }
                     .navigationTitle("Spezi Bluetooth")
             }

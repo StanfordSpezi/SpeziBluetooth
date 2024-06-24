@@ -40,7 +40,7 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
     private var controlPointTransaction: ControlPointTransaction<Value>?
 
     /// Manages the user supplied subscriptions to the value.
-    private let subscriptions = ChangeSubscriptions<Value>()
+    private let subscriptions: ChangeSubscriptions<Value>
     /// We track all onChange closure registrations with `initial=false` to make sure to not call them with the initial value.
     /// The property is set to nil, once the initial value arrived.
     ///
@@ -91,6 +91,7 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
         self.characteristicId = characteristicId
         self._value = value
         self._characteristic = .init(characteristic)
+        self.subscriptions = ChangeSubscriptions(queue: peripheral.bluetoothQueue)
     }
 
     /// Setup the injection. Must be called after initialization to set up all handlers and write the initial value.
@@ -123,8 +124,10 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
     nonisolated func newOnChangeSubscription(initial: Bool, perform action: @escaping (Value) async -> Void) {
         let id = subscriptions.newOnChangeSubscription(perform: action)
 
-        Task { @SpeziBluetooth in
-            await handleInitialCall(id: id, initial: initial, action: action)
+        // Must be called detached, otherwise it might inherit TaskLocal values which includes Spezi moduleInitContext
+        // which would create a strong reference to the device.
+        Task.detached { @SpeziBluetooth in
+            await self.handleInitialCall(id: id, initial: initial, action: action)
         }
     }
 

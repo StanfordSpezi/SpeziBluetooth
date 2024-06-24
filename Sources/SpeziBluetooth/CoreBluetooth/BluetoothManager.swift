@@ -120,7 +120,7 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
                 guard let self = self else {
                     return
                 }
-                Task { @SpeziBluetooth in
+                Task.detached { @SpeziBluetooth in
                     await self.isolatedStorage.unsubscribe(for: id)
                 }
             }
@@ -489,6 +489,9 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
         }
 
         guard discoveredPeripherals.isEmpty && retrievedPeripherals.isEmpty else {
+            let discoveredCount = discoveredPeripherals.count
+            let retrievedCount = retrievedPeripherals.count
+            logger.debug("Not deallocating central. Devices are still associated: discovered: \(discoveredCount), retrieved: \(retrievedCount)")
             return // there are still associated devices
         }
 

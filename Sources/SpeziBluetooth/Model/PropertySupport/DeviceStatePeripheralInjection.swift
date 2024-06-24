@@ -16,7 +16,7 @@ actor DeviceStatePeripheralInjection<Value>: BluetoothActor {
     private let peripheral: BluetoothPeripheral
     private let accessKeyPath: KeyPath<BluetoothPeripheral, Value>
     private let observationKeyPath: KeyPath<PeripheralStorage, Value>?
-    private let subscriptions = ChangeSubscriptions<Value>()
+    private let subscriptions: ChangeSubscriptions<Value>
 
     nonisolated var value: Value {
         peripheral[keyPath: accessKeyPath]
@@ -29,6 +29,7 @@ actor DeviceStatePeripheralInjection<Value>: BluetoothActor {
         self.peripheral = peripheral
         self.accessKeyPath = keyPath
         self.observationKeyPath = keyPath.storageEquivalent()
+        self.subscriptions = ChangeSubscriptions(queue: peripheral.bluetoothQueue)
     }
 
     func setup() {

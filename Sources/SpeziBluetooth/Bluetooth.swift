@@ -369,6 +369,8 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
                     return
                 }
 
+                print("Discovered peripherals UPDATE: \(discoveredDevices)")
+
                 self.assertIsolated("BluetoothManager peripherals change closure was unexpectedly not called on the Bluetooth SerialExecutor.")
                 self.assumeIsolated { bluetooth in
                     bluetooth.observeDiscoveredDevices()
@@ -382,28 +384,6 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
         }
     }
 
-    private func observePeripheralState(of uuid: UUID) {
-        // We must make sure that we don't capture the `peripheral` within the `onChange` closure as otherwise
-        // this would require a reference cycle within the `BluetoothPeripheral` class.
-        // Therefore, we have this indirection via the uuid here.
-        guard let peripheral = bluetoothManager.assumeIsolated({ $0.knownPeripherals[uuid] }) else {
-            return
-        }
-
-        peripheral.assumeIsolated { peripheral in
-            peripheral.onChange(of: \.state) { [weak self] _ in
-                guard let self = self else {
-                    return
-                }
-
-                self.assumeIsolated { bluetooth in
-                    bluetooth.observePeripheralState(of: uuid)
-                    bluetooth.handlePeripheralStateChange()
-                }
-            }
-        }
-    }
-
     private func handleUpdatedNearbyDevicesChange(_ discoveredDevices: OrderedDictionary<UUID, BluetoothPeripheral>) {
         var checkForConnected = false
 
@@ -414,6 +394,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
             nearbyDevices.removeValue(forKey: key)
 
             // device instances will be automatically deallocated via `notifyDeviceDeinit`
+            print("Removed nearby bluetooth device: \(nearbyDevices)")
         }
 
         // add devices for new keys
@@ -441,6 +422,34 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
         if checkForConnected {
             // ensure that we get notified about, e.g., a connected peripheral that is instantly removed
             handlePeripheralStateChange()
+        }
+    }
+
+
+    @_spi(Internal)
+    public func _initializedDevicesCount() -> Int { // swiftlint:disable:this identifier_name
+        initializedDevices.count
+    }
+
+    private func observePeripheralState(of uuid: UUID) {
+        // We must make sure that we don't capture the `peripheral` within the `onChange` closure as otherwise
+        // this would require a reference cycle within the `BluetoothPeripheral` class.
+        // Therefore, we have this indirection via the uuid here.
+        guard let peripheral = bluetoothManager.assumeIsolated({ $0.knownPeripherals[uuid] }) else {
+            return
+        }
+
+        peripheral.assumeIsolated { peripheral in
+            peripheral.onChange(of: \.state) { [weak self] _ in
+                guard let self = self else {
+                    return
+                }
+
+                self.assumeIsolated { bluetooth in
+                    bluetooth.observePeripheralState(of: uuid)
+                    bluetooth.handlePeripheralStateChange()
+                }
+            }
         }
     }
 

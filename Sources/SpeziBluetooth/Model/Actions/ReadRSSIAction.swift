@@ -9,8 +9,8 @@
 /// Read the current RSSI from the Bluetooth peripheral.
 ///
 /// For more information refer to ``DeviceActions/readRSSI``
-public struct ReadRSSIAction: _BluetoothPeripheralAction {
-    public typealias ClosureType = () async throws -> Int
+public struct ReadRSSIAction: _BluetoothPeripheralAction, Sendable {
+    public typealias ClosureType = @Sendable () async throws -> Int
 
     private let content: _PeripheralActionContent<ClosureType>
 

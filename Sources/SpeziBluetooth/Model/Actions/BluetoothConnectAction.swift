@@ -10,8 +10,8 @@
 /// Connect to the Bluetooth peripheral.
 ///
 /// For more information refer to ``DeviceActions/connect``
-public struct BluetoothConnectAction: _BluetoothPeripheralAction {
-    public typealias ClosureType = () async -> Void
+public struct BluetoothConnectAction: _BluetoothPeripheralAction, Sendable {
+    public typealias ClosureType = @Sendable () async -> Void
 
     private let content: _PeripheralActionContent<ClosureType>
 

@@ -683,14 +683,16 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
             _storage.update(nearby: false)
         }
 
-
         guard let manager else {
             self.logger.warning("Orphaned device \(self.id), \(self.name ?? "unnamed") was de-initialized")
             return
         }
 
         let id = id
-        Task { @SpeziBluetooth in
+        let name = name
+
+        self.logger.debug("Device \(id), \(name ?? "unnamed") was de-initialized...")
+        Task.detached { @SpeziBluetooth in
             await manager.handlePeripheralDeinit(id: id)
         }
     }

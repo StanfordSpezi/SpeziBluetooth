@@ -10,8 +10,8 @@
 /// Disconnect from the Bluetooth peripheral.
 ///
 /// For more information refer to ``DeviceActions/disconnect``
-public struct BluetoothDisconnectAction: _BluetoothPeripheralAction {
-    public typealias ClosureType = () async -> Void
+public struct BluetoothDisconnectAction: _BluetoothPeripheralAction, Sendable {
+    public typealias ClosureType = @Sendable () async -> Void
 
     private let content: _PeripheralActionContent<ClosureType>
 
