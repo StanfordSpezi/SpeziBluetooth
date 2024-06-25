@@ -273,6 +273,8 @@ due to their async nature.
 
 - ``SwiftUI/View/scanNearbyDevices(enabled:with:minimumRSSI:advertisementStaleInterval:autoConnect:)``
 - ``SwiftUI/View/autoConnect(enabled:with:minimumRSSI:advertisementStaleInterval:)``
+- ``SwiftUI/EnvironmentValues/minimumRSSI``
+- ``SwiftUI/EnvironmentValues/advertisementStaleInterval``
 - ``ConnectedDevices``
 
 ### Declaring a Bluetooth Device

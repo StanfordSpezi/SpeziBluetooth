@@ -71,6 +71,8 @@ import OSLog
 /// - ``nearbyPeripherals``
 /// - ``scanNearbyDevices(discovery:minimumRSSI:advertisementStaleInterval:autoConnect:)``
 /// - ``stopScanning()``
+/// - ``SwiftUI/View/scanNearbyDevices(enabled:with:discovery:minimumRSSI:advertisementStaleInterval:autoConnect:)``
+/// - ``SwiftUI/View/autoConnect(enabled:with:discovery:minimumRSSI:advertisementStaleInterval:)``
 ///
 /// ### Retrieving known Peripherals
 /// - ``retrievePeripheral(for:with:)``
