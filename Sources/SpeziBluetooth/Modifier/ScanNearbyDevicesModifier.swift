@@ -117,6 +117,8 @@ extension View {
         advertisementStaleInterval: TimeInterval = BluetoothManager.Defaults.defaultStaleTimeout,
         autoConnect: Bool = false
     ) -> some View {
+        // TODO: configure options from the environment?
+        // TODO: how to reduce multiple scanner options?
         scanNearbyDevices(enabled: enabled, scanner: bluetooth, state: BluetoothModuleDiscoveryState(
             minimumRSSI: minimumRSSI,
             advertisementStaleInterval: advertisementStaleInterval,

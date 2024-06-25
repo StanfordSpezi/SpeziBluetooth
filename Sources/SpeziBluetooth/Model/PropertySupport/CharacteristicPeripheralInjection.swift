@@ -121,7 +121,7 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
         subscriptions.newSubscription()
     }
 
-    nonisolated func newOnChangeSubscription(initial: Bool, perform action: @escaping (Value) async -> Void) {
+    nonisolated func newOnChangeSubscription(initial: Bool, perform action: @escaping (_ oldValue: Value, _ newValue: Value) async -> Void) {
         let id = subscriptions.newOnChangeSubscription(perform: action)
 
         // Must be called detached, otherwise it might inherit TaskLocal values which includes Spezi moduleInitContext
@@ -131,14 +131,14 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
         }
     }
 
-    private func handleInitialCall(id: UUID, initial: Bool, action: (Value) async -> Void) async {
+    private func handleInitialCall(id: UUID, initial: Bool, action: (_ oldValue: Value, _ newValue: Value) async -> Void) async {
         if nonInitialChangeHandlers != nil {
             if !initial {
                 nonInitialChangeHandlers?.insert(id)
             }
         } else if initial, let value {
             // nonInitialChangeHandlers is nil, meaning the initial value already arrived and we can call the action instantly if they wanted that
-            await action(value)
+            subscriptions.notifySubscriber(id: id, with: value)
         }
     }
 

@@ -60,16 +60,12 @@ actor DeviceStatePeripheralInjection<Value>: BluetoothActor {
         subscriptions.newSubscription()
     }
 
-    nonisolated func newOnChangeSubscription(initial: Bool, perform action: @escaping (Value) async -> Void) {
-        subscriptions.newOnChangeSubscription(perform: action)
+    nonisolated func newOnChangeSubscription(initial: Bool, perform action: @escaping (_ oldValue: Value, _ newValue: Value) async -> Void) {
+        let id = subscriptions.newOnChangeSubscription(perform: action)
 
         if initial {
             let value = peripheral[keyPath: accessKeyPath]
-            Task { @SpeziBluetooth in
-                await self.isolated { _ in
-                    await action(value)
-                }
-            }
+            subscriptions.notifySubscriber(id: id, with: value)
         }
     }
 

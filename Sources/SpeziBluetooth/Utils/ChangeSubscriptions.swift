@@ -39,6 +39,10 @@ class ChangeSubscriptions<Value>: @unchecked Sendable {
         }
     }
 
+    func notifySubscriber(id: UUID, with value: Value) {
+        continuations[id]?.yield(value)
+    }
+
     private func _newSubscription() -> Registration {
         let id = UUID()
         let stream = AsyncStream { continuation in
@@ -65,21 +69,24 @@ class ChangeSubscriptions<Value>: @unchecked Sendable {
     }
 
     @discardableResult
-    func newOnChangeSubscription(perform action: @escaping (Value) async -> Void) -> UUID {
+    func newOnChangeSubscription(perform action: @escaping (_ oldValue: Value, _ newValue: Value) async -> Void) -> UUID {
         let registration = _newSubscription()
 
         // It's important to use a detached Task here.
         // Otherwise it might inherit TaskLocal values which might include Spezi moduleInitContext
         // which would create a strong reference to the device.
         let task = Task.detached { @SpeziBluetooth [weak self, dispatch] in
+            var currentValue: Value?
+
             for await element in registration.subscription {
                 guard self != nil else {
                     return
                 }
 
                 await dispatch.isolated { _ in
-                    await action(element)
+                    await action(currentValue ?? element, element)
                 }
+                currentValue = element
             }
 
             self?.lock.withLock {

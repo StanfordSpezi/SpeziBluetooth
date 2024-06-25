@@ -45,7 +45,8 @@ struct CharacteristicTestInjections<Value> {
 /// - ``enableNotifications(_:)``
 ///
 /// ### Get notified about changes
-/// - ``onChange(initial:perform:)``
+/// - ``onChange(initial:perform:)-6ltwk``
+/// - ``onChange(initial:perform:)-5awby``
 ///
 /// ### Control Point Characteristics
 /// - ``sendRequest(_:timeout:)``
@@ -146,7 +147,31 @@ extension CharacteristicAccessor where Value: ByteDecodable {
     ///     - initial: Whether the action should be run with the initial characteristic value.
     ///     Otherwise, the action will only run strictly if the value changes.
     ///     - action: The change handler to register.
-    public func onChange(initial: Bool = false, @_implicitSelfCapture perform action: @escaping (Value) async -> Void) {
+    public func onChange(initial: Bool = false, perform action: @escaping (_ value: Value) async -> Void) {
+        onChange(initial: initial) { _, newValue in
+            await action(newValue)
+        }
+    }
+
+    /// Perform action whenever the characteristic value changes.
+    ///
+    /// Register a change handler with the characteristic that is called every time the value changes.
+    ///
+    /// - Note: `onChange` handlers are bound to the lifetime of the device. If you need to control the lifetime yourself refer to using ``subscription``.
+    ///
+    /// Note that you cannot set up onChange handlers within the initializers.
+    /// Use the [`configure()`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module/configure()-5pa83) to set up
+    /// all your handlers.
+    /// - Important: You must capture `self` weakly only. Capturing `self` strongly causes a memory leak.
+    ///
+    /// - Note: This closure is called from the Bluetooth Serial Executor, if you don't pass in an async method
+    ///     that has an annotated actor isolation (e.g., `@MainActor` or actor isolated methods).
+    ///
+    /// - Parameters:
+    ///     - initial: Whether the action should be run with the initial characteristic value.
+    ///     Otherwise, the action will only run strictly if the value changes.
+    ///     - action: The change handler to register, receiving both the old and new value.
+    public func onChange(initial: Bool = false, perform action: @escaping (_ oldValue: Value, _ newValue: Value) async -> Void) {
         guard let injection else {
             preconditionFailure(
                 """

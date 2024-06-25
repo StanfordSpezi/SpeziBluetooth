@@ -14,7 +14,8 @@
 /// ## Topics
 ///
 /// ### Get notified about changes
-/// - ``onChange(initial:perform:)``
+/// - ``onChange(initial:perform:)-8x9cj``
+/// - ``onChange(initial:perform:)-9igc9``
 public struct DeviceStateAccessor<Value> {
     private let id: ObjectIdentifier
     private let injection: DeviceStatePeripheralInjection<Value>?
@@ -62,6 +63,30 @@ extension DeviceStateAccessor {
     ///     strictly if the value changes.
     ///     - action: The change handler to register.
     public func onChange(initial: Bool = false, perform action: @escaping (Value) async -> Void) {
+        onChange(initial: true) { _, newValue in
+            await action(newValue)
+        }
+    }
+
+    /// Perform action whenever the state value changes.
+    ///
+    /// Register a change handler with the device state that is called every time the value changes.
+    ///
+    /// - Note: `onChange` handlers are bound to the lifetime of the device. If you need to control the lifetime yourself refer to using ``subscription``.
+    ///
+    /// Note that you cannot set up onChange handlers within the initializers.
+    /// Use the [`configure()`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module/configure()-5pa83) to set up
+    /// all your handlers.
+    /// - Important: You must capture `self` weakly only. Capturing `self` strongly causes a memory leak.
+    ///
+    /// - Note: This closure is called from the Bluetooth Serial Executor, if you don't pass in an async method
+    ///     that has an annotated actor isolation (e.g., `@MainActor` or actor isolated methods).
+    ///
+    /// - Parameters:
+    ///     - initial: Whether the action should be run with the initial state value. Otherwise, the action will only run
+    ///     strictly if the value changes.
+    ///     - action: The change handler to register, receiving both the old and new value.
+    public func onChange(initial: Bool = false, perform action: @escaping (_ oldValue: Value, _ newValue: Value) async -> Void) {
         guard let injection else {
             preconditionFailure(
                 """
