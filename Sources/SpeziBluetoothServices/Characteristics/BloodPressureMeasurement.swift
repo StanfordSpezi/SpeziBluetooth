@@ -266,3 +266,12 @@ extension BloodPressureMeasurement: ByteCodable {
         byteBuffer.setInteger(flags.rawValue, at: flagsIndex) // finally update the flags field
     }
 }
+
+
+extension BloodPressureMeasurement.Unit: Codable {}
+
+
+extension BloodPressureMeasurement.Status: Codable {}
+
+
+extension BloodPressureMeasurement: Codable {}

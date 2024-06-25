@@ -13,28 +13,40 @@ import NIO
 /// The location of a temperature measurement.
 ///
 /// Refer to GATT Specification Supplement, 3.219 Temperature Type.
-public enum TemperatureType: UInt8, CaseIterable {
+public struct TemperatureType {
     /// Reserved for future use.
-    case reserved
+    public static let reserved = TemperatureType(rawValue: 0x00)
     /// Armpit.
-    case armpit
+    public static let armpit = TemperatureType(rawValue: 0x01)
     /// Body (general).
-    case body
+    public static let body = TemperatureType(rawValue: 0x02)
     /// Ear (usually earlobe).
-    case ear
+    public static let ear = TemperatureType(rawValue: 0x03)
     /// Finger.
-    case finger
+    public static let finger = TemperatureType(rawValue: 0x04)
     /// Gastrointestinal Tract.
-    case gastrointestinalTract
+    public static let gastrointestinalTract = TemperatureType(rawValue: 0x05)
     /// Mouth.
-    case mouth
+    public static let mouth = TemperatureType(rawValue: 0x06)
     /// Rectum.
-    case rectum
+    public static let rectum = TemperatureType(rawValue: 0x07)
     /// Toe.
-    case toe
+    public static let toe = TemperatureType(rawValue: 0x08)
     /// Tympanum (ear drum).
-    case tympanum
+    public static let tympanum = TemperatureType(rawValue: 0x09)
+
+    /// The raw value.
+    public let rawValue: UInt8
+
+    /// Create temperature type from raw value.
+    /// - Parameter rawValue: The raw value temperature type.
+    public init(rawValue: UInt8) {
+        self.rawValue = rawValue
+    }
 }
+
+
+extension TemperatureType: RawRepresentable {}
 
 
 extension TemperatureType: Hashable, Sendable {}
@@ -53,3 +65,6 @@ extension TemperatureType: ByteCodable {
         rawValue.encode(to: &byteBuffer)
     }
 }
+
+
+extension TemperatureType: Codable {}

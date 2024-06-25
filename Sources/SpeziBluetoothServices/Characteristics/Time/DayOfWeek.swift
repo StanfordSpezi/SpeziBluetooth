@@ -65,3 +65,6 @@ extension DayOfWeek: ByteCodable {
         rawValue.encode(to: &byteBuffer)
     }
 }
+
+
+extension DayOfWeek: Codable {}

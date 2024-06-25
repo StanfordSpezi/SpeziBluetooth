@@ -214,3 +214,9 @@ extension DateTime: ByteCodable {
         seconds.encode(to: &byteBuffer)
     }
 }
+
+
+extension DateTime.Month: Codable {}
+
+
+extension DateTime: Codable {}

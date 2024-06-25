@@ -26,7 +26,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/StanfordSpezi/SpeziFoundation", from: "1.1.0"),
         .package(url: "https://github.com/StanfordSpezi/Spezi", branch: "feature/externally-managed-modules"),
-        .package(url: "https://github.com/StanfordSpezi/SpeziNetworking", from: "2.0.1"),
+        .package(url: "https://github.com/StanfordSpezi/SpeziNetworking", branch: "feature/medfloat16-codable"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.59.0"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.0.4"),
         .package(url: "https://github.com/realm/SwiftLint.git", .upToNextMinor(from: "0.55.1"))

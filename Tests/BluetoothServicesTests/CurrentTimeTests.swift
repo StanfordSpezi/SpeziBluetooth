@@ -120,6 +120,17 @@ final class CurrentTimeTests: XCTestCase {
         try testIdentity(from: CurrentTime(time: exactTime, adjustReason: [.manualTimeUpdate, .changeOfTimeZone]))
     }
 
+    func testCurrentTimeCodable() throws {
+        // test that we are coding from a single value container
+        let encoded = try JSONEncoder().encode(UInt8(0x01))
+        let reason = try JSONDecoder().decode(CurrentTime.AdjustReason.self, from: encoded)
+        XCTAssertEqual(reason, .manualTimeUpdate)
+
+        let encodedReason = try JSONEncoder().encode(CurrentTime.AdjustReason.manualTimeUpdate)
+        let rawValue = try JSONDecoder().decode(UInt8.self, from: encodedReason)
+        XCTAssertEqual(rawValue, 0x01) // TODO: test for all?
+    }
+
     func testDateConversions() throws {
         let baseNanoSeconds = Int(255 * (1.0 / 256.0) * 1000_000_000)
         var components = DateComponents(year: 2024, month: 5, day: 17, hour: 16, minute: 11, second: 26)

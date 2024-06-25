@@ -79,3 +79,6 @@ extension BloodPressureFeature: ByteCodable {
         rawValue.encode(to: &byteBuffer)
     }
 }
+
+
+extension BloodPressureFeature: Codable {}

@@ -58,3 +58,6 @@ extension MeasurementInterval: ByteCodable {
         rawValue.encode(to: &byteBuffer)
     }
 }
+
+
+extension MeasurementInterval: Codable {}

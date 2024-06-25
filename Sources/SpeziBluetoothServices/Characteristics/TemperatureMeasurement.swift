@@ -144,3 +144,9 @@ extension TemperatureMeasurement: ByteCodable {
         byteBuffer.setInteger(flags.rawValue, at: flagsIndex) // finally update the flags field
     }
 }
+
+
+extension TemperatureMeasurement.Unit: Codable {}
+
+
+extension TemperatureMeasurement: Codable {}

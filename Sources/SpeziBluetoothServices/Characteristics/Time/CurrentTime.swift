@@ -87,3 +87,9 @@ extension CurrentTime: ByteCodable {
         adjustReason.encode(to: &byteBuffer)
     }
 }
+
+
+extension CurrentTime.AdjustReason: Codable {}
+
+
+extension CurrentTime: Codable {}

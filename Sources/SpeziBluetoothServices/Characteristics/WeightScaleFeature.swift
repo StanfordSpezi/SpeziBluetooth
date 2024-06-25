@@ -231,3 +231,6 @@ extension WeightScaleFeature: ByteCodable {
         rawValue.encode(to: &byteBuffer)
     }
 }
+
+
+extension WeightScaleFeature: Codable {}

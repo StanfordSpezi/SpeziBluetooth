@@ -240,3 +240,12 @@ extension WeightMeasurement: ByteCodable {
         byteBuffer.setInteger(flags.rawValue, at: flagsIndex) // finally update the flags field
     }
 }
+
+
+extension WeightMeasurement.Unit: Codable {}
+
+
+extension WeightMeasurement.AdditionalInfo: Codable {}
+
+
+extension WeightMeasurement: Codable {}

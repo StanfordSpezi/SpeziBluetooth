@@ -130,3 +130,9 @@ extension PnPID: ByteCodable {
         productVersion.encode(to: &byteBuffer)
     }
 }
+
+
+extension VendorIDSource: Codable {}
+
+
+extension PnPID: Codable {}

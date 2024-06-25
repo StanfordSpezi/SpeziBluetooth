@@ -126,3 +126,14 @@ extension IntermediateCuffPressure: ByteCodable {
         representation.encode(to: &byteBuffer)
     }
 }
+
+
+extension IntermediateCuffPressure: Codable {
+    public init(from decoder: any Decoder) throws {
+        self.representation = try BloodPressureMeasurement(from: decoder)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        try representation.encode(to: encoder)
+    }
+}

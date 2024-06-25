@@ -112,3 +112,6 @@ extension DayDateTime: ByteCodable {
         dayOfWeek.encode(to: &byteBuffer)
     }
 }
+
+
+extension DayDateTime: Codable {}

@@ -133,3 +133,6 @@ extension ExactTime256: ByteCodable {
         fractions256.encode(to: &byteBuffer)
     }
 }
+
+
+extension ExactTime256: Codable {}
