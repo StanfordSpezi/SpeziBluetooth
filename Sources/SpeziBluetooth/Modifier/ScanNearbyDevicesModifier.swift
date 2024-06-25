@@ -20,6 +20,11 @@ private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifie
     @Environment(\.surroundingScanModifiers)
     private var surroundingModifiers
 
+    @Environment(\.minimumRSSI)
+    private var minimumRSSI
+    @Environment(\.advertisementStaleInterval)
+    private var advertisementStaleInterval
+
     @State private var modifierId = UUID()
 
     init(enabled: Bool, scanner: Scanner, state: Scanner.ScanningState) {
@@ -49,7 +54,17 @@ private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifie
             }
             .onChange(of: state, initial: false) {
                 if enabled {
-                    surroundingModifiers.setModifierScanningState(enabled: enabled, with: scanner, modifierId: modifierId, state: state)
+                    updateScanningState(enabled: enabled)
+                }
+            }
+            .onChange(of: minimumRSSI) {
+                if enabled {
+                    updateScanningState(enabled: enabled)
+                }
+            }
+            .onChange(of: advertisementStaleInterval) {
+                if enabled {
+                    updateScanningState(enabled: enabled)
                 }
             }
             .onChange(of: surroundingModifiers.retrieveReducedScanningState(for: scanner)) { _, newValue in
@@ -65,7 +80,7 @@ private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifie
     @MainActor
     private func onForeground() {
         if enabled {
-            surroundingModifiers.setModifierScanningState(enabled: true, with: scanner, modifierId: modifierId, state: state)
+            updateScanningState(enabled: true)
             Task {
                 await scanner.scanNearbyDevices(state)
             }
@@ -74,7 +89,7 @@ private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifie
 
     @MainActor
     private func onBackground() {
-        surroundingModifiers.setModifierScanningState(enabled: false, with: scanner, modifierId: modifierId, state: state)
+        updateScanningState(enabled: false)
 
         if surroundingModifiers.hasPersistentInterest(for: scanner) {
             return // don't stop scanning if a surrounding modifier is expecting a scan to continue
@@ -83,6 +98,12 @@ private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifie
         Task {
             await scanner.stopScanning()
         }
+    }
+
+    @MainActor
+    private func updateScanningState(enabled: Bool) {
+        let state = state.updateOptions(minimumRSSI: minimumRSSI, advertisementStaleInterval: advertisementStaleInterval)
+        surroundingModifiers.setModifierScanningState(enabled: enabled, with: scanner, modifierId: modifierId, state: state)
     }
 }
 
@@ -113,19 +134,18 @@ extension View {
     /// - Parameters:
     ///   - enabled: Flag indicating if nearby device scanning is enabled.
     ///   - bluetooth: The Bluetooth Module to use for scanning.
-    ///   - minimumRSSI: The minimum rssi a nearby peripheral must have to be considered nearby.
+    ///   - minimumRSSI: The minimum rssi a nearby peripheral must have to be considered nearby. Supply `nil` to use default the default value or a value from the environment.
     ///   - advertisementStaleInterval: The time interval after which a peripheral advertisement is considered stale
-    ///     if we don't hear back from the device. Minimum is 1 second.
+    ///     if we don't hear back from the device. Minimum is 1 second. Supply `nil` to use default the default value or a value from the environment.
     ///   - autoConnect: If enabled, the bluetooth manager will automatically connect to the nearby device if only one is found.
     /// - Returns: The modified view.
     public func scanNearbyDevices( // swiftlint:disable:this function_default_parameter_at_end
         enabled: Bool = true,
         with bluetooth: Bluetooth,
-        minimumRSSI: Int = BluetoothManager.Defaults.defaultMinimumRSSI,
-        advertisementStaleInterval: TimeInterval = BluetoothManager.Defaults.defaultStaleTimeout,
+        minimumRSSI: Int? = nil,
+        advertisementStaleInterval: TimeInterval? = nil,
         autoConnect: Bool = false
     ) -> some View {
-        // TODO: configure options from the environment?
         scanNearbyDevices(enabled: enabled, scanner: bluetooth, state: BluetoothModuleDiscoveryState(
             minimumRSSI: minimumRSSI,
             advertisementStaleInterval: advertisementStaleInterval,
@@ -152,17 +172,17 @@ extension View {
     ///   - enabled: Flag indicating if nearby device scanning is enabled.
     ///   - bluetoothManager: The Bluetooth Manager to use for scanning.
     ///   - discovery: The set of device description describing **how** and **what** to discover.
-    ///   - minimumRSSI: The minimum rssi a nearby peripheral must have to be considered nearby.
+    ///   - minimumRSSI: The minimum rssi a nearby peripheral must have to be considered nearby. Supply `nil` to use default the default value or a value from the environment.
     ///   - advertisementStaleInterval: The time interval after which a peripheral advertisement is considered stale
-    ///     if we don't hear back from the device. Minimum is 1 second.
+    ///     if we don't hear back from the device. Minimum is 1 second. Supply `nil` to use default the default value or a value from the environment.
     ///   - autoConnect: If enabled, the bluetooth manager will automatically connect to the nearby device if only one is found.
     /// - Returns: The modified view.
     public func scanNearbyDevices( // swiftlint:disable:this function_default_parameter_at_end
         enabled: Bool = true,
         with bluetoothManager: BluetoothManager,
         discovery: Set<DiscoveryDescription>,
-        minimumRSSI: Int = BluetoothManager.Defaults.defaultMinimumRSSI,
-        advertisementStaleInterval: TimeInterval = BluetoothManager.Defaults.defaultStaleTimeout,
+        minimumRSSI: Int? = nil,
+        advertisementStaleInterval: TimeInterval? = nil,
         autoConnect: Bool = false
     ) -> some View {
         scanNearbyDevices(enabled: enabled, scanner: bluetoothManager, state: BluetoothManagerDiscoveryState(

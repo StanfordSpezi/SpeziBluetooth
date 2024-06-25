@@ -265,8 +265,8 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
     ///     the nearby device if only one is found for a given time threshold.
     public func scanNearbyDevices(
         discovery: Set<DiscoveryDescription>,
-        minimumRSSI: Int = Defaults.defaultMinimumRSSI,
-        advertisementStaleInterval: TimeInterval = Defaults.defaultStaleTimeout,
+        minimumRSSI: Int? = nil,
+        advertisementStaleInterval: TimeInterval? = nil,
         autoConnect: Bool = false
     ) {
         let state = BluetoothManagerDiscoveryState(
@@ -537,7 +537,7 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
     private func discardDevice(device: BluetoothPeripheral) {
         if let discoverySession, isScanning {
             // we will keep discarded devices for max 2s before the stale timer kicks off
-            let backdateInterval = max(0, discoverySession.assumeIsolated { $0.configuration.advertisementStaleInterval } - 2)
+            let backdateInterval = max(0, discoverySession.assumeIsolated { $0.advertisementStaleInterval } - 2)
 
             device.assumeIsolated { device in
                 device.markLastActivity(.now - backdateInterval)
@@ -692,13 +692,13 @@ extension BluetoothManager: BluetoothScanner {
 // MARK: Defaults
 extension BluetoothManager {
     /// Set of default values used within the Bluetooth Manager
-    public enum Defaults {
+    enum Defaults {
         /// The default timeout after which stale advertisements are removed.
-        public static let defaultStaleTimeout: TimeInterval = 8
+        static let defaultStaleTimeout: TimeInterval = 8
         /// The minimum rssi of a peripheral to consider it for discovery.
-        public static let defaultMinimumRSSI = -80
+        static let defaultMinimumRSSI = -80
         /// The default time in seconds after which we check for auto connectable devices after the initial advertisement.
-        public static let defaultAutoConnectDebounce: Int = 1
+        static let defaultAutoConnectDebounce: Int = 1
     }
 }
 
@@ -804,7 +804,7 @@ extension BluetoothManager {
 
                     logger.debug("Discovered peripheral \(peripheral.debugIdentifier) at \(rssi.intValue) dB (data: \(advertisementData))")
 
-                    let descriptor = session.assumeIsolated { $0.configuration.configuredDevices }
+                    let descriptor = session.assumeIsolated { $0.configuredDevices }
                         .find(for: data, logger: logger)
                     let device = BluetoothPeripheral(
                         manager: manager,

@@ -10,31 +10,47 @@ import class CoreBluetooth.CBUUID
 import Foundation
 import OSLog
 
+private func optionalMax<Value: Comparable>(_ lhs: Value?, _ rhs: Value?) -> Value? {
+    guard let lhs, let rhs else {
+        return lhs ?? rhs
+    }
+    return max(lhs, rhs)
+}
+
 
 struct BluetoothManagerDiscoveryState: BluetoothScanningState {
     /// The device descriptions describing how nearby devices are discovered.
     let configuredDevices: Set<DiscoveryDescription>
     /// The minimum rssi that is required for a device to be considered discovered.
-    let minimumRSSI: Int
+    let minimumRSSI: Int?
     /// The time interval after which an advertisement is considered stale and the device is removed.
-    let advertisementStaleInterval: TimeInterval
+    let advertisementStaleInterval: TimeInterval?
     /// Flag indicating if first discovered device should be auto-connected.
     let autoConnect: Bool
 
 
-    init(configuredDevices: Set<DiscoveryDescription>, minimumRSSI: Int, advertisementStaleInterval: TimeInterval, autoConnect: Bool) {
+    init(configuredDevices: Set<DiscoveryDescription>, minimumRSSI: Int?, advertisementStaleInterval: TimeInterval?, autoConnect: Bool) {
         self.configuredDevices = configuredDevices
         self.minimumRSSI = minimumRSSI
-        self.advertisementStaleInterval = max(1, advertisementStaleInterval)
+        self.advertisementStaleInterval = advertisementStaleInterval.map { max(1, $0) }
         self.autoConnect = autoConnect
     }
 
     func merging(with other: BluetoothManagerDiscoveryState) -> BluetoothManagerDiscoveryState {
         BluetoothManagerDiscoveryState(
             configuredDevices: configuredDevices.union(other.configuredDevices),
-            minimumRSSI: max(minimumRSSI, other.minimumRSSI),
-            advertisementStaleInterval: max(advertisementStaleInterval, other.advertisementStaleInterval),
+            minimumRSSI: optionalMax(minimumRSSI, other.minimumRSSI),
+            advertisementStaleInterval: optionalMax(advertisementStaleInterval, other.advertisementStaleInterval),
             autoConnect: autoConnect || other.autoConnect
+        )
+    }
+
+    func updateOptions(minimumRSSI: Int?, advertisementStaleInterval: TimeInterval?) -> BluetoothManagerDiscoveryState {
+        BluetoothManagerDiscoveryState(
+            configuredDevices: configuredDevices,
+            minimumRSSI: optionalMax(self.minimumRSSI, minimumRSSI),
+            advertisementStaleInterval: optionalMax(self.advertisementStaleInterval, advertisementStaleInterval),
+            autoConnect: autoConnect
         )
     }
 }
@@ -43,14 +59,14 @@ struct BluetoothManagerDiscoveryState: BluetoothScanningState {
 /// Intermediate storage object that is later translated to a BluetoothManagerDiscoveryState.
 struct BluetoothModuleDiscoveryState: BluetoothScanningState {
     /// The minimum rssi that is required for a device to be considered discovered.
-    let minimumRSSI: Int
+    let minimumRSSI: Int?
     /// The time interval after which an advertisement is considered stale and the device is removed.
-    let advertisementStaleInterval: TimeInterval
+    let advertisementStaleInterval: TimeInterval?
     /// Flag indicating if first discovered device should be auto-connected.
     let autoConnect: Bool
 
 
-    init(minimumRSSI: Int, advertisementStaleInterval: TimeInterval, autoConnect: Bool) {
+    init(minimumRSSI: Int?, advertisementStaleInterval: TimeInterval?, autoConnect: Bool) {
         self.minimumRSSI = minimumRSSI
         self.advertisementStaleInterval = advertisementStaleInterval
         self.autoConnect = autoConnect
@@ -58,9 +74,17 @@ struct BluetoothModuleDiscoveryState: BluetoothScanningState {
 
     func merging(with other: BluetoothModuleDiscoveryState) -> BluetoothModuleDiscoveryState {
         BluetoothModuleDiscoveryState(
-            minimumRSSI: max(minimumRSSI, other.minimumRSSI),
-            advertisementStaleInterval: max(advertisementStaleInterval, other.advertisementStaleInterval),
+            minimumRSSI: optionalMax(minimumRSSI, other.minimumRSSI),
+            advertisementStaleInterval: optionalMax(advertisementStaleInterval, other.advertisementStaleInterval),
             autoConnect: autoConnect || other.autoConnect
+        )
+    }
+
+    func updateOptions(minimumRSSI: Int?, advertisementStaleInterval: TimeInterval?) -> BluetoothModuleDiscoveryState {
+        BluetoothModuleDiscoveryState(
+            minimumRSSI: optionalMax(self.minimumRSSI, minimumRSSI),
+            advertisementStaleInterval: optionalMax(self.advertisementStaleInterval, advertisementStaleInterval),
+            autoConnect: autoConnect
         )
     }
 }
@@ -73,7 +97,7 @@ actor DiscoverySession: BluetoothActor {
 
     fileprivate weak var manager: BluetoothManager?
 
-    private(set) var configuration: BluetoothManagerDiscoveryState
+    private var configuration: BluetoothManagerDiscoveryState
 
     /// The identifier of the last manually disconnected device.
     /// This is to avoid automatically reconnecting to a device that was manually disconnected.
@@ -82,6 +106,17 @@ actor DiscoverySession: BluetoothActor {
     private var autoConnectItem: BluetoothWorkItem?
     private(set) var staleTimer: DiscoveryStaleTimer?
 
+    var configuredDevices: Set<DiscoveryDescription> {
+        configuration.configuredDevices
+    }
+
+    var minimumRSSI: Int {
+        configuration.minimumRSSI ?? BluetoothManager.Defaults.defaultMinimumRSSI
+    }
+
+    var advertisementStaleInterval: TimeInterval {
+        configuration.advertisementStaleInterval ?? BluetoothManager.Defaults.defaultStaleTimeout
+    }
 
     /// The set of serviceIds we request to discover upon scanning.
     /// Returning nil means scanning for all peripherals.
@@ -105,7 +140,7 @@ actor DiscoverySession: BluetoothActor {
 
     func isInRange(rssi: NSNumber) -> Bool {
         // rssi of 127 is a magic value signifying unavailability of the value.
-        rssi.intValue >= configuration.minimumRSSI && rssi.intValue != 127
+        rssi.intValue >= minimumRSSI && rssi.intValue != 127
     }
 
     func deviceManuallyDisconnected(id uuid: UUID) {
@@ -122,7 +157,7 @@ actor DiscoverySession: BluetoothActor {
         if newlyDiscovered {
             if staleTimer == nil {
                 // There is no stale timer running. So new device will be the one with the oldest activity. Schedule ...
-               scheduleStaleTask(for: device, withTimeout: configuration.advertisementStaleInterval)
+               scheduleStaleTask(for: device, withTimeout: advertisementStaleInterval)
             }
         } else {
             if cancelStaleTask(for: device) {
@@ -227,7 +262,7 @@ extension DiscoverySession {
             let lastActivity = oldestActivityDevice.assumeIsolated { $0.lastActivity }
 
             let intervalSinceLastActivity = Date.now.timeIntervalSince(lastActivity)
-            let nextTimeout = max(0, configuration.advertisementStaleInterval - intervalSinceLastActivity)
+            let nextTimeout = max(0, advertisementStaleInterval - intervalSinceLastActivity)
 
             scheduleStaleTask(for: oldestActivityDevice, withTimeout: nextTimeout)
         }
@@ -273,12 +308,12 @@ extension DiscoverySession {
 
         staleTimer = nil // reset the timer
 
-        let configuration = configuration
+        let staleInternal = advertisementStaleInterval
         let staleDevices = manager.assumeIsolated { $0.discoveredPeripherals }
             .values
             .filter { device in
                 device.assumeIsolated { isolated in
-                    isolated.isConsideredStale(interval: configuration.advertisementStaleInterval)
+                    isolated.isConsideredStale(interval: staleInternal)
                 }
             }
 

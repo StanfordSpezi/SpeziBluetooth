@@ -557,8 +557,8 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
     ///   - autoConnect: If enabled, the bluetooth manager will automatically connect to
     ///     the nearby device if only one is found for a given time threshold.
     public func scanNearbyDevices(
-        minimumRSSI: Int = BluetoothManager.Defaults.defaultMinimumRSSI,
-        advertisementStaleInterval: TimeInterval = BluetoothManager.Defaults.defaultStaleTimeout,
+        minimumRSSI: Int? = nil,
+        advertisementStaleInterval: TimeInterval? = nil,
         autoConnect: Bool = false
     ) {
         bluetoothManager.assumeIsolated { manager in

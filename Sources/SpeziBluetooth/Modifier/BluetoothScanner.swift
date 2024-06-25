@@ -6,10 +6,15 @@
 // SPDX-License-Identifier: MIT
 //
 
+import Foundation
+
+
 protocol BluetoothScanningState: Equatable {
     /// Merge with another state. Order should not matter in the operation.
     /// - Parameter other: The other state to merge with
     func merging(with other: Self) -> Self
+
+    func updateOptions(minimumRSSI: Int?, advertisementStaleInterval: TimeInterval?) -> Self
 }
 
 
