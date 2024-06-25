@@ -15,12 +15,15 @@ private struct MinimumRSSIEnvironmentKey: EnvironmentKey {
 
 
 extension EnvironmentValues {
+    /// The minimum rssi a nearby peripheral must have to be considered nearby.
     public var minimumRSSI: Int? {
         get {
             self[MinimumRSSIEnvironmentKey.self]
         }
         set {
-            self[MinimumRSSIEnvironmentKey.self] = newValue
+            if let newValue {
+                self[MinimumRSSIEnvironmentKey.self] = newValue
+            }
         }
     }
 }
