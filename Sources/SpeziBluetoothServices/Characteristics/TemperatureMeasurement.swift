@@ -28,7 +28,7 @@ public struct TemperatureMeasurement {
     }
 
     /// The unit of a temperature measurement.
-    public enum Unit {
+    public enum Unit: String {
         /// The temperature value is measured in celsius.
         case celsius
         /// The temperature value is measured in fahrenheit.

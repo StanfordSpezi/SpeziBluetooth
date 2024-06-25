@@ -29,7 +29,7 @@ public struct WeightMeasurement {
     }
 
     /// Units for a weight measurement.
-    public enum Unit {
+    public enum Unit: String {
         /// SI units (Weight and Mass in units of kilogram (kg) and Height in units of meter).
         case si // swiftlint:disable:this identifier_name
         /// Imperial units. (Weight and Mass in units of pound (lb) and Height in units of inch (in)).

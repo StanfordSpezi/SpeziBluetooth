@@ -31,7 +31,7 @@ public struct BloodPressureMeasurement {
     }
 
     /// The unit of a blood pressure measurement.
-    public enum Unit {
+    public enum Unit: String {
         /// Blood pressure for Systolic, Diastolic and Mean Arterial Pressure (MAP) is in units of mmHg.
         case mmHg
         /// Blood pressure for Systolic, Diastolic and Mean Arterial Pressure (MAP) is in units of kPa.

@@ -128,7 +128,7 @@ final class CurrentTimeTests: XCTestCase {
 
         let encodedReason = try JSONEncoder().encode(CurrentTime.AdjustReason.manualTimeUpdate)
         let rawValue = try JSONDecoder().decode(UInt8.self, from: encodedReason)
-        XCTAssertEqual(rawValue, 0x01) // TODO: test for all?
+        XCTAssertEqual(rawValue, 0x01)
     }
 
     func testDateConversions() throws {
