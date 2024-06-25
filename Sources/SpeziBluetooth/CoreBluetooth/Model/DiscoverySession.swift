@@ -11,7 +11,7 @@ import Foundation
 import OSLog
 
 
-struct BluetoothManagerDiscoveryState {
+struct BluetoothManagerDiscoveryState: BluetoothScanningState {
     /// The device descriptions describing how nearby devices are discovered.
     let configuredDevices: Set<DiscoveryDescription>
     /// The minimum rssi that is required for a device to be considered discovered.
@@ -28,10 +28,20 @@ struct BluetoothManagerDiscoveryState {
         self.advertisementStaleInterval = max(1, advertisementStaleInterval)
         self.autoConnect = autoConnect
     }
+
+    func merging(with other: BluetoothManagerDiscoveryState) -> BluetoothManagerDiscoveryState {
+        BluetoothManagerDiscoveryState(
+            configuredDevices: configuredDevices.union(other.configuredDevices),
+            minimumRSSI: max(minimumRSSI, other.minimumRSSI),
+            advertisementStaleInterval: max(advertisementStaleInterval, other.advertisementStaleInterval),
+            autoConnect: autoConnect || other.autoConnect
+        )
+    }
 }
 
 
-struct BluetoothModuleDiscoveryState { // intermediate storage object that is later translated to a BluetoothManagerDiscoveryState
+/// Intermediate storage object that is later translated to a BluetoothManagerDiscoveryState.
+struct BluetoothModuleDiscoveryState: BluetoothScanningState {
     /// The minimum rssi that is required for a device to be considered discovered.
     let minimumRSSI: Int
     /// The time interval after which an advertisement is considered stale and the device is removed.
@@ -44,6 +54,14 @@ struct BluetoothModuleDiscoveryState { // intermediate storage object that is la
         self.minimumRSSI = minimumRSSI
         self.advertisementStaleInterval = advertisementStaleInterval
         self.autoConnect = autoConnect
+    }
+
+    func merging(with other: BluetoothModuleDiscoveryState) -> BluetoothModuleDiscoveryState {
+        BluetoothModuleDiscoveryState(
+            minimumRSSI: max(minimumRSSI, other.minimumRSSI),
+            advertisementStaleInterval: max(advertisementStaleInterval, other.advertisementStaleInterval),
+            autoConnect: autoConnect || other.autoConnect
+        )
     }
 }
 

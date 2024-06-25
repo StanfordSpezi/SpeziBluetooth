@@ -48,8 +48,16 @@ private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifie
                 }
             }
             .onChange(of: state, initial: false) {
+                if enabled {
+                    surroundingModifiers.setModifierScanningState(enabled: enabled, with: scanner, modifierId: modifierId, state: state)
+                }
+            }
+            .onChange(of: surroundingModifiers.retrieveReducedScanningState(for: scanner)) { _, newValue in
+                guard let newValue else {
+                    return
+                }
                 Task {
-                    await scanner.updateScanningState(state)
+                    await scanner.updateScanningState(newValue)
                 }
             }
     }
@@ -57,7 +65,7 @@ private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifie
     @MainActor
     private func onForeground() {
         if enabled {
-            surroundingModifiers.setModifierScanningState(enabled: true, with: scanner, modifierId: modifierId)
+            surroundingModifiers.setModifierScanningState(enabled: true, with: scanner, modifierId: modifierId, state: state)
             Task {
                 await scanner.scanNearbyDevices(state)
             }
@@ -66,7 +74,7 @@ private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifie
 
     @MainActor
     private func onBackground() {
-        surroundingModifiers.setModifierScanningState(enabled: false, with: scanner, modifierId: modifierId)
+        surroundingModifiers.setModifierScanningState(enabled: false, with: scanner, modifierId: modifierId, state: state)
 
         if surroundingModifiers.hasPersistentInterest(for: scanner) {
             return // don't stop scanning if a surrounding modifier is expecting a scan to continue
@@ -118,7 +126,6 @@ extension View {
         autoConnect: Bool = false
     ) -> some View {
         // TODO: configure options from the environment?
-        // TODO: how to reduce multiple scanner options?
         scanNearbyDevices(enabled: enabled, scanner: bluetooth, state: BluetoothModuleDiscoveryState(
             minimumRSSI: minimumRSSI,
             advertisementStaleInterval: advertisementStaleInterval,

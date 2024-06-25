@@ -6,11 +6,17 @@
 // SPDX-License-Identifier: MIT
 //
 
+protocol BluetoothScanningState: Equatable {
+    /// Merge with another state. Order should not matter in the operation.
+    /// - Parameter other: The other state to merge with
+    func merging(with other: Self) -> Self
+}
+
 
 /// Any kind of Bluetooth Scanner.
 protocol BluetoothScanner: Identifiable where ID: Hashable {
     /// Captures state required to start scanning.
-    associatedtype ScanningState: Equatable
+    associatedtype ScanningState: BluetoothScanningState
 
     /// Indicates if there is at least one connected peripheral.
     ///
