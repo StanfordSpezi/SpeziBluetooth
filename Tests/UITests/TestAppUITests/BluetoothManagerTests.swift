@@ -17,6 +17,7 @@ final class BluetoothManagerTests: XCTestCase {
         continueAfterFailure = false
     }
 
+    @MainActor
     func testSpeziBluetooth() throws {
         let app = XCUIApplication()
         app.launch()

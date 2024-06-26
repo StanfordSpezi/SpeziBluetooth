@@ -20,6 +20,7 @@ final class SpeziBluetoothTests: XCTestCase {
         continueAfterFailure = false
     }
 
+    @MainActor
     func testTestPeripheral() throws { // swiftlint:disable:this function_body_length
         let app = XCUIApplication()
         app.launch()
@@ -142,6 +143,7 @@ final class SpeziBluetoothTests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Connected TestDevice"].waitForExistence(timeout: 0.5))
     }
 
+    @MainActor
     func testPairedDevice() throws {
         let app = XCUIApplication()
         app.launch()

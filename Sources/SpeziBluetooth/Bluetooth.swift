@@ -616,7 +616,7 @@ extension Bluetooth {
             logger.warning(
                 """
                 \(Device.self) is an empty device implementation. \
-                The same peripheral might be instantiated via multiple \(Device.self) instances if not device property wrappers like
+                The same peripheral might be instantiated via multiple \(Device.self) instances if no device property wrappers like
                 @Characteristic, @DeviceState or @DeviceAction is used.
                 """
             )
