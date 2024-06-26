@@ -117,11 +117,17 @@ extension RecordAccessOperationContent where Operand == RecordAccessGenericOpera
     }
 
     /// Records that are greater than or equal to the specified filter criteria value.
+    ///
+    /// - Parameter filterCriteria: The filter criteria.
+    /// - Returns: The operation content.
     public static func greaterThanOrEqualTo(_ filterCriteria: RecordAccessFilterCriteria) -> RecordAccessOperationContent {
         RecordAccessOperationContent(operator: .greaterThanOrEqual, operand: .filterCriteria(filterCriteria))
     }
 
     /// Records that are within the closed range of the specified filter criteria value.
+    ///
+    /// - Parameter filterCriteria: The filter criteria.
+    /// - Returns: The operation content.
     public static func withinInclusiveRangeOf(_ filterCriteria: RecordAccessRangeFilterCriteria) -> RecordAccessOperationContent {
         RecordAccessOperationContent(operator: .withinInclusiveRangeOf, operand: .rangeFilterCriteria(filterCriteria))
     }
