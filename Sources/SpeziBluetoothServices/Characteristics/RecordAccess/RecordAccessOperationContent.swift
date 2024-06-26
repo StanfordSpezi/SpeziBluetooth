@@ -24,7 +24,11 @@ public struct RecordAccessOperationContent<Operand: RecordAccessOperand> {
     let `operator`: RecordAccessOperator
     let operand: Operand?
 
-    init(operator: RecordAccessOperator, operand: Operand? = nil) {
+    /// Create a new operation content.
+    /// - Parameters:
+    ///   - operator: The operator.
+    ///   - operand: The operand.
+    public init(operator: RecordAccessOperator, operand: Operand? = nil) {
         self.operator = `operator`
         self.operand = operand
     }
