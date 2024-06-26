@@ -35,8 +35,15 @@ final class HealthThermometerTests: XCTestCase {
     }
 
     func testTemperatureType() throws {
-        for type in TemperatureType.allCases {
-            try testIdentity(from: type)
-        }
+        try testIdentity(from: TemperatureType.reserved)
+        try testIdentity(from: TemperatureType.armpit)
+        try testIdentity(from: TemperatureType.body)
+        try testIdentity(from: TemperatureType.ear)
+        try testIdentity(from: TemperatureType.finger)
+        try testIdentity(from: TemperatureType.gastrointestinalTract)
+        try testIdentity(from: TemperatureType.mouth)
+        try testIdentity(from: TemperatureType.rectum)
+        try testIdentity(from: TemperatureType.toe)
+        try testIdentity(from: TemperatureType.tympanum)
     }
 }
