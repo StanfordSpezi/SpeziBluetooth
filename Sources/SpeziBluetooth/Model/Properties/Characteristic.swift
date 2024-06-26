@@ -181,7 +181,7 @@ public final class Characteristic<Value>: @unchecked Sendable {
     private let _value: ObservableBox<Value?>
     private(set) var injection: CharacteristicPeripheralInjection<Value>?
 
-    private let _testInjections = Box(CharacteristicTestInjections<Value>())
+    private let _testInjections: Box<CharacteristicTestInjections<Value>?> = Box(nil)
 
     var description: CharacteristicDescription {
         CharacteristicDescription(id: configuration.id, discoverDescriptors: configuration.discoverDescriptors)

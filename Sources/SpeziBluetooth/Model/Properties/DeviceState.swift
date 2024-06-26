@@ -85,7 +85,9 @@ import Observation
 public final class DeviceState<Value>: @unchecked Sendable {
     private let keyPath: KeyPath<BluetoothPeripheral, Value>
     private(set) var injection: DeviceStatePeripheralInjection<Value>?
+
     private var _injectedValue = ObservableBox<Value?>(nil)
+    private let _testInjections: Box<DeviceStateTestInjections<Value>?> = Box(nil)
 
     var objectId: ObjectIdentifier {
         ObjectIdentifier(self)
@@ -111,7 +113,7 @@ public final class DeviceState<Value>: @unchecked Sendable {
 
     /// Retrieve a temporary accessors instance.
     public var projectedValue: DeviceStateAccessor<Value> {
-        DeviceStateAccessor(id: objectId, injection: injection, injectedValue: _injectedValue)
+        DeviceStateAccessor(id: objectId, keyPath: keyPath, injection: injection, injectedValue: _injectedValue, testInjections: _testInjections)
     }
 
 
@@ -150,30 +152,6 @@ extension DeviceState {
             return injected
         }
 
-        let value: Any? = switch keyPath {
-        case \.id:
-            nil // we cannot provide a stable id?
-        case \.name:
-            Optional<String>.none as Any
-        case \.state:
-            PeripheralState.disconnected
-        case \.advertisementData:
-            AdvertisementData([:])
-        case \.rssi:
-            Int(UInt8.max)
-        case \.services:
-            Optional<[GATTService]>.none as Any
-        default:
-            nil
-        }
-
-        guard let value else {
-            return nil
-        }
-
-        guard let value = value as? Value else {
-            preconditionFailure("Default value \(value) was not the expected type for \(keyPath)")
-        }
-        return value
+        return _testInjections.value?.artificialValue(for: keyPath)
     }
 }

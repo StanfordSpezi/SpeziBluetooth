@@ -6,6 +6,57 @@
 // SPDX-License-Identifier: MIT
 //
 
+import Foundation
+import Spezi
+
+
+struct DeviceStateTestInjections<Value>: DefaultInitializable {
+    var subscriptions: ChangeSubscriptions<Value>?
+
+    init() {}
+
+    mutating func enableSubscriptions() {
+        // there is no BluetoothManager, so we need to create a queue on the fly
+        subscriptions = ChangeSubscriptions<Value>(
+            queue: DispatchSerialQueue(label: "edu.stanford.spezi.bluetooth.testing-\(Self.self)", qos: .userInitiated)
+        )
+    }
+
+    func artificialValue(for keyPath: KeyPath<BluetoothPeripheral, Value>) -> Value? {
+        // swiftlint:disable:previous cyclomatic_complexity
+
+        let value: Any? = switch keyPath {
+        case \.id:
+            nil // we cannot provide a stable id?
+        case \.name, \.localName:
+            Optional<String>.none as Any
+        case \.state:
+            PeripheralState.disconnected
+        case \.advertisementData:
+            AdvertisementData([:])
+        case \.rssi:
+            Int(UInt8.max)
+        case \.nearby:
+            false
+        case \.lastActivity:
+            Date.now
+        case \.services:
+            Optional<[GATTService]>.none as Any
+        default:
+            nil
+        }
+
+        guard let value else {
+            return nil
+        }
+
+        guard let value = value as? Value else {
+            preconditionFailure("Default value \(value) was not the expected type for \(keyPath)")
+        }
+        return value
+    }
+}
+
 
 /// Interact with a given device state.
 ///
@@ -18,15 +69,25 @@
 /// - ``onChange(initial:perform:)-9igc9``
 public struct DeviceStateAccessor<Value> {
     private let id: ObjectIdentifier
+    private let keyPath: KeyPath<BluetoothPeripheral, Value>
     private let injection: DeviceStatePeripheralInjection<Value>?
     /// To support testing support.
     private let _injectedValue: ObservableBox<Value?>
+    private let _testInjections: Box<DeviceStateTestInjections<Value>?>
 
 
-    init(id: ObjectIdentifier, injection: DeviceStatePeripheralInjection<Value>?, injectedValue: ObservableBox<Value?>) {
+    init(
+        id: ObjectIdentifier,
+        keyPath: KeyPath<BluetoothPeripheral, Value>,
+        injection: DeviceStatePeripheralInjection<Value>?,
+        injectedValue: ObservableBox<Value?>,
+        testInjections: Box<DeviceStateTestInjections<Value>?>
+    ) {
         self.id = id
+        self.keyPath = keyPath
         self.injection = injection
         self._injectedValue = injectedValue
+        self._testInjections = testInjections
     }
 }
 
@@ -36,6 +97,10 @@ extension DeviceStateAccessor {
     ///
     /// This property creates an AsyncStream that yields all future updates to the device state.
     public var subscription: AsyncStream<Value> {
+        if let subscriptions = _testInjections.value?.subscriptions {
+            return subscriptions.newSubscription()
+        }
+
         guard let injection else {
             preconditionFailure(
                 "The `subscription` of a @DeviceState cannot be accessed within the initializer. Defer access to the `configure() method"
@@ -87,6 +152,17 @@ extension DeviceStateAccessor {
     ///     strictly if the value changes.
     ///     - action: The change handler to register, receiving both the old and new value.
     public func onChange(initial: Bool = false, perform action: @escaping (_ oldValue: Value, _ newValue: Value) async -> Void) {
+        if let testInjections = _testInjections.value,
+           let subscriptions = testInjections.subscriptions {
+            let id = subscriptions.newOnChangeSubscription(perform: action)
+
+            if initial, let value = _injectedValue.value ?? testInjections.artificialValue(for: keyPath) {
+                // if there isn't a value already, initial won't work properly with injections
+                subscriptions.notifySubscriber(id: id, with: value)
+            }
+            return
+        }
+
         guard let injection else {
             preconditionFailure(
                 """
@@ -115,6 +191,15 @@ extension DeviceStateAccessor: @unchecked Sendable {}
 
 @_spi(TestingSupport)
 extension DeviceStateAccessor {
+    /// Enable testing support for subscriptions and onChange handlers.
+    ///
+    /// After this method is called, subsequent calls to ``subscription`` and ``onChange(initial:perform:)-6ltwk`` or ``onChange(initial:perform:)-5awby``
+    /// will be stored and called  when injecting new values via `inject(_:)`.
+    /// - Note: Make sure to inject a initial value if you want to make the `initial` property work properly
+    public func enableSubscriptions() {
+        _testInjections.valueOrInitialize.enableSubscriptions()
+    }
+
     /// Inject a custom value for previewing purposes.
     ///
     /// This method can be used to inject a custom device state value.
@@ -126,5 +211,9 @@ extension DeviceStateAccessor {
     /// - Parameter value: The value to inject.
     public func inject(_ value: Value) {
         _injectedValue.value = value
+
+        if let subscriptions = _testInjections.value?.subscriptions {
+            subscriptions.notifySubscribers(with: value)
+        }
     }
 }
