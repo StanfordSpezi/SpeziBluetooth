@@ -13,8 +13,6 @@ private struct ConnectedDeviceEnvironmentModifier<Device: BluetoothDevice>: View
     @Environment(ConnectedDevicesModel.self)
     var connectedDevices
 
-    @State private var devicesList = ConnectedDevices<Device>()
-
     init() {}
 
 
