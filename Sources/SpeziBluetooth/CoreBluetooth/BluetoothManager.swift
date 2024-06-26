@@ -233,7 +233,7 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
     /// Balance this call with a call to ``powerOff()``.
     ///
     /// - Note : The underlying `CBCentralManager` is lazily allocated and deallocated once it isn't needed anymore.
-    ///     This is used to delay Bluetooth permission prompts to the latest possible moment avoiding to unexpectedly display power alerts.
+    ///     This is used to delay Bluetooth permission and power prompts to the latest possible moment avoiding unexpected interruptions.
     public func powerOn() {
         keepPoweredOn = true
         _ = centralManager // ensure it is allocated
@@ -244,7 +244,7 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
     /// This method request to power off the central. This is delay if the central is still used (e.g., currently scanning or connected peripherals).
     ///
     /// - Note : The underlying `CBCentralManager` is lazily allocated and deallocated once it isn't needed anymore.
-    ///     This is used to delay Bluetooth permission prompts to the latest possible moment avoiding to unexpectedly display power alerts.
+    ///     This is used to delay Bluetooth permission and power prompts to the latest possible moment avoiding unexpected interruptions.
     public func powerOff() {
         keepPoweredOn = false
         checkForCentralDeinit()

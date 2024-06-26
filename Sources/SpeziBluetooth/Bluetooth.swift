@@ -342,7 +342,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
     /// Balance this call with a call to ``powerOff()``.
     ///
     /// - Note : The underlying `CBCentralManager` is lazily allocated and deallocated once it isn't needed anymore.
-    ///     This is used to delay Bluetooth permission prompts to the latest possible moment avoiding to unexpectedly display power alerts.
+    ///     This is used to delay Bluetooth permission and power prompts to the latest possible moment avoiding unexpected interruptions.
     public func powerOn() {
         bluetoothManager.assumeIsolated { manager in
             manager.powerOn()
@@ -354,7 +354,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
     /// This method request to power off the central. This is delay if the central is still used (e.g., currently scanning or connected peripherals).
     ///
     /// - Note : The underlying `CBCentralManager` is lazily allocated and deallocated once it isn't needed anymore.
-    ///     This is used to delay Bluetooth permission prompts to the latest possible moment avoiding to unexpectedly display power alerts.
+    ///     This is used to delay Bluetooth permission and power prompts to the latest possible moment avoiding unexpected interruptions.
     public func powerOff() {
         bluetoothManager.assumeIsolated { manager in
             manager.powerOff()
