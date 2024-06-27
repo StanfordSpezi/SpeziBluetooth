@@ -19,7 +19,7 @@ public final class WeightScaleService: BluetoothService, @unchecked Sendable {
     /// Receive weight measurements.
     ///
     /// - Note: This characteristic is required and indicate-only.
-    @Characteristic(id: "2A9D", notify: true)
+    @Characteristic(id: "2A9D", notify: true, autoRead: false) // TODO: reenable this
     public var weightMeasurement: WeightMeasurement?
 
     /// Describe supported features and value resolutions of the weight scale.
