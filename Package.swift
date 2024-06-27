@@ -36,7 +36,8 @@ let package = Package(
         .package(url: "https://github.com/StanfordSpezi/Spezi", from: "1.4.0"),
         .package(url: "https://github.com/StanfordSpezi/SpeziNetworking", from: "2.1.0"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.59.0"),
-        .package(url: "https://github.com/apple/swift-collections.git", from: "1.0.4")
+        .package(url: "https://github.com/apple/swift-collections.git", from: "1.0.4"),
+        .package(url: "https://github.com/StanfordBDHG/XCTestExtensions.git", branch: "feature/xctassert-throws-async")
     ] + swiftLintPackage(),
     targets: [
         .target(
@@ -86,7 +87,8 @@ let package = Package(
                 .target(name: "SpeziBluetoothServices"),
                 .target(name: "SpeziBluetooth"),
                 .product(name: "XCTByteCoding", package: "SpeziNetworking"),
-                .product(name: "NIO", package: "swift-nio")
+                .product(name: "NIO", package: "swift-nio"),
+                .product(name: "XCTestExtensions", package: "XCTestExtensions")
             ],
             swiftSettings: [
                 swiftConcurrency
