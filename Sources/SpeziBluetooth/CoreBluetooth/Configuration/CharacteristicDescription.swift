@@ -15,15 +15,19 @@ public struct CharacteristicDescription: Sendable {
     public let characteristicId: CBUUID
     /// Flag indicating if descriptors should be discovered for this characteristic.
     public let discoverDescriptors: Bool
+    /// Flag indicating if SpeziBluetooth should automatically read the initial value from the peripheral.
+    public let autoRead: Bool
 
 
     /// Create a new characteristic description.
     /// - Parameters:
     ///   - id: The bluetooth characteristic id.
     ///   - discoverDescriptors: Optional flag to specify that descriptors of this characteristic should be discovered.
-    public init(id: CBUUID, discoverDescriptors: Bool = false) {
+    ///   - autoRead: Flag indicating if SpeziBluetooth should automatically read the initial value from the peripheral.
+    public init(id: CBUUID, discoverDescriptors: Bool = false, autoRead: Bool = true) {
         self.characteristicId = id
         self.discoverDescriptors = discoverDescriptors
+        self.autoRead = autoRead
     }
 }
 

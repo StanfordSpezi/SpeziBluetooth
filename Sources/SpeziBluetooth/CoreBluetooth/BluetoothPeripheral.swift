@@ -91,8 +91,6 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
     private var notifyRequested: Set<CharacteristicLocator> = []
 
 
-    /// The list of requested characteristic uuids indexed by service uuids.
-    private var requestedCharacteristics: [CBUUID: Set<CharacteristicDescription>?]? // swiftlint:disable:this discouraged_optional_collection
     /// A set of service ids we are currently awaiting characteristics discovery for
     private var servicesAwaitingCharacteristicsDiscovery: Set<CBUUID> = []
 
@@ -303,29 +301,18 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
     }
 
     func handleConnect() {
-        if let services = configuration.services {
-            requestedCharacteristics = services.reduce(into: [CBUUID: Set<CharacteristicDescription>?]()) { result, configuration in
-                if let characteristics = configuration.characteristics {
-                    result[configuration.serviceId, default: []]?.formUnion(characteristics)
-                } else if result[configuration.serviceId] == nil {
-                    result[configuration.serviceId] = .some(nil)
-                }
-            }
-        } else {
-            // all services will be discovered
-            requestedCharacteristics = nil
-        }
-
         // ensure that it is updated instantly.
         self.isolatedUpdate(of: \.state, PeripheralState(from: peripheral.state))
 
         logger.debug("Discovering services for \(self.peripheral.debugIdentifier) ...")
-        let services = requestedCharacteristics.map { Array($0.keys) }
+        let services = configuration.services?.reduce(into: Set()) { result, description in
+            result.insert(description.serviceId)
+        }
         
         if let services, services.isEmpty {
             _storage.signalFullyDiscovered()
         } else {
-            peripheral.discoverServices(requestedCharacteristics.map { Array($0.keys) })
+            peripheral.discoverServices(services.map { Array($0) })
         }
     }
 
@@ -336,7 +323,6 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
 
         // clear all the ongoing access
 
-        self.requestedCharacteristics = nil
         self.servicesAwaitingCharacteristicsDiscovery.removeAll()
 
         if let services {
@@ -731,8 +717,10 @@ extension BluetoothPeripheral {
 
         // automatically subscribe to discovered characteristics for which we have a handler subscribed!
         for characteristic in characteristics {
+            let description = configuration.description(for: service.uuid)?.description(for: characteristic.uuid)
+
             // pull initial value if none is present
-            if characteristic.value == nil && characteristic.properties.contains(.read) {
+            if description?.autoRead != false && characteristic.value == nil && characteristic.properties.contains(.read) {
                 peripheral.readValue(for: characteristic)
             }
 
@@ -745,20 +733,8 @@ extension BluetoothPeripheral {
                     peripheral.setNotifyValue(true, for: characteristic)
                 }
             }
-        }
 
-        // check if we discover descriptors
-        guard let requestedCharacteristics = requestedCharacteristics,
-              let descriptions = requestedCharacteristics[service.uuid] else {
-            return
-        }
-
-        for characteristic in characteristics {
-            guard let description = descriptions?.first(where: { $0.characteristicId == characteristic.uuid }) else {
-                continue
-            }
-
-            if description.discoverDescriptors {
+            if description?.discoverDescriptors == true {
                 logger.debug("Discovering descriptors for \(characteristic.debugIdentifier)...")
                 peripheral.discoverDescriptors(for: characteristic)
             }
@@ -941,19 +917,20 @@ extension BluetoothPeripheral {
                     logger.debug("Discovered \(services) services for peripheral \(device.peripheral.debugIdentifier)")
 
                     for service in services {
-                        guard let requestedCharacteristicsDic = device.requestedCharacteristics,
-                              let requestedCharacteristicsDescriptions = requestedCharacteristicsDic[service.uuid] else {
+                        guard let serviceDescription = device.configuration.description(for: service.uuid) else {
                             continue
                         }
 
-                        let requestedCharacteristics = requestedCharacteristicsDescriptions?.map { $0.characteristicId }
+                        let characteristicIds = serviceDescription.characteristics?.reduce(into: Set()) { partialResult, description in
+                            partialResult.insert(description.characteristicId)
+                        }
 
-                        if let requestedCharacteristics, requestedCharacteristics.isEmpty {
+                        if let characteristicIds, characteristicIds.isEmpty {
                             continue
                         }
 
                         device.servicesAwaitingCharacteristicsDiscovery.insert(service.uuid)
-                        peripheral.discoverCharacteristics(requestedCharacteristics, for: service)
+                        peripheral.discoverCharacteristics(characteristicIds.map { Array($0) }, for: service)
                     }
 
                     if device.servicesAwaitingCharacteristicsDiscovery.isEmpty {
