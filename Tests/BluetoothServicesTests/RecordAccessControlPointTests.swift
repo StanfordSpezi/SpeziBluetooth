@@ -14,6 +14,7 @@ import NIO
 @testable import SpeziBluetoothServices
 import XCTByteCoding
 import XCTest
+import XCTestExtensions
 
 
 typealias RACP = RecordAccessControlPoint<RecordAccessGenericOperand>
@@ -178,21 +179,5 @@ final class RecordAccessControlPointTests: XCTestCase {
             RACP(opCode: .numberOfStoredRecordsResponse, operator: .allRecords, operand: .numberOfRecords(1234))
         }
         await XCTAssertThrowsErrorAsync(try await $controlPoint.reportNumberOfStoredRecords(.allRecords))
-    }
-}
-
-
-func XCTAssertThrowsErrorAsync<T>(
-    _ expression: @autoclosure () async throws -> T,
-    _ message: @autoclosure () -> String = "",
-    file: StaticString = #filePath,
-    line: UInt = #line,
-    _ errorHandler: (Error) -> Void = { _ in }
-) async {
-    do {
-        _ = try await expression()
-        XCTFail(message(), file: file, line: line)
-    } catch {
-        errorHandler(error)
     }
 }
