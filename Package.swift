@@ -37,7 +37,7 @@ let package = Package(
         .package(url: "https://github.com/StanfordSpezi/SpeziNetworking", from: "2.1.0"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.59.0"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.0.4"),
-        .package(url: "https://github.com/StanfordBDHG/XCTestExtensions.git", branch: "feature/xctassert-throws-async")
+        .package(url: "https://github.com/StanfordBDHG/XCTestExtensions.git", from: "0.4.11")
     ] + swiftLintPackage(),
     targets: [
         .target(
