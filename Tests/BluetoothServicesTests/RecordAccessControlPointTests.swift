@@ -144,25 +144,25 @@ final class RecordAccessControlPointTests: XCTestCase {
         $controlPoint.onRequest { _ in
             RACP(opCode: .abortOperation, operator: .null)
         }
-        await XCTAssertThrowsErrorAsync(try await $controlPoint.reportNumberOfStoredRecords(.allRecords))
+        try await XCTAssertThrowsErrorAsync(await $controlPoint.reportNumberOfStoredRecords(.allRecords))
 
         // unexpected response operator
         $controlPoint.onRequest { _ in
             RACP(opCode: .responseCode, operator: .allRecords)
         }
-        await XCTAssertThrowsErrorAsync(try await $controlPoint.reportNumberOfStoredRecords(.allRecords))
+        try await XCTAssertThrowsErrorAsync(await $controlPoint.reportNumberOfStoredRecords(.allRecords))
 
         // unexpected general response operand format
         $controlPoint.onRequest { _ in
             RACP(opCode: .responseCode, operator: .null, operand: .filterCriteria(.sequenceNumber(123)))
         }
-        await XCTAssertThrowsErrorAsync(try await $controlPoint.reportNumberOfStoredRecords(.allRecords))
+        try await XCTAssertThrowsErrorAsync(await $controlPoint.reportNumberOfStoredRecords(.allRecords))
 
         // non matching request opcode
         $controlPoint.onRequest { _ in
             RACP(opCode: .responseCode, operator: .null, operand: .generalResponse(.init(requestOpCode: .reportStoredRecords, response: .success)))
         }
-        await XCTAssertThrowsErrorAsync(try await $controlPoint.reportNumberOfStoredRecords(.allRecords))
+        try await XCTAssertThrowsErrorAsync(await $controlPoint.reportNumberOfStoredRecords(.allRecords))
 
         // erroneous request
         $controlPoint.onRequest { _ in
@@ -172,12 +172,12 @@ final class RecordAccessControlPointTests: XCTestCase {
                 operand: .generalResponse(.init(requestOpCode: .reportNumberOfStoredRecords, response: .invalidOperand))
             )
         }
-        await XCTAssertThrowsErrorAsync(try await $controlPoint.reportNumberOfStoredRecords(.allRecords))
+        try await XCTAssertThrowsErrorAsync(await $controlPoint.reportNumberOfStoredRecords(.allRecords))
 
         // invalid operator
         $controlPoint.onRequest { _ in
             RACP(opCode: .numberOfStoredRecordsResponse, operator: .allRecords, operand: .numberOfRecords(1234))
         }
-        await XCTAssertThrowsErrorAsync(try await $controlPoint.reportNumberOfStoredRecords(.allRecords))
+        try await XCTAssertThrowsErrorAsync(await $controlPoint.reportNumberOfStoredRecords(.allRecords))
     }
 }
