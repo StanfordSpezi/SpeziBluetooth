@@ -103,31 +103,31 @@ final class RecordAccessControlPointTests: XCTestCase {
         $controlPoint.onRequest { _ in
             RACP(opCode: .abortOperation, operator: .null)
         }
-        await XCTAssertThrowsErrorAsync(try await $controlPoint.abort())
+        try await XCTAssertThrowsErrorAsync(await $controlPoint.abort())
 
         // unexpected response operator
         $controlPoint.onRequest { _ in
             RACP(opCode: .responseCode, operator: .allRecords)
         }
-        await XCTAssertThrowsErrorAsync(try await $controlPoint.abort())
+        try await XCTAssertThrowsErrorAsync(await $controlPoint.abort())
 
         // unexpected general response operand format
         $controlPoint.onRequest { _ in
             RACP(opCode: .responseCode, operator: .null, operand: .numberOfRecords(1234))
         }
-        await XCTAssertThrowsErrorAsync(try await $controlPoint.abort())
+        try await XCTAssertThrowsErrorAsync(await $controlPoint.abort())
 
         // non matching request opcode
         $controlPoint.onRequest { _ in
             RACP(opCode: .responseCode, operator: .null, operand: .generalResponse(.init(requestOpCode: .reportStoredRecords, response: .success)))
         }
-        await XCTAssertThrowsErrorAsync(try await $controlPoint.abort())
+        try await XCTAssertThrowsErrorAsync(await $controlPoint.abort())
 
         // erroneous request
         $controlPoint.onRequest { _ in
             RACP(opCode: .responseCode, operator: .null, operand: .generalResponse(.init(requestOpCode: .abortOperation, response: .invalidOperand)))
         }
-        await XCTAssertThrowsErrorAsync(try await $controlPoint.abort())
+        try await XCTAssertThrowsErrorAsync(await $controlPoint.abort())
     }
 
     func testRACPReportNumberOfStoredRecordsRequest() async throws {
