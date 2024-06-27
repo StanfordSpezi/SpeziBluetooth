@@ -13,19 +13,24 @@ import SwiftUI
 private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifier {
     private let enabled: Bool
     private let scanner: Scanner
-    private let autoConnect: Bool
+    private let state: Scanner.ScanningState
 
     @Environment(\.scenePhase)
     private var scenePhase
     @Environment(\.surroundingScanModifiers)
     private var surroundingModifiers
 
+    @Environment(\.minimumRSSI)
+    private var minimumRSSI
+    @Environment(\.advertisementStaleInterval)
+    private var advertisementStaleInterval
+
     @State private var modifierId = UUID()
 
-    init(enabled: Bool, scanner: Scanner, autoConnect: Bool) {
+    init(enabled: Bool, scanner: Scanner, state: Scanner.ScanningState) {
         self.enabled = enabled
         self.scanner = scanner
-        self.autoConnect = autoConnect
+        self.state = state
     }
 
     func body(content: Content) -> some View {
@@ -47,9 +52,27 @@ private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifie
                     onBackground()
                 }
             }
-            .onChange(of: autoConnect, initial: false) {
+            .onChange(of: state, initial: false) {
+                if enabled {
+                    updateScanningState(enabled: enabled)
+                }
+            }
+            .onChange(of: minimumRSSI) {
+                if enabled {
+                    updateScanningState(enabled: enabled)
+                }
+            }
+            .onChange(of: advertisementStaleInterval) {
+                if enabled {
+                    updateScanningState(enabled: enabled)
+                }
+            }
+            .onChange(of: surroundingModifiers.retrieveReducedScanningState(for: scanner)) { _, newValue in
+                guard let newValue else {
+                    return
+                }
                 Task {
-                    await scanner.setAutoConnect(autoConnect)
+                    await scanner.updateScanningState(newValue)
                 }
             }
     }
@@ -57,16 +80,16 @@ private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifie
     @MainActor
     private func onForeground() {
         if enabled {
-            surroundingModifiers.setModifierScanningState(enabled: true, with: scanner, modifierId: modifierId)
+            updateScanningState(enabled: true)
             Task {
-                await scanner.scanNearbyDevices(autoConnect: autoConnect)
+                await scanner.scanNearbyDevices(state)
             }
         }
     }
 
     @MainActor
     private func onBackground() {
-        surroundingModifiers.setModifierScanningState(enabled: false, with: scanner, modifierId: modifierId)
+        updateScanningState(enabled: false)
 
         if surroundingModifiers.hasPersistentInterest(for: scanner) {
             return // don't stop scanning if a surrounding modifier is expecting a scan to continue
@@ -76,11 +99,27 @@ private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifie
             await scanner.stopScanning()
         }
     }
+
+    @MainActor
+    private func updateScanningState(enabled: Bool) {
+        let state = state.updateOptions(minimumRSSI: minimumRSSI, advertisementStaleInterval: advertisementStaleInterval)
+        surroundingModifiers.setModifierScanningState(enabled: enabled, with: scanner, modifierId: modifierId, state: state)
+    }
 }
 
 
 extension View {
+    func scanNearbyDevices<Scanner: BluetoothScanner>(enabled: Bool, scanner: Scanner, state: Scanner.ScanningState) -> some View {
+        modifier(ScanNearbyDevicesModifier(enabled: enabled, scanner: scanner, state: state))
+    }
+
     /// Scan for nearby Bluetooth devices.
+    ///
+    /// Scans on nearby devices based on the ``Discover`` declarations provided in the initializer.
+    ///
+    /// All discovered devices for a given type can be accessed through the ``Bluetooth/nearbyDevices(for:)`` method.
+    /// The first connected device can be accessed through the
+    /// [Environment(_:)](https://developer.apple.com/documentation/swiftui/environment/init(_:)-8slkf) in your SwiftUI view.
     ///
     /// Nearby device search is automatically paused when the view disappears or if the app enters background and
     /// is automatically started again when the view appears or the app enters the foreground again.
@@ -90,22 +129,67 @@ extension View {
     /// discovered for a short period in time.
     ///
     /// - Tip: If you want to continuously search for auto-connectable device in the background,
-    ///     you might want to use the ``SwiftUI/View/autoConnect(enabled:with:)`` modifier instead.
-    ///
-    /// How nearby devices are accessed depends on the passed ``BluetoothScanner`` implementation.
+    ///     you might want to use the ``SwiftUI/View/autoConnect(enabled:with:minimumRSSI:advertisementStaleInterval:)`` modifier instead.
     ///
     /// - Parameters:
     ///   - enabled: Flag indicating if nearby device scanning is enabled.
-    ///   - scanner: The Bluetooth Manager to use for scanning.
+    ///   - bluetooth: The Bluetooth Module to use for scanning.
+    ///   - minimumRSSI: The minimum rssi a nearby peripheral must have to be considered nearby. Supply `nil` to use default the default value or a value from the environment.
+    ///   - advertisementStaleInterval: The time interval after which a peripheral advertisement is considered stale
+    ///     if we don't hear back from the device. Minimum is 1 second. Supply `nil` to use default the default value or a value from the environment.
     ///   - autoConnect: If enabled, the bluetooth manager will automatically connect to the nearby device if only one is found.
     /// - Returns: The modified view.
+    public func scanNearbyDevices( // swiftlint:disable:this function_default_parameter_at_end
+        enabled: Bool = true,
+        with bluetooth: Bluetooth,
+        minimumRSSI: Int? = nil,
+        advertisementStaleInterval: TimeInterval? = nil,
+        autoConnect: Bool = false
+    ) -> some View {
+        scanNearbyDevices(enabled: enabled, scanner: bluetooth, state: BluetoothModuleDiscoveryState(
+            minimumRSSI: minimumRSSI,
+            advertisementStaleInterval: advertisementStaleInterval,
+            autoConnect: autoConnect
+        ))
+    }
+
+    /// Scan for nearby Bluetooth devices.
     ///
-    /// ## Topics
+    /// Scans on nearby devices based on the ``DiscoveryDescription`` provided in the initializer.
+    /// All discovered devices can be accessed through the ``BluetoothManager/nearbyPeripherals`` property.
     ///
-    /// ### Bluetooth Scanner
-    /// - ``BluetoothScanner``
-    public func scanNearbyDevices<Scanner: BluetoothScanner>(enabled: Bool = true, with scanner: Scanner, autoConnect: Bool = false) -> some View {
-        // swiftlint:disable:previous function_default_parameter_at_end
-        modifier(ScanNearbyDevicesModifier(enabled: enabled, scanner: scanner, autoConnect: autoConnect))
+    /// Nearby device search is automatically paused when the view disappears or if the app enters background and
+    /// is automatically started again when the view appears or the app enters the foreground again.
+    /// Further, scanning is automatically started if Bluetooth is turned on by the user while the view was already presented.
+    ///
+    /// The auto connect feature allows you to automatically connect to a bluetooth peripheral if it is the only device
+    /// discovered for a short period in time.
+    ///
+    /// - Tip: If you want to continuously search for auto-connectable device in the background,
+    ///     you might want to use the ``SwiftUI/View/autoConnect(enabled:with:discovery:minimumRSSI:advertisementStaleInterval:)`` modifier instead.
+    ///
+    /// - Parameters:
+    ///   - enabled: Flag indicating if nearby device scanning is enabled.
+    ///   - bluetoothManager: The Bluetooth Manager to use for scanning.
+    ///   - discovery: The set of device description describing **how** and **what** to discover.
+    ///   - minimumRSSI: The minimum rssi a nearby peripheral must have to be considered nearby. Supply `nil` to use default the default value or a value from the environment.
+    ///   - advertisementStaleInterval: The time interval after which a peripheral advertisement is considered stale
+    ///     if we don't hear back from the device. Minimum is 1 second. Supply `nil` to use default the default value or a value from the environment.
+    ///   - autoConnect: If enabled, the bluetooth manager will automatically connect to the nearby device if only one is found.
+    /// - Returns: The modified view.
+    public func scanNearbyDevices( // swiftlint:disable:this function_default_parameter_at_end
+        enabled: Bool = true,
+        with bluetoothManager: BluetoothManager,
+        discovery: Set<DiscoveryDescription>,
+        minimumRSSI: Int? = nil,
+        advertisementStaleInterval: TimeInterval? = nil,
+        autoConnect: Bool = false
+    ) -> some View {
+        scanNearbyDevices(enabled: enabled, scanner: bluetoothManager, state: BluetoothManagerDiscoveryState(
+            configuredDevices: discovery,
+            minimumRSSI: minimumRSSI,
+            advertisementStaleInterval: advertisementStaleInterval,
+            autoConnect: autoConnect
+        ))
     }
 }

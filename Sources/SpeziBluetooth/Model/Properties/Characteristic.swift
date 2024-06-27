@@ -42,7 +42,8 @@ import Foundation
 /// by supplying the `notify` initializer argument.
 ///
 /// - Tip: If you want to react to every change of the characteristic value, you can use
-///     ``CharacteristicAccessor/onChange(initial:perform:)`` to set up your action.
+///     ``CharacteristicAccessor/onChange(initial:perform:)-6ltwk`` or
+///     ``CharacteristicAccessor/onChange(initial:perform:)-5awby``  to set up your action.
 ///
 /// The below code example uses the [Bluetooth Heart Rate Service](https://www.bluetooth.com/specifications/specs/heart-rate-service-1-0)
 /// to demonstrate the automatic notifications feature for the Heart Rate Measurement characteristic.
@@ -145,7 +146,8 @@ import Foundation
 /// - ``CharacteristicAccessor/enableNotifications(_:)``
 ///
 /// ### Get notified about changes
-/// - ``CharacteristicAccessor/onChange(initial:perform:)``
+/// - ``CharacteristicAccessor/onChange(initial:perform:)-6ltwk``
+/// - ``CharacteristicAccessor/onChange(initial:perform:)-5awby``
 ///
 /// ### Control Point Characteristics
 /// - ``ControlPointCharacteristic``
@@ -158,9 +160,7 @@ import Foundation
 @propertyWrapper
 public final class Characteristic<Value>: @unchecked Sendable {
     class Configuration {
-        let id: CBUUID
-        let discoverDescriptors: Bool
-
+        let description: CharacteristicDescription
         var defaultNotify: Bool
 
         /// Memory address as an identifier for this Characteristic instance.
@@ -168,9 +168,12 @@ public final class Characteristic<Value>: @unchecked Sendable {
             ObjectIdentifier(self)
         }
 
-        init(id: CBUUID, discoverDescriptors: Bool, defaultNotify: Bool) {
-            self.id = id
-            self.discoverDescriptors = discoverDescriptors
+        var id: CBUUID {
+            description.characteristicId
+        }
+
+        init(description: CharacteristicDescription, defaultNotify: Bool) {
+            self.description = description
             self.defaultNotify = defaultNotify
         }
     }
@@ -179,10 +182,10 @@ public final class Characteristic<Value>: @unchecked Sendable {
     private let _value: ObservableBox<Value?>
     private(set) var injection: CharacteristicPeripheralInjection<Value>?
 
-    private let _testInjections = Box(CharacteristicTestInjections<Value>())
+    private let _testInjections: Box<CharacteristicTestInjections<Value>?> = Box(nil)
 
     var description: CharacteristicDescription {
-        CharacteristicDescription(id: configuration.id, discoverDescriptors: configuration.discoverDescriptors)
+        configuration.description
     }
 
     /// Access the current characteristic value.
@@ -204,26 +207,24 @@ public final class Characteristic<Value>: @unchecked Sendable {
         CharacteristicAccessor(configuration: configuration, injection: injection, value: _value, testInjections: _testInjections)
     }
 
-    fileprivate init(wrappedValue: Value? = nil, characteristic: CBUUID, notify: Bool, discoverDescriptors: Bool = false) {
+    fileprivate init(wrappedValue: Value? = nil, characteristic: CBUUID, notify: Bool, autoRead: Bool = true, discoverDescriptors: Bool = false) {
         // swiftlint:disable:previous function_default_parameter_at_end
-        self.configuration = .init(id: characteristic, discoverDescriptors: discoverDescriptors, defaultNotify: notify)
+        let description = CharacteristicDescription(id: characteristic, discoverDescriptors: discoverDescriptors, autoRead: autoRead)
+        self.configuration = .init(description: description, defaultNotify: notify)
         self._value = ObservableBox(wrappedValue)
     }
 
 
-    func inject(peripheral: BluetoothPeripheral, serviceId: CBUUID, service: GATTService?) {
+    func inject(bluetooth: Bluetooth, peripheral: BluetoothPeripheral, serviceId: CBUUID, service: GATTService?) {
         let characteristic = service?.getCharacteristic(id: configuration.id)
 
-        // Any potential onChange closure registration that happened within the initializer. Forward them to the injection.
-        let onChangeClosure = ClosureRegistrar.readableView?.retrieve(for: configuration.objectId, value: Value.self)
-
         let injection = CharacteristicPeripheralInjection<Value>(
+            bluetooth: bluetooth,
             peripheral: peripheral,
             serviceId: serviceId,
             characteristicId: configuration.id,
             value: _value,
-            characteristic: characteristic,
-            onChangeClosure: onChangeClosure
+            characteristic: characteristic
         )
 
         // mutual access with `CharacteristicAccessor/enableNotifications`
@@ -240,20 +241,22 @@ extension Characteristic where Value: ByteEncodable {
     /// - Parameters:
     ///   - wrappedValue: An optional default value.
     ///   - id: The characteristic id.
+    ///   - autoRead: Flag indicating if  the initial value should be automatically read from the peripheral.
     ///   - discoverDescriptors: Flag if characteristic descriptors should be discovered automatically.
-    public convenience init(wrappedValue: Value? = nil, id: String, discoverDescriptors: Bool = false) {
+    public convenience init(wrappedValue: Value? = nil, id: String, autoRead: Bool = true, discoverDescriptors: Bool = false) {
         // swiftlint:disable:previous function_default_parameter_at_end
-        self.init(wrappedValue: wrappedValue, id: CBUUID(string: id), discoverDescriptors: discoverDescriptors)
+        self.init(wrappedValue: wrappedValue, id: CBUUID(string: id), autoRead: autoRead, discoverDescriptors: discoverDescriptors)
     }
 
     /// Declare a write-only characteristic.
     /// - Parameters:
     ///   - wrappedValue: An optional default value.
     ///   - id: The characteristic id.
+    ///   - autoRead: Flag indicating if  the initial value should be automatically read from the peripheral.
     ///   - discoverDescriptors: Flag if characteristic descriptors should be discovered automatically.
-    public convenience init(wrappedValue: Value? = nil, id: CBUUID, discoverDescriptors: Bool = false) {
+    public convenience init(wrappedValue: Value? = nil, id: CBUUID, autoRead: Bool = true, discoverDescriptors: Bool = false) {
         // swiftlint:disable:previous function_default_parameter_at_end
-        self.init(wrappedValue: wrappedValue, characteristic: id, notify: false, discoverDescriptors: discoverDescriptors)
+        self.init(wrappedValue: wrappedValue, characteristic: id, notify: false, autoRead: autoRead, discoverDescriptors: discoverDescriptors)
     }
 }
 
@@ -264,10 +267,11 @@ extension Characteristic where Value: ByteDecodable {
     ///   - wrappedValue: An optional default value.
     ///   - id: The characteristic id.
     ///   - notify: Automatically subscribe to characteristic notifications if supported.
+    ///   - autoRead: Flag indicating if  the initial value should be automatically read from the peripheral.
     ///   - discoverDescriptors: Flag if characteristic descriptors should be discovered automatically.
-    public convenience init(wrappedValue: Value? = nil, id: String, notify: Bool = false, discoverDescriptors: Bool = false) {
+    public convenience init(wrappedValue: Value? = nil, id: String, notify: Bool = false, autoRead: Bool = true, discoverDescriptors: Bool = false) {
         // swiftlint:disable:previous function_default_parameter_at_end
-        self.init(wrappedValue: wrappedValue, id: CBUUID(string: id), notify: notify, discoverDescriptors: discoverDescriptors)
+        self.init(wrappedValue: wrappedValue, id: CBUUID(string: id), notify: notify, autoRead: autoRead, discoverDescriptors: discoverDescriptors)
     }
 
     /// Declare a read-only characteristic.
@@ -275,10 +279,11 @@ extension Characteristic where Value: ByteDecodable {
     ///   - wrappedValue: An optional default value.
     ///   - id: The characteristic id.
     ///   - notify: Automatically subscribe to characteristic notifications if supported.
+    ///   - autoRead: Flag indicating if  the initial value should be automatically read from the peripheral.
     ///   - discoverDescriptors: Flag if characteristic descriptors should be discovered automatically.
-    public convenience init(wrappedValue: Value? = nil, id: CBUUID, notify: Bool = false, discoverDescriptors: Bool = false) {
+    public convenience init(wrappedValue: Value? = nil, id: CBUUID, notify: Bool = false, autoRead: Bool = true, discoverDescriptors: Bool = false) {
         // swiftlint:disable:previous function_default_parameter_at_end
-        self.init(wrappedValue: wrappedValue, characteristic: id, notify: notify, discoverDescriptors: discoverDescriptors)
+        self.init(wrappedValue: wrappedValue, characteristic: id, notify: notify, autoRead: autoRead, discoverDescriptors: discoverDescriptors)
     }
 }
 
@@ -289,10 +294,11 @@ extension Characteristic where Value: ByteCodable { // reduce ambiguity
     ///   - wrappedValue: An optional default value.
     ///   - id: The characteristic id.
     ///   - notify: Automatically subscribe to characteristic notifications if supported.
+    ///   - autoRead: Flag indicating if  the initial value should be automatically read from the peripheral.
     ///   - discoverDescriptors: Flag if characteristic descriptors should be discovered automatically.
-    public convenience init(wrappedValue: Value? = nil, id: String, notify: Bool = false, discoverDescriptors: Bool = false) {
+    public convenience init(wrappedValue: Value? = nil, id: String, notify: Bool = false, autoRead: Bool = true, discoverDescriptors: Bool = false) {
         // swiftlint:disable:previous function_default_parameter_at_end
-        self.init(wrappedValue: wrappedValue, id: CBUUID(string: id), notify: notify, discoverDescriptors: discoverDescriptors)
+        self.init(wrappedValue: wrappedValue, id: CBUUID(string: id), notify: notify, autoRead: autoRead, discoverDescriptors: discoverDescriptors)
     }
 
     /// Declare a read and write characteristic.
@@ -300,10 +306,11 @@ extension Characteristic where Value: ByteCodable { // reduce ambiguity
     ///   - wrappedValue: An optional default value.
     ///   - id: The characteristic id.
     ///   - notify: Automatically subscribe to characteristic notifications if supported.
+    ///   - autoRead: Flag indicating if  the initial value should be automatically read from the peripheral.
     ///   - discoverDescriptors: Flag if characteristic descriptors should be discovered automatically.
-    public convenience init(wrappedValue: Value? = nil, id: CBUUID, notify: Bool = false, discoverDescriptors: Bool = false) {
+    public convenience init(wrappedValue: Value? = nil, id: CBUUID, notify: Bool = false, autoRead: Bool = true, discoverDescriptors: Bool = false) {
         // swiftlint:disable:previous function_default_parameter_at_end
-        self.init(wrappedValue: wrappedValue, characteristic: id, notify: notify, discoverDescriptors: discoverDescriptors)
+        self.init(wrappedValue: wrappedValue, characteristic: id, notify: notify, autoRead: autoRead, discoverDescriptors: discoverDescriptors)
     }
 }
 

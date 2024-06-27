@@ -30,6 +30,10 @@ class Lazy<Value> {
     }
 
 
+    var isInitialized: Bool {
+        storedValue != nil
+    }
+
     /// Support lazy initialization of lazy property.
     init() {}
 

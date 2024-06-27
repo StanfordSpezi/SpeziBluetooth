@@ -17,7 +17,7 @@ import Foundation
 @Observable
 final class PeripheralStorage: ValueObservable {
     var name: String? {
-        localName ?? peripheralName
+        peripheralName ?? localName
     }
 
     private(set) var peripheralName: String? {
@@ -25,32 +25,48 @@ final class PeripheralStorage: ValueObservable {
             _$simpleRegistrar.triggerDidChange(for: \.peripheralName, on: self)
         }
     }
+
     private(set) var localName: String? {
         didSet {
             _$simpleRegistrar.triggerDidChange(for: \.localName, on: self)
         }
     }
+
     private(set) var rssi: Int {
         didSet {
             _$simpleRegistrar.triggerDidChange(for: \.rssi, on: self)
         }
     }
+
     private(set) var advertisementData: AdvertisementData {
         didSet {
             _$simpleRegistrar.triggerDidChange(for: \.advertisementData, on: self)
         }
     }
+
     private(set) var state: PeripheralState {
         didSet {
             _$simpleRegistrar.triggerDidChange(for: \.state, on: self)
         }
     }
+
+    private(set) var nearby: Bool {
+        didSet {
+            _$simpleRegistrar.triggerDidChange(for: \.nearby, on: self)
+        }
+    }
+
     private(set) var services: [GATTService]? { // swiftlint:disable:this discouraged_optional_collection
         didSet {
             _$simpleRegistrar.triggerDidChange(for: \.services, on: self)
         }
     }
-    @ObservationIgnored var lastActivity: Date
+
+    private(set) var lastActivity: Date {
+        didSet {
+            _$simpleRegistrar.triggerDidChange(for: \.lastActivity, on: self)
+        }
+    }
 
     // swiftlint:disable:next identifier_name
     @ObservationIgnored var _$simpleRegistrar = ValueObservationRegistrar<PeripheralStorage>()
@@ -61,6 +77,7 @@ final class PeripheralStorage: ValueObservable {
         self.advertisementData = advertisementData
         self.rssi = rssi
         self.state = .init(from: state)
+        self.nearby = false
         self.lastActivity = lastActivity
     }
 
@@ -88,16 +105,27 @@ final class PeripheralStorage: ValueObservable {
 
     func update(state: PeripheralState) {
         if self.state != state {
-            if self.state == .connecting && state == .connected {
-                return // we set connected on our own!
+            // we set connected on our own! See `signalFullyDiscovered`
+            if !(self.state == .connecting && state == .connected) {
+                self.state = state
             }
-            self.state = state
+        }
+
+        if !nearby && (self.state == .connecting || self.state == .connected) {
+            self.nearby = true
+        }
+    }
+
+    func update(nearby: Bool) {
+        if nearby != self.nearby {
+            self.nearby = nearby
         }
     }
 
     func signalFullyDiscovered() {
         if state == .connecting {
             state = .connected
+            update(state: .connected) // ensure other logic is called as well
         }
     }
 

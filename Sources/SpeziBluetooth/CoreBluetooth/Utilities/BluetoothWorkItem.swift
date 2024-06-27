@@ -12,9 +12,9 @@ import Foundation
 class BluetoothWorkItem {
     let workItem: DispatchWorkItem
 
-    init(manager: BluetoothManager, handler: @escaping (isolated BluetoothManager) -> Void) {
-        self.workItem = DispatchWorkItem { [weak manager] in
-            guard let manager else {
+    init<Actor: BluetoothActor>(boundTo actor: Actor, handler: @escaping (isolated Actor) -> Void) {
+        self.workItem = DispatchWorkItem { [weak actor] in
+            guard let actor else {
                 return
             }
 
@@ -22,7 +22,7 @@ class BluetoothWorkItem {
             // So sadly, we can't just jump into the actor isolation. But no big deal here for synchronization.
 
             Task { @SpeziBluetooth in
-                await manager.isolated(perform: handler)
+                await actor.isolated(perform: handler)
             }
         }
     }

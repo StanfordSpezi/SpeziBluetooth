@@ -7,11 +7,12 @@
 //
 
 @_spi(TestingSupport)
-import BluetoothServices
-import BluetoothViews
+import ByteCoding
 import CoreBluetooth
 @_spi(TestingSupport)
 import SpeziBluetooth
+@_spi(TestingSupport)
+import SpeziBluetoothServices
 import SpeziViews
 import SwiftUI
 

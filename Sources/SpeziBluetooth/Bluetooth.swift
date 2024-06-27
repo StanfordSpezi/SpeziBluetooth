@@ -8,6 +8,7 @@
 
 import OrderedCollections
 import OSLog
+@_spi(APISupport)
 import Spezi
 
 
@@ -92,9 +93,10 @@ import Spezi
 /// Once you have the `Bluetooth` module configured within your Spezi app, you can access the module within your
 /// [`Environment`](https://developer.apple.com/documentation/swiftui/environment).
 ///
-/// You can use the ``SwiftUI/View/scanNearbyDevices(enabled:with:autoConnect:)`` and ``SwiftUI/View/autoConnect(enabled:with:)``
+/// You can use the ``SwiftUI/View/scanNearbyDevices(enabled:with:minimumRSSI:advertisementStaleInterval:autoConnect:)``
+///  and ``SwiftUI/View/autoConnect(enabled:with:minimumRSSI:advertisementStaleInterval:)``
 /// modifiers to scan for nearby devices and/or auto connect to the first available device. Otherwise, you can also manually start and stop scanning for nearby devices
-/// using ``scanNearbyDevices(autoConnect:)`` and ``stopScanning()``.
+/// using ``scanNearbyDevices(minimumRSSI:advertisementStaleInterval:autoConnect:)`` and ``stopScanning()``.
 ///
 /// To retrieve the list of nearby devices you may use ``nearbyDevices(for:)``.
 ///
@@ -144,6 +146,27 @@ import Spezi
 /// }
 /// ```
 ///
+/// - Tip: Use ``ConnectedDevices`` to retrieve the full list of connected devices from the SwiftUI environment.
+///
+/// #### Retrieving Devices
+///
+/// The previous section explained how to discover nearby devices and retrieve the currently connected one from the environment.
+/// This is great ad-hoc connection establishment with devices currently nearby.
+/// However, this might not be the most efficient approach, if you want to connect to a specific, previously paired device.
+/// In these situations you can use the ``retrieveDevice(for:as:)`` method to retrieve a known device.
+///
+/// Below is a short code example illustrating this method.
+///
+/// ```swift
+/// let id: UUID = ... // a Bluetooth peripheral identifier (e.g., previously retrieved when pairing the device)
+///
+/// let device = bluetooth.retrieveDevice(for: id, as: MyDevice.self)
+///
+/// await device.connect() // assume declaration of @DeviceAction(\.connect)
+///
+/// // Connect doesn't time out. Connection with the device will be established as soon as the device is in reach.
+/// ```
+///
 /// ### Integration with Spezi Modules
 ///
 /// A Spezi [`Module`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module) is a great way of structuring your application into
@@ -184,17 +207,26 @@ import Spezi
 /// ## Topics
 ///
 /// ### Configure the Bluetooth Module
-/// - ``init(minimumRSSI:advertisementStaleInterval:_:)``
+/// - ``init(_:)``
+/// - ``configuration``
 ///
 /// ### Bluetooth State
 /// - ``state``
 /// - ``isScanning``
+/// - ``stateSubscription``
 ///
 /// ### Nearby Devices
 /// - ``nearbyDevices(for:)``
-/// - ``scanNearbyDevices(autoConnect:)``
+/// - ``scanNearbyDevices(minimumRSSI:advertisementStaleInterval:autoConnect:)``
 /// - ``stopScanning()``
-public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, BluetoothActor {
+///
+/// ### Retrieve Devices
+/// - ``retrieveDevice(for:as:)``
+///
+/// ### Manually Manage Powered State
+/// - ``powerOn()``
+/// - ``powerOff()``
+public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
     @Observable
     class Storage {
         var nearbyDevices: OrderedDictionary<UUID, any BluetoothDevice> = [:]
@@ -206,7 +238,12 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
     let bluetoothQueue: DispatchSerialQueue
 
     private let bluetoothManager: BluetoothManager
-    private let deviceConfigurations: Set<DiscoveryConfiguration>
+
+    /// The Bluetooth device configuration.
+    ///
+    /// Set of configured ``BluetoothDevice`` with their corresponding ``DiscoveryCriteria``.
+    public nonisolated let configuration: Set<DeviceDiscoveryDescriptor>
+    private let discoveryConfiguration: Set<DiscoveryDescription>
 
     private let _storage = Storage()
 
@@ -218,6 +255,15 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
     /// Represents the current state of Bluetooth.
     nonisolated public var state: BluetoothState {
         bluetoothManager.state
+    }
+
+    /// Subscribe to changes of the `state` property.
+    ///
+    /// Creates an `AsyncStream` that yields all **future** changes to the ``state`` property.
+    public var stateSubscription: AsyncStream<BluetoothState> {
+        bluetoothManager.assumeIsolated { manager in
+            manager.stateSubscription
+        }
     }
 
     /// Whether or not we are currently scanning for nearby devices.
@@ -241,18 +287,25 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
         }
     }
 
+    /// Dictionary of all initialized devices.
+    ///
+    /// Devices might be part of `nearbyDevices` as well or just retrieved devices that are eventually connected.
+    /// Values are stored weakly. All properties (like `@Characteristic`, `@DeviceState` or `@DeviceAction`) store a reference to `Bluetooth` and report once they are de-initialized
+    /// to clear the respective initialized devices from this dictionary.
+    private var initializedDevices: OrderedDictionary<UUID, AnyWeakDeviceReference> = [:]
+
     @Application(\.spezi)
     private var spezi
 
     /// Stores the connected device instance for every configured ``BluetoothDevice`` type.
-    @Model private var connectedDevicesModel = ConnectedDevices()
+    @Model private var connectedDevicesModel = ConnectedDevicesModel()
     /// Injects the ``BluetoothDevice`` instances from the `ConnectedDevices` model into the SwiftUI environment.
     @Modifier private var devicesInjector: ConnectedDevicesEnvironmentModifier
 
 
     /// Configure the Bluetooth Module.
     ///
-    /// Configures the Bluetooth Module with the provided set of ``DiscoveryConfiguration``s.
+    /// Configures the Bluetooth Module with the provided set of ``DeviceDiscoveryDescriptor``s.
     /// Below is a short code example on how you would discover a `ExampleDevice` by its advertised service id.
     ///
     /// ```swift
@@ -261,37 +314,50 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
     /// }
     /// ```
     ///
-    /// - Parameters:
-    ///   - minimumRSSI: The minimum rssi a nearby peripheral must have to be considered nearby.
-    ///   - advertisementStaleInterval: The time interval after which a peripheral advertisement is considered stale
-    ///     if we don't hear back from the device. Minimum is 1 second.
-    ///   - devices:
+    /// - Parameter devices: The set of configured devices.
     public init(
-        minimumRSSI: Int = BluetoothManager.Defaults.defaultMinimumRSSI,
-        advertisementStaleInterval: TimeInterval = BluetoothManager.Defaults.defaultStaleTimeout,
-        @DiscoveryConfigurationBuilder _ devices: @Sendable () -> Set<DiscoveryConfiguration>
+        @DiscoveryDescriptorBuilder _ devices: @Sendable () -> Set<DeviceDiscoveryDescriptor>
     ) {
         let configuration = devices()
+
         let deviceTypes = configuration.deviceTypes
+        let discovery = configuration.parseDiscoveryDescription()
 
-        let devices = ClosureRegistrar.$writeableView.withValue(.init()) {
-            // we provide a closure registrar just to silence any out-of-band usage warnings!
-            configuration.parseDeviceDescription()
-        }
-
-        let bluetoothManager = BluetoothManager(
-            devices: devices,
-            minimumRSSI: minimumRSSI,
-            advertisementStaleInterval: advertisementStaleInterval
-        )
+        let bluetoothManager = BluetoothManager()
 
         self.bluetoothQueue = bluetoothManager.bluetoothQueue
         self.bluetoothManager = bluetoothManager
-        self.deviceConfigurations = configuration
+        self.configuration = configuration
+        self.discoveryConfiguration = discovery
         self._devicesInjector = Modifier(wrappedValue: ConnectedDevicesEnvironmentModifier(configuredDeviceTypes: deviceTypes))
 
         Task {
             await self.observeDiscoveredDevices()
+        }
+    }
+
+    /// Request to power up the Bluetooth Central.
+    ///
+    /// This method manually instantiates the underlying Central Manager and ensure that it stays allocated.
+    /// Balance this call with a call to ``powerOff()``.
+    ///
+    /// - Note : The underlying `CBCentralManager` is lazily allocated and deallocated once it isn't needed anymore.
+    ///     This is used to delay Bluetooth permission and power prompts to the latest possible moment avoiding unexpected interruptions.
+    public func powerOn() {
+        bluetoothManager.assumeIsolated { manager in
+            manager.powerOn()
+        }
+    }
+
+    /// Request to power down the Bluetooth Central.
+    ///
+    /// This method request to power off the central. This is delay if the central is still used (e.g., currently scanning or connected peripherals).
+    ///
+    /// - Note : The underlying `CBCentralManager` is lazily allocated and deallocated once it isn't needed anymore.
+    ///     This is used to delay Bluetooth permission and power prompts to the latest possible moment avoiding unexpected interruptions.
+    public func powerOff() {
+        bluetoothManager.assumeIsolated { manager in
+            manager.powerOff()
         }
     }
 
@@ -309,14 +375,64 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
                     bluetooth.handleUpdatedNearbyDevicesChange(discoveredDevices)
                 }
             }
+
+            // we currently do not track the `retrievedPeripherals` collection of the BluetoothManager. The assumption is that
+            // `retrievePeripheral` is always called through the `Bluetooth` module so we are aware of everything anyways.
+            // And we don't care about the rest.
         }
+    }
+
+    private func handleUpdatedNearbyDevicesChange(_ discoveredDevices: OrderedDictionary<UUID, BluetoothPeripheral>) {
+        var checkForConnected = false
+
+        // remove all delete keys
+        for key in nearbyDevices.keys where discoveredDevices[key] == nil {
+            checkForConnected = true
+
+            nearbyDevices.removeValue(forKey: key)
+
+            // device instances will be automatically deallocated via `notifyDeviceDeinit`
+        }
+
+        // add devices for new keys
+        for (uuid, peripheral) in discoveredDevices where nearbyDevices[uuid] == nil {
+            let device: any BluetoothDevice
+
+            // check if we already now the device!
+            if let persistentDevice = initializedDevices[uuid]?.anyValue {
+                device = persistentDevice
+            } else {
+                let advertisementData = peripheral.advertisementData
+                guard let configuration = configuration.find(for: advertisementData, logger: logger) else {
+                    logger.warning("Ignoring peripheral \(peripheral.debugDescription) that cannot be mapped to a device class.")
+                    continue
+                }
+
+                device = prepareDevice(id: uuid, configuration.deviceType, peripheral: peripheral)
+            }
+
+            nearbyDevices[uuid] = device
+
+            checkForConnected = true
+        }
+
+        if checkForConnected {
+            // ensure that we get notified about, e.g., a connected peripheral that is instantly removed
+            handlePeripheralStateChange()
+        }
+    }
+
+
+    @_spi(Internal)
+    public func _initializedDevicesCount() -> Int { // swiftlint:disable:this identifier_name
+        initializedDevices.count
     }
 
     private func observePeripheralState(of uuid: UUID) {
         // We must make sure that we don't capture the `peripheral` within the `onChange` closure as otherwise
         // this would require a reference cycle within the `BluetoothPeripheral` class.
         // Therefore, we have this indirection via the uuid here.
-        guard let peripheral = bluetoothManager.assumeIsolated({ $0.discoveredPeripherals[uuid] }) else {
+        guard let peripheral = bluetoothManager.assumeIsolated({ $0.knownPeripherals[uuid] }) else {
             return
         }
 
@@ -334,58 +450,18 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
         }
     }
 
-    private func handleUpdatedNearbyDevicesChange(_ discoveredDevices: OrderedDictionary<UUID, BluetoothPeripheral>) {
-        var checkForConnected = false
-
-        // remove all delete keys
-        for key in nearbyDevices.keys where discoveredDevices[key] == nil {
-            checkForConnected = true
-            let device = nearbyDevices.removeValue(forKey: key)
-
-            if let device {
-                device.clearState(isolatedTo: self)
-                spezi.unloadModule(device)
-            }
-        }
-
-        // add devices for new keys
-        for (uuid, peripheral) in discoveredDevices where nearbyDevices[uuid] == nil {
-            let advertisementData = peripheral.advertisementData
-            guard let configuration = deviceConfigurations.find(for: advertisementData, logger: logger) else {
-                logger.warning("Ignoring peripheral \(peripheral.debugDescription) that cannot be mapped to a device class.")
-                continue
-            }
-
-
-            let closures = ClosureRegistrar()
-            let device = ClosureRegistrar.$writeableView.withValue(closures) {
-                configuration.anyDeviceType.init()
-            }
-            ClosureRegistrar.$readableView.withValue(closures) {
-                device.inject(peripheral: peripheral)
-                nearbyDevices[uuid] = device
-            }
-
-            checkForConnected = true
-            observePeripheralState(of: uuid) // register \.state onChange closure
-
-            spezi.loadModule(device)
-        }
-
-        if checkForConnected {
-            // ensure that we get notified about, e.g., a connected peripheral that is instantly removed
-            handlePeripheralStateChange()
-        }
-    }
-
     private func handlePeripheralStateChange() {
         // check for active connected device
-        let connectedDevices = bluetoothManager.assumeIsolated { $0.discoveredPeripherals }
+        let connectedDevices = bluetoothManager.assumeIsolated { $0.knownPeripherals }
             .filter { _, value in
                 value.assumeIsolated { $0.state } == .connected
             }
-            .compactMap { key, _ in
-                (key, nearbyDevices[key]) // map them to their devices class
+            .compactMap { key, _ -> (UUID, any BluetoothDevice)? in
+                // map them to their devices class
+                guard let device = initializedDevices[key]?.anyValue else {
+                    return nil
+                }
+                return (key, device)
             }
             .reduce(into: [:]) { result, tuple in
                 result[tuple.0] = tuple.1
@@ -399,7 +475,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
 
     /// Retrieve nearby devices.
     ///
-    /// Use this method to retrieve nearby discovered Bluetooth peripherals. This method will only
+    /// Use this method to retrieve nearby discovered Bluetooth devices. This method will only
     /// return nearby devices that are of the provided ``BluetoothDevice`` type.
     /// - Parameter device: The device type to filter for.
     /// - Returns: A list of nearby devices of a given ``BluetoothDevice`` type.
@@ -407,6 +483,60 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
         _storage.nearbyDevices.values.compactMap { device in
             device as? Device
         }
+    }
+
+
+    /// Retrieve a known `BluetoothDevice` by its identifier.
+    ///
+    /// This method queries the list of known ``BluetoothDevice``s (e.g., paired devices).
+    ///
+    /// - Tip: You can use this method to connect to a known device. Retrieve the device using this method and use the ``DeviceActions/connect`` action.
+    ///     The `connect` action doesn't time out and will make sure to connect to the device once it is available without the need for continuous scanning.
+    ///
+    /// - Important: Make sure to keep a strong reference to the returned device. The `Bluetooth` module only keeps a weak reference to the device.
+    ///     If you don't need the device anymore, ``DeviceActions/disconnect`` and dereference it.
+    ///
+    /// - Parameters:
+    ///   - uuid: The Bluetooth peripheral identifier.
+    ///   - device: The device type to use for the peripheral.
+    /// - Returns: The retrieved device. Returns nil if the Bluetooth Central could not be powered on (e.g., not authorized) or if no peripheral with the requested identifier was found.
+    public func retrieveDevice<Device: BluetoothDevice>(
+        for uuid: UUID,
+        as device: Device.Type = Device.self
+    ) async -> Device? {
+        if let anyDevice = initializedDevices[uuid]?.anyValue {
+            guard let device = anyDevice as? Device else {
+                preconditionFailure("""
+                                    Tried to make persistent device for nearby device with differing types. \
+                                    Found \(type(of: anyDevice)), requested \(Device.self)
+                                    """)
+            }
+            return device
+        }
+
+        // This condition is fine, every device type that wants to be paired has to be discovered at least once.
+        // This helps also with building the `ConnectedDevices` statically and have the SwiftUI view hierarchy not re-rendered every time.
+        precondition(
+            configuration.contains(where: { $0.deviceType == device }),
+            "Tried to make persistent device for non-configured device class \(Device.self)"
+        )
+
+        let configuration = device.parseDeviceDescription()
+
+        guard let peripheral = await bluetoothManager.retrievePeripheral(for: uuid, with: configuration) else {
+            return nil
+        }
+
+
+        let device = prepareDevice(id: uuid, Device.self, peripheral: peripheral)
+
+        // The semantics of retrievePeripheral is as follows: it returns a BluetoothPeripheral that is weakly allocated by the BluetoothManager.´
+        // Therefore, the BluetoothPeripheral is owned by the caller and is automatically deallocated if the caller decides to not require the instance anymore.
+        // We want to replicate this behavior with the Bluetooth Module as well, however `BluetoothDevice`s do have reference cycles and require explicit
+        // deallocation. Therefore, we introduce this helper RAII structure `PersistentDevice` that equally moves into the ownership of the caller.
+        // If they happen to release their reference, the deinit of the class is called informing the Bluetooth Module of de-initialization, allowing us
+        // to clean up the underlying BluetoothDevice instance (removing all self references) and therefore allowing to deinit the underlying BluetoothPeripheral.
+        return device
     }
 
     /// Scan for nearby bluetooth devices.
@@ -417,23 +547,27 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
     /// The first connected device can be accessed through the
     /// [Environment(_:)](https://developer.apple.com/documentation/swiftui/environment/init(_:)-8slkf) in your SwiftUI view.
     ///
-    /// - Tip: Scanning for nearby devices can easily be managed via the ``SwiftUI/View/scanNearbyDevices(enabled:with:autoConnect:)``
+    /// - Tip: Scanning for nearby devices can easily be managed via the ``SwiftUI/View/scanNearbyDevices(enabled:with:minimumRSSI:advertisementStaleInterval:autoConnect:)``
     ///     modifier.
     ///
-    /// - Parameter autoConnect: If enabled, the bluetooth manager will automatically connect to
+    /// - Parameters:
+    ///   - minimumRSSI: The minimum rssi a nearby peripheral must have to be considered nearby.
+    ///   - advertisementStaleInterval: The time interval after which a peripheral advertisement is considered stale
+    ///     if we don't hear back from the device. Minimum is 1 second.
+    ///   - autoConnect: If enabled, the bluetooth manager will automatically connect to
     ///     the nearby device if only one is found for a given time threshold.
-    public func scanNearbyDevices(autoConnect: Bool = false) {
+    public func scanNearbyDevices(
+        minimumRSSI: Int? = nil,
+        advertisementStaleInterval: TimeInterval? = nil,
+        autoConnect: Bool = false
+    ) {
         bluetoothManager.assumeIsolated { manager in
-            manager.scanNearbyDevices(autoConnect: autoConnect)
-        }
-    }
-
-    /// If scanning, toggle the auto-connect feature.
-    /// - Parameter autoConnect: Flag to turn on or off auto-connect
-    @_documentation(visibility: internal)
-    public func setAutoConnect(_ autoConnect: Bool) {
-        bluetoothManager.assumeIsolated { manager in
-            manager.setAutoConnect(autoConnect)
+            manager.scanNearbyDevices(
+                discovery: discoveryConfiguration,
+                minimumRSSI: minimumRSSI,
+                advertisementStaleInterval: advertisementStaleInterval,
+                autoConnect: autoConnect
+            )
         }
     }
 
@@ -444,3 +578,89 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothScanner, Bluetoo
         }
     }
 }
+
+
+extension Bluetooth: BluetoothScanner {
+    func scanNearbyDevices(_ state: BluetoothModuleDiscoveryState) {
+        scanNearbyDevices(
+            minimumRSSI: state.minimumRSSI,
+            advertisementStaleInterval: state.advertisementStaleInterval,
+            autoConnect: state.autoConnect
+        )
+    }
+
+    func updateScanningState(_ state: BluetoothModuleDiscoveryState) {
+        let managerState = BluetoothManagerDiscoveryState(
+            configuredDevices: discoveryConfiguration,
+            minimumRSSI: state.minimumRSSI,
+            advertisementStaleInterval: state.advertisementStaleInterval,
+            autoConnect: state.autoConnect
+        )
+
+        bluetoothManager.assumeIsolated { manager in
+            manager.updateScanningState(managerState)
+        }
+    }
+}
+
+// MARK: - Device Handling
+
+extension Bluetooth {
+    func prepareDevice<Device: BluetoothDevice>(id uuid: UUID, _ device: Device.Type, peripheral: BluetoothPeripheral) -> Device {
+        let device = device.init()
+        
+        let didInjectAnything = device.inject(peripheral: peripheral, using: self)
+        if didInjectAnything {
+            initializedDevices[uuid] = device.weaklyReference
+        } else {
+            logger.warning(
+                """
+                \(Device.self) is an empty device implementation. \
+                The same peripheral might be instantiated via multiple \(Device.self) instances if no device property wrappers like
+                @Characteristic, @DeviceState or @DeviceAction is used.
+                """
+            )
+        }
+
+
+        observePeripheralState(of: peripheral.id) // register \.state onChange closure
+
+        
+        precondition(!(device is EnvironmentAccessible), "Cannot load BluetoothDevice \(Device.self) that conforms to \(EnvironmentAccessible.self)!")
+
+
+        // We load the module with external ownership. Meaning, Spezi won't keep any strong references to the Module and deallocation of
+        // the module is possible, freeing all Spezi related resources.
+        spezi.loadModule(device, ownership: .external) // implicitly calls the configure() method once everything is injected
+
+        return device
+    }
+
+
+    nonisolated func notifyDeviceDeinit(for uuid: UUID) {
+        Task { @SpeziBluetooth in
+            await _notifyDeviceDeinit(for: uuid)
+        }
+    }
+
+
+    private func _notifyDeviceDeinit(for uuid: UUID) {
+        precondition(nearbyDevices[uuid] == nil, "\(#function) was wrongfully called for a device that is still referenced: \(uuid)")
+
+        // this clears our weak reference that we use to reuse already created device class once they connect
+        let removedEntry = initializedDevices.removeValue(forKey: uuid)
+
+        if let removedEntry {
+            logger.debug("\(removedEntry.typeName) device was de-initialized and removed from the Bluetooth module.")
+        }
+    }
+}
+
+
+extension BluetoothDevice {
+    fileprivate var weaklyReference: AnyWeakDeviceReference {
+        WeakReference(self)
+    }
+}
+
+// swiftlint:disable:this file_length

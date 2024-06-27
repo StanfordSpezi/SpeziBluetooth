@@ -6,45 +6,54 @@
 // SPDX-License-Identifier: MIT
 //
 
-import Foundation
+import SwiftUI
 
 
+/// Collection of connected devices.
+///
+/// Use this type to retrieve the list of connected devices from the environment for configured ``BluetoothDevice``s.
+///
+/// Below is a code example that list all connected devices of the type `MyDevice`.
+/// ```swift
+/// struct MyView: View {
+///     @Environment(ConnectedDevices<MyDevice>.self)
+///     var connectedDevices
+///
+///     var body: some View {
+///         List {
+///             Section("Connected Devices") {
+///                 ForEach(connectedDevices) { device in
+///                     Text("\(device.name ?? "unknown")")
+///                 }
+///             }
+///         }
+///     }
+/// }
+/// ```
 @Observable
-class ConnectedDevices {
-    /// We track the first connected device for every BluetoothDevice type.
-    @MainActor private var connectedDevices: [ObjectIdentifier: any BluetoothDevice] = [:]
-    @MainActor private var connectedDeviceIds: [ObjectIdentifier: UUID] = [:]
+public final class ConnectedDevices<Device: BluetoothDevice> {
+    private let devices: [Device]
 
-
-    @MainActor
-    func update(with devices: [UUID: any BluetoothDevice]) {
-        // remove devices that disconnected
-        for (identifier, uuid) in connectedDeviceIds where devices[uuid] == nil {
-            connectedDeviceIds.removeValue(forKey: identifier)
-            connectedDevices.removeValue(forKey: identifier)
-        }
-
-        // add newly connected devices that are not injected yet
-        for (uuid, device) in devices {
-            guard connectedDevices[device.typeIdentifier] == nil else {
-                continue // already present, we just inject the first device of a particular type into the environment
-            }
-
-            // Newly connected device for a type that isn't present yet. Save both device and id.
-            connectedDevices[device.typeIdentifier] = device
-            connectedDeviceIds[device.typeIdentifier] = uuid
-        }
-    }
-
-    @MainActor
-    subscript(_ identifier: ObjectIdentifier) -> (any BluetoothDevice)? {
-        connectedDevices[identifier]
+    init(_ devices: [Device] = []) {
+        self.devices = devices
     }
 }
 
 
-extension BluetoothDevice {
-    fileprivate var typeIdentifier: ObjectIdentifier {
-        ObjectIdentifier(Self.self)
+extension ConnectedDevices: RandomAccessCollection {
+    public var startIndex: Int {
+        devices.startIndex
+    }
+
+    public var endIndex: Int {
+        devices.endIndex
+    }
+
+    public func index(after index: Int) -> Int {
+        devices.index(after: index)
+    }
+
+    public subscript(position: Int) -> Device {
+        devices[position]
     }
 }

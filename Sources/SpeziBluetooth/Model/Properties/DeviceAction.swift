@@ -56,14 +56,14 @@
 /// - ``DeviceActions``
 @propertyWrapper
 public final class DeviceAction<Action: _BluetoothPeripheralAction>: @unchecked Sendable {
-    private var peripheral: BluetoothPeripheral?
+    private var injection: DeviceActionPeripheralInjection?
     /// Support injection of closures for testing support.
     private let _injectedClosure = Box<Action.ClosureType?>(nil)
 
 
     /// Access the device action.
     public var wrappedValue: Action {
-        guard let peripheral else {
+        guard let injection else {
             if let injectedClosure = _injectedClosure.value {
                 return Action(.injected(injectedClosure))
             }
@@ -75,7 +75,7 @@ public final class DeviceAction<Action: _BluetoothPeripheralAction>: @unchecked 
                 """
             )
         }
-        return Action(.peripheral(peripheral))
+        return Action(.peripheral(injection.peripheral))
     }
 
     /// Retrieve a temporary accessors instance.
@@ -89,8 +89,8 @@ public final class DeviceAction<Action: _BluetoothPeripheralAction>: @unchecked 
     public init(_ keyPath: KeyPath<DeviceActions, Action.Type>) {}
 
 
-    func inject(peripheral: BluetoothPeripheral) {
-        self.peripheral = peripheral
+    func inject(bluetooth: Bluetooth, peripheral: BluetoothPeripheral) {
+        self.injection = DeviceActionPeripheralInjection(bluetooth: bluetooth, peripheral: peripheral)
     }
 }
 

@@ -31,6 +31,8 @@ enum CharacteristicOnChangeHandler {
 /// - ``state``
 /// - ``rssi``
 /// - ``advertisementData``
+/// - ``nearby``
+/// - ``lastActivity``
 ///
 /// ### Accessing Services
 /// - ``services``
@@ -63,6 +65,7 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
 
     private weak var manager: BluetoothManager?
     private let peripheral: CBPeripheral
+    private let configuration: DeviceDescription
 
     private let delegate: Delegate
     private let stateObserver: KVOStateObserver<BluetoothPeripheral>
@@ -88,8 +91,6 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
     private var notifyRequested: Set<CharacteristicLocator> = []
 
 
-    /// The list of requested characteristic uuids indexed by service uuids.
-    private var requestedCharacteristics: [CBUUID: Set<CharacteristicDescription>?]? // swiftlint:disable:this discouraged_optional_collection
     /// A set of service ids we are currently awaiting characteristics discovery for
     private var servicesAwaitingCharacteristicsDiscovery: Set<CBUUID> = []
 
@@ -102,11 +103,15 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
     }
 
     /// The name of the peripheral.
+    ///
+    /// Returns the name reported through the Generic Access Profile, otherwise falls back to the local name.
     nonisolated public var name: String? {
         _storage.name
     }
 
-    nonisolated private(set) var localName: String? {
+
+    /// The local name included in the advertisement.
+    nonisolated public private(set) var localName: String? {
         get {
             _storage.localName
         }
@@ -171,13 +176,17 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
         }
     }
 
-    private(set) var lastActivity: Date {
+    /// The last device activity.
+    ///
+    /// Returns the date of the last advertisement received from the device or the point in time the device disconnected.
+    /// Returns `now` if the device is currently connected.
+    nonisolated public private(set) var lastActivity: Date {
         get {
-            if case .disconnected = peripheral.state {
-                _storage.lastActivity
-            } else {
+            if case .connected = state {
                 // we are currently connected or connecting/disconnecting, therefore last activity is defined as "now"
                 .now
+            } else {
+                _storage.lastActivity
             }
         }
         set {
@@ -185,10 +194,23 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
         }
     }
 
+    /// Indicates that the peripheral is nearby.
+    ///
+    /// A device is nearby if either we consider it discovered because we are currently scanning or the device is connected.
+    nonisolated public private(set) var nearby: Bool {
+        get {
+            _storage.nearby
+        }
+        set {
+            _storage.update(nearby: newValue)
+        }
+    }
+
 
     init(
         manager: BluetoothManager,
         peripheral: CBPeripheral,
+        configuration: DeviceDescription,
         advertisementData: AdvertisementData,
         rssi: Int
     ) {
@@ -196,6 +218,7 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
 
         self.manager = manager
         self.peripheral = peripheral
+        self.configuration = configuration
 
         self._storage = PeripheralStorage(
             peripheralName: peripheral.name,
@@ -277,31 +300,19 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
         _storage.onChange(of: keyPath, perform: closure)
     }
 
-    func handleConnect(consider configuredDevices: Set<DeviceDescription>) {
-        if let description = configuredDevices.find(for: advertisementData, logger: logger),
-           let services = description.services {
-            requestedCharacteristics = services.reduce(into: [CBUUID: Set<CharacteristicDescription>?]()) { result, configuration in
-                if let characteristics = configuration.characteristics {
-                    result[configuration.serviceId, default: []]?.formUnion(characteristics)
-                } else if result[configuration.serviceId] == nil {
-                    result[configuration.serviceId] = .some(nil)
-                }
-            }
-        } else {
-            // all services will be discovered
-            requestedCharacteristics = nil
-        }
-
+    func handleConnect() {
         // ensure that it is updated instantly.
         self.isolatedUpdate(of: \.state, PeripheralState(from: peripheral.state))
 
         logger.debug("Discovering services for \(self.peripheral.debugIdentifier) ...")
-        let services = requestedCharacteristics.map { Array($0.keys) }
+        let services = configuration.services?.reduce(into: Set()) { result, description in
+            result.insert(description.serviceId)
+        }
         
         if let services, services.isEmpty {
             _storage.signalFullyDiscovered()
         } else {
-            peripheral.discoverServices(requestedCharacteristics.map { Array($0.keys) })
+            peripheral.discoverServices(services.map { Array($0) })
         }
     }
 
@@ -312,7 +323,6 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
 
         // clear all the ongoing access
 
-        self.requestedCharacteristics = nil
         self.servicesAwaitingCharacteristicsDiscovery.removeAll()
 
         if let services {
@@ -333,6 +343,10 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
         }
     }
 
+    func handleDiscarded() {
+        isolatedUpdate(of: \.nearby, false)
+    }
+
     func markLastActivity(_ lastActivity: Date = .now) {
         self.lastActivity = lastActivity
     }
@@ -341,6 +355,7 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
         self.isolatedUpdate(of: \.localName, advertisement.localName)
         self.isolatedUpdate(of: \.advertisementData, advertisement)
         self.isolatedUpdate(of: \.rssi, rssi)
+        self.isolatedUpdate(of: \.nearby, true)
     }
 
     /// Determines if the device is considered stale.
@@ -648,6 +663,25 @@ public actor BluetoothPeripheral: BluetoothActor { // swiftlint:disable:this typ
         var peripheral = self
         peripheral[keyPath: keyPath] = value
     }
+
+    deinit {
+        if !_storage.nearby { // make sure signal is sent
+            _storage.update(nearby: false)
+        }
+
+        guard let manager else {
+            self.logger.warning("Orphaned device \(self.id), \(self.name ?? "unnamed") was de-initialized")
+            return
+        }
+
+        let id = id
+        let name = name
+
+        self.logger.debug("Device \(id), \(name ?? "unnamed") was de-initialized...")
+        Task.detached { @SpeziBluetooth in
+            await manager.handlePeripheralDeinit(id: id)
+        }
+    }
 }
 
 
@@ -683,8 +717,10 @@ extension BluetoothPeripheral {
 
         // automatically subscribe to discovered characteristics for which we have a handler subscribed!
         for characteristic in characteristics {
+            let description = configuration.description(for: service.uuid)?.description(for: characteristic.uuid)
+
             // pull initial value if none is present
-            if characteristic.value == nil && characteristic.properties.contains(.read) {
+            if description?.autoRead != false && characteristic.value == nil && characteristic.properties.contains(.read) {
                 peripheral.readValue(for: characteristic)
             }
 
@@ -697,20 +733,8 @@ extension BluetoothPeripheral {
                     peripheral.setNotifyValue(true, for: characteristic)
                 }
             }
-        }
 
-        // check if we discover descriptors
-        guard let requestedCharacteristics = requestedCharacteristics,
-              let descriptions = requestedCharacteristics[service.uuid] else {
-            return
-        }
-
-        for characteristic in characteristics {
-            guard let description = descriptions?.first(where: { $0.characteristicId == characteristic.uuid }) else {
-                continue
-            }
-
-            if description.discoverDescriptors {
+            if description?.discoverDescriptors == true {
                 logger.debug("Discovering descriptors for \(characteristic.debugIdentifier)...")
                 peripheral.discoverDescriptors(for: characteristic)
             }
@@ -718,11 +742,13 @@ extension BluetoothPeripheral {
     }
 
     private func receivedUpdatedValue(for characteristic: CBCharacteristic, result: Result<Data, Error>) {
-        if case let .read(continuation) = characteristicAccesses.retrieveAccess(for: characteristic) {
+        if let access = characteristicAccesses.retrieveAccess(for: characteristic),
+           case let .read(continuation) = access.value {
             if case let .failure(error) = result {
                 logger.debug("Characteristic read for \(characteristic.debugIdentifier) returned with error: \(error)")
             }
 
+            access.consume()
             continuation.resume(with: result)
         } else if case let .failure(error) = result {
             logger.debug("Received unsolicited value update error for \(characteristic.debugIdentifier): \(error)")
@@ -748,7 +774,8 @@ extension BluetoothPeripheral {
     }
 
     private func receivedWriteResponse(for characteristic: CBCharacteristic, result: Result<Void, Error>) {
-        guard case let .write(continuation) = characteristicAccesses.retrieveAccess(for: characteristic) else {
+        guard let access = characteristicAccesses.retrieveAccess(for: characteristic),
+              case let .write(continuation) = access.value else {
             switch result {
             case .success:
                 logger.warning("Received write response for \(characteristic.debugIdentifier) without an ongoing access. Discarding write ...")
@@ -762,6 +789,7 @@ extension BluetoothPeripheral {
             logger.debug("Characteristic write for \(characteristic.debugIdentifier) returned with error: \(error)")
         }
 
+        access.consume()
         continuation.resume(with: result)
     }
 }
@@ -889,19 +917,20 @@ extension BluetoothPeripheral {
                     logger.debug("Discovered \(services) services for peripheral \(device.peripheral.debugIdentifier)")
 
                     for service in services {
-                        guard let requestedCharacteristicsDic = device.requestedCharacteristics,
-                              let requestedCharacteristicsDescriptions = requestedCharacteristicsDic[service.uuid] else {
+                        guard let serviceDescription = device.configuration.description(for: service.uuid) else {
                             continue
                         }
 
-                        let requestedCharacteristics = requestedCharacteristicsDescriptions?.map { $0.characteristicId }
+                        let characteristicIds = serviceDescription.characteristics?.reduce(into: Set()) { partialResult, description in
+                            partialResult.insert(description.characteristicId)
+                        }
 
-                        if let requestedCharacteristics, requestedCharacteristics.isEmpty {
+                        if let characteristicIds, characteristicIds.isEmpty {
                             continue
                         }
 
                         device.servicesAwaitingCharacteristicsDiscovery.insert(service.uuid)
-                        peripheral.discoverCharacteristics(requestedCharacteristics, for: service)
+                        peripheral.discoverCharacteristics(characteristicIds.map { Array($0) }, for: service)
                     }
 
                     if device.servicesAwaitingCharacteristicsDiscovery.isEmpty {

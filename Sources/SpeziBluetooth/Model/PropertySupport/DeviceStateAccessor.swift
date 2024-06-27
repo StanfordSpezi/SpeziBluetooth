@@ -6,6 +6,57 @@
 // SPDX-License-Identifier: MIT
 //
 
+import Foundation
+import Spezi
+
+
+struct DeviceStateTestInjections<Value>: DefaultInitializable {
+    var subscriptions: ChangeSubscriptions<Value>?
+
+    init() {}
+
+    mutating func enableSubscriptions() {
+        // there is no BluetoothManager, so we need to create a queue on the fly
+        subscriptions = ChangeSubscriptions<Value>(
+            queue: DispatchSerialQueue(label: "edu.stanford.spezi.bluetooth.testing-\(Self.self)", qos: .userInitiated)
+        )
+    }
+
+    func artificialValue(for keyPath: KeyPath<BluetoothPeripheral, Value>) -> Value? {
+        // swiftlint:disable:previous cyclomatic_complexity
+
+        let value: Any? = switch keyPath {
+        case \.id:
+            nil // we cannot provide a stable id?
+        case \.name, \.localName:
+            Optional<String>.none as Any
+        case \.state:
+            PeripheralState.disconnected
+        case \.advertisementData:
+            AdvertisementData([:])
+        case \.rssi:
+            Int(UInt8.max)
+        case \.nearby:
+            false
+        case \.lastActivity:
+            Date.now
+        case \.services:
+            Optional<[GATTService]>.none as Any
+        default:
+            nil
+        }
+
+        guard let value else {
+            return nil
+        }
+
+        guard let value = value as? Value else {
+            preconditionFailure("Default value \(value) was not the expected type for \(keyPath)")
+        }
+        return value
+    }
+}
+
 
 /// Interact with a given device state.
 ///
@@ -14,56 +65,121 @@
 /// ## Topics
 ///
 /// ### Get notified about changes
-/// - ``onChange(initial:perform:)``
+/// - ``onChange(initial:perform:)-8x9cj``
+/// - ``onChange(initial:perform:)-9igc9``
 public struct DeviceStateAccessor<Value> {
     private let id: ObjectIdentifier
+    private let keyPath: KeyPath<BluetoothPeripheral, Value>
     private let injection: DeviceStatePeripheralInjection<Value>?
     /// To support testing support.
     private let _injectedValue: ObservableBox<Value?>
+    private let _testInjections: Box<DeviceStateTestInjections<Value>?>
 
 
-    init(id: ObjectIdentifier, injection: DeviceStatePeripheralInjection<Value>?, injectedValue: ObservableBox<Value?>) {
+    init(
+        id: ObjectIdentifier,
+        keyPath: KeyPath<BluetoothPeripheral, Value>,
+        injection: DeviceStatePeripheralInjection<Value>?,
+        injectedValue: ObservableBox<Value?>,
+        testInjections: Box<DeviceStateTestInjections<Value>?>
+    ) {
         self.id = id
+        self.keyPath = keyPath
         self.injection = injection
         self._injectedValue = injectedValue
+        self._testInjections = testInjections
     }
+}
 
+
+extension DeviceStateAccessor {
+    /// Retrieve a subscription to changes to the device state.
+    ///
+    /// This property creates an AsyncStream that yields all future updates to the device state.
+    public var subscription: AsyncStream<Value> {
+        if let subscriptions = _testInjections.value?.subscriptions {
+            return subscriptions.newSubscription()
+        }
+
+        guard let injection else {
+            preconditionFailure(
+                "The `subscription` of a @DeviceState cannot be accessed within the initializer. Defer access to the `configure() method"
+            )
+        }
+        return injection.newSubscription()
+    }
 
     /// Perform action whenever the state value changes.
     ///
-    /// - Important: This closure is called from the Bluetooth Serial Executor, if you don't pass in an async method
+    /// Register a change handler with the device state that is called every time the value changes.
+    ///
+    /// - Note: `onChange` handlers are bound to the lifetime of the device. If you need to control the lifetime yourself refer to using ``subscription``.
+    ///
+    /// Note that you cannot set up onChange handlers within the initializers.
+    /// Use the [`configure()`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module/configure()-5pa83) to set up
+    /// all your handlers.
+    /// - Important: You must capture `self` weakly only. Capturing `self` strongly causes a memory leak.
+    ///
+    /// - Note: This closure is called from the Bluetooth Serial Executor, if you don't pass in an async method
     ///     that has an annotated actor isolation (e.g., `@MainActor` or actor isolated methods).
     ///
-    /// - Note: It is perfectly fine if you capture strongly self within your closure. The framework will
-    ///     resolve any reference cycles for you.
     /// - Parameters:
     ///     - initial: Whether the action should be run with the initial state value. Otherwise, the action will only run
     ///     strictly if the value changes.
     ///     - action: The change handler to register.
     public func onChange(initial: Bool = false, perform action: @escaping (Value) async -> Void) {
-        let closure = OnChangeClosure(initial: initial, closure: action)
+        onChange(initial: true) { _, newValue in
+            await action(newValue)
+        }
+    }
 
-        guard let injection else {
-            guard let closures = ClosureRegistrar.writeableView else {
-                Bluetooth.logger.warning(
-                    """
-                    Tried to register onChange(perform:) closure out-of-band. Make sure to register your onChange closure \
-                    within the initializer or when the peripheral is fully injected. This is expected if you manually initialized your device. \
-                    The closure was discarded and won't have any effect.
-                    """
-                )
-                return
+    /// Perform action whenever the state value changes.
+    ///
+    /// Register a change handler with the device state that is called every time the value changes.
+    ///
+    /// - Note: `onChange` handlers are bound to the lifetime of the device. If you need to control the lifetime yourself refer to using ``subscription``.
+    ///
+    /// Note that you cannot set up onChange handlers within the initializers.
+    /// Use the [`configure()`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module/configure()-5pa83) to set up
+    /// all your handlers.
+    /// - Important: You must capture `self` weakly only. Capturing `self` strongly causes a memory leak.
+    ///
+    /// - Note: This closure is called from the Bluetooth Serial Executor, if you don't pass in an async method
+    ///     that has an annotated actor isolation (e.g., `@MainActor` or actor isolated methods).
+    ///
+    /// - Parameters:
+    ///     - initial: Whether the action should be run with the initial state value. Otherwise, the action will only run
+    ///     strictly if the value changes.
+    ///     - action: The change handler to register, receiving both the old and new value.
+    public func onChange(initial: Bool = false, perform action: @escaping (_ oldValue: Value, _ newValue: Value) async -> Void) {
+        if let testInjections = _testInjections.value,
+           let subscriptions = testInjections.subscriptions {
+            let id = subscriptions.newOnChangeSubscription(perform: action)
+
+            if initial, let value = _injectedValue.value ?? testInjections.artificialValue(for: keyPath) {
+                // if there isn't a value already, initial won't work properly with injections
+                subscriptions.notifySubscriber(id: id, with: value)
             }
-            // Similar to CharacteristicAccessor/onChange(perform:), we save it in a global registrar
-            // to avoid reference cycles we can't control.
-            closures.insert(for: id, closure: closure)
             return
         }
 
-        // global actor ensures these tasks are queued serially and are executed in order.
-        Task { @SpeziBluetooth in
-            await injection.setOnChangeClosure(closure)
+        guard let injection else {
+            preconditionFailure(
+                """
+                Register onChange(perform:) inside the initializer is not supported anymore. \
+                Further, they no longer support capturing `self` without causing a memory leak. \
+                Please migrate your code to register onChange listeners in the `configure()` method and make sure to weakly capture self.
+
+                func configure() {
+                    $state.onChange { [weak self] value in
+                        self?.handleStateChange(value)
+                    }
+                }
+                """
+            )
         }
+
+        injection.newOnChangeSubscription(initial: initial, perform: action)
     }
 }
 
@@ -75,6 +191,15 @@ extension DeviceStateAccessor: @unchecked Sendable {}
 
 @_spi(TestingSupport)
 extension DeviceStateAccessor {
+    /// Enable testing support for subscriptions and onChange handlers.
+    ///
+    /// After this method is called, subsequent calls to ``subscription`` and ``onChange(initial:perform:)-6ltwk`` or ``onChange(initial:perform:)-5awby``
+    /// will be stored and called  when injecting new values via `inject(_:)`.
+    /// - Note: Make sure to inject a initial value if you want to make the `initial` property work properly
+    public func enableSubscriptions() {
+        _testInjections.valueOrInitialize.enableSubscriptions()
+    }
+
     /// Inject a custom value for previewing purposes.
     ///
     /// This method can be used to inject a custom device state value.
@@ -86,5 +211,9 @@ extension DeviceStateAccessor {
     /// - Parameter value: The value to inject.
     public func inject(_ value: Value) {
         _injectedValue.value = value
+
+        if let subscriptions = _testInjections.value?.subscriptions {
+            subscriptions.notifySubscribers(with: value)
+        }
     }
 }

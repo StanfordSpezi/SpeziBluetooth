@@ -6,9 +6,9 @@
 // SPDX-License-Identifier: MIT
 //
 
-@_spi(TestingSupport)
-import BluetoothServices
 import CoreBluetooth
+@_spi(TestingSupport)
+import SpeziBluetoothServices
 import XCTest
 import XCTestExtensions
 
@@ -20,6 +20,7 @@ final class SpeziBluetoothTests: XCTestCase {
         continueAfterFailure = false
     }
 
+    @MainActor
     func testTestPeripheral() throws { // swiftlint:disable:this function_body_length
         let app = XCUIApplication()
         app.launch()
@@ -33,8 +34,9 @@ final class SpeziBluetoothTests: XCTestCase {
         try app.assertMinimalSimulatorInformation()
 
         // wait till the device is automatically connected.
-        XCTAssert(app.staticTexts["Spezi"].waitForExistence(timeout: 1.0)) // our peripheral name
+        XCTAssert(app.staticTexts["TestDevice"].waitForExistence(timeout: 5.0))
         XCTAssert(app.staticTexts["connected"].waitForExistence(timeout: 10.0))
+        XCTAssert(app.buttons["Pair TestDevice"].exists) // tests retrieval via ConnectedDevices
 
         XCTAssert(app.buttons["Test Interactions"].exists)
         app.buttons["Test Interactions"].tap()
@@ -43,6 +45,9 @@ final class SpeziBluetoothTests: XCTestCase {
 
         XCTAssert(app.staticTexts["Manufacturer, Apple Inc."].exists)
         XCTAssert(app.staticTexts["Model"].exists) // we just check for existence of the model row
+
+        // check that onChange registrations in configure() didn't create any unwanted retain cycles
+        XCTAssert(app.staticTexts["Retain Count Check, Passed"].exists)
 
         // CHECK onChange behavior
         XCTAssert(app.staticTexts["Manufacturer: false, Model: true"].waitForExistence(timeout: 0.5))
@@ -135,6 +140,67 @@ final class SpeziBluetoothTests: XCTestCase {
         sleep(5)
         // check that it stays disconnected
         XCTAssert(app.staticTexts["disconnected"].waitForExistence(timeout: 2.0))
+        XCTAssertFalse(app.staticTexts["Connected TestDevice"].waitForExistence(timeout: 0.5))
+    }
+
+    @MainActor
+    func testPairedDevice() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        XCTAssert(app.staticTexts["Spezi Bluetooth"].waitForExistence(timeout: 2))
+
+        XCTAssert(app.buttons["Test Peripheral"].exists)
+        app.buttons["Test Peripheral"].tap()
+
+        XCTAssert(app.navigationBars.staticTexts["Nearby Devices"].waitForExistence(timeout: 2.0))
+        try app.assertMinimalSimulatorInformation()
+
+        // wait till the device is automatically connected.
+        XCTAssert(app.staticTexts["TestDevice"].waitForExistence(timeout: 5.0))
+        XCTAssert(app.staticTexts["connected"].waitForExistence(timeout: 10.0))
+
+        XCTAssert(app.buttons["Pair TestDevice"].exists) // tests retrieval via ConnectedDevices
+        app.buttons["Pair TestDevice"].tap()
+
+        XCTAssert(app.navigationBars.buttons["Spezi Bluetooth"].exists)
+        app.navigationBars.buttons["Spezi Bluetooth"].tap()
+
+        XCTAssert(app.buttons["Query Count"].waitForExistence(timeout: 2.0))
+        app.buttons["Query Count"].tap()
+        XCTAssert(app.staticTexts["Currently initialized devices: 0"].waitForExistence(timeout: 0.5)) // ensure devices got deallocated
+
+
+        XCTAssert(app.buttons["Paired Device"].exists)
+        app.buttons["Paired Device"].tap()
+
+        XCTAssert(app.staticTexts["Device, Paired"].waitForExistence(timeout: 2.0))
+
+        XCTAssert(app.buttons["Retrieve Device"].exists)
+        app.buttons["Retrieve Device"].tap()
+
+        XCTAssert(app.staticTexts["State, disconnected"].waitForExistence(timeout: 0.5))
+        XCTAssert(app.buttons["Connect Device"].exists)
+        app.buttons["Connect Device"].tap()
+
+        XCTAssert(app.staticTexts["State, connected"].waitForExistence(timeout: 10.0))
+        XCTAssert(app.staticTexts["Manufacturer, Apple Inc."].exists)
+        XCTAssert(app.staticTexts["Retain Count Check, Passed"].exists)
+
+        XCTAssert(app.buttons["Disconnect Device"].exists)
+        app.buttons["Disconnect Device"].tap()
+
+        XCTAssert(app.staticTexts["State, disconnected"].waitForExistence(timeout: 0.5))
+
+        XCTAssert(app.buttons["Unpair Device"].exists)
+        app.buttons["Unpair Device"].tap()
+
+        XCTAssert(app.navigationBars.buttons["Spezi Bluetooth"].exists)
+        app.navigationBars.buttons["Spezi Bluetooth"].tap()
+
+        XCTAssert(app.buttons["Query Count"].waitForExistence(timeout: 2.0))
+        app.buttons["Query Count"].tap()
+        XCTAssert(app.staticTexts["Currently initialized devices: 0"].waitForExistence(timeout: 0.5)) // ensure devices got deallocated
     }
 }
 

@@ -8,7 +8,15 @@
 // SPDX-License-Identifier: MIT
 //
 
+import class Foundation.ProcessInfo
 import PackageDescription
+
+
+#if swift(<6)
+let swiftConcurrency: SwiftSetting = .enableExperimentalFeature("SwiftConcurrency")
+#else
+let swiftConcurrency: SwiftSetting = .enableUpcomingFeature("SwiftConcurrency")
+#endif
 
 
 let package = Package(
@@ -20,18 +28,17 @@ let package = Package(
         .macOS(.v14)
     ],
     products: [
-        .library(name: "BluetoothServices", targets: ["BluetoothServices"]),
-        .library(name: "BluetoothViews", targets: ["BluetoothViews"]),
+        .library(name: "SpeziBluetoothServices", targets: ["SpeziBluetoothServices"]),
         .library(name: "SpeziBluetooth", targets: ["SpeziBluetooth"])
     ],
     dependencies: [
-        .package(url: "https://github.com/StanfordSpezi/SpeziFoundation", from: "1.0.4"),
-        .package(url: "https://github.com/StanfordSpezi/Spezi", from: "1.3.0"),
-        .package(url: "https://github.com/StanfordSpezi/SpeziNetworking", from: "2.0.1"),
-        .package(url: "https://github.com/StanfordSpezi/SpeziViews", from: "1.3.0"),
+        .package(url: "https://github.com/StanfordSpezi/SpeziFoundation", from: "1.1.0"),
+        .package(url: "https://github.com/StanfordSpezi/Spezi", from: "1.4.0"),
+        .package(url: "https://github.com/StanfordSpezi/SpeziNetworking", from: "2.1.0"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.59.0"),
-        .package(url: "https://github.com/apple/swift-collections.git", from: "1.0.4")
-    ],
+        .package(url: "https://github.com/apple/swift-collections.git", from: "1.0.4"),
+        .package(url: "https://github.com/StanfordBDHG/XCTestExtensions.git", from: "0.4.11")
+    ] + swiftLintPackage(),
     targets: [
         .target(
             name: "SpeziBluetooth",
@@ -44,39 +51,67 @@ let package = Package(
             ],
             resources: [
                 .process("Resources")
-            ]
+            ],
+            swiftSettings: [
+                swiftConcurrency
+            ],
+            plugins: [] + swiftLintPlugin()
         ),
         .target(
-            name: "BluetoothServices",
+            name: "SpeziBluetoothServices",
             dependencies: [
                 .target(name: "SpeziBluetooth"),
                 .product(name: "ByteCoding", package: "SpeziNetworking"),
                 .product(name: "SpeziNumerics", package: "SpeziNetworking")
-            ]
-        ),
-        .target(
-            name: "BluetoothViews",
-            dependencies: [
-                .target(name: "SpeziBluetooth"),
-                .product(name: "SpeziViews", package: "SpeziViews")
-            ]
+            ],
+            swiftSettings: [
+                swiftConcurrency
+            ],
+            plugins: [] + swiftLintPlugin()
         ),
         .executableTarget(
             name: "TestPeripheral",
             dependencies: [
                 .target(name: "SpeziBluetooth"),
-                .target(name: "BluetoothServices"),
+                .target(name: "SpeziBluetoothServices"),
                 .product(name: "ByteCoding", package: "SpeziNetworking")
-            ]
+            ],
+            swiftSettings: [
+                swiftConcurrency
+            ],
+            plugins: [] + swiftLintPlugin()
         ),
         .testTarget(
             name: "BluetoothServicesTests",
             dependencies: [
-                .target(name: "BluetoothServices"),
+                .target(name: "SpeziBluetoothServices"),
                 .target(name: "SpeziBluetooth"),
                 .product(name: "XCTByteCoding", package: "SpeziNetworking"),
-                .product(name: "NIO", package: "swift-nio")
-            ]
+                .product(name: "NIO", package: "swift-nio"),
+                .product(name: "XCTestExtensions", package: "XCTestExtensions")
+            ],
+            swiftSettings: [
+                swiftConcurrency
+            ],
+            plugins: [] + swiftLintPlugin()
         )
     ]
 )
+
+
+func swiftLintPlugin() -> [Target.PluginUsage] {
+    // Fully quit Xcode and open again with `open --env SPEZI_DEVELOPMENT_SWIFTLINT /Applications/Xcode.app`
+    if ProcessInfo.processInfo.environment["SPEZI_DEVELOPMENT_SWIFTLINT"] != nil {
+        [.plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLint")]
+    } else {
+        []
+    }
+}
+
+func swiftLintPackage() -> [PackageDescription.Package.Dependency] {
+    if ProcessInfo.processInfo.environment["SPEZI_DEVELOPMENT_SWIFTLINT"] != nil {
+        [.package(url: "https://github.com/realm/SwiftLint.git", .upToNextMinor(from: "0.55.1"))]
+    } else {
+        []
+    }
+}

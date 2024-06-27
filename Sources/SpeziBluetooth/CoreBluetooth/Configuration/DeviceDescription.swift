@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
+@preconcurrency import class CoreBluetooth.CBUUID
 import OSLog
 
 
@@ -13,44 +14,40 @@ import OSLog
 ///
 /// Describes what services we expect to be present for a certain type of device.
 /// The ``BluetoothManager`` uses that to determine what devices to discover and what services and characteristics to expect.
-public struct DeviceDescription: Sendable {
-    /// The criteria by which we identify a discovered device.
-    public let discoveryCriteria: DiscoveryCriteria
+public struct DeviceDescription {
     /// The set of service configurations we expect from the device.
     ///
     /// This will be the list of services we are interested in and we try to discover.
-    public let services: Set<ServiceDescription>? // swiftlint:disable:this discouraged_optional_collection
+    public var services: Set<ServiceDescription>? { // swiftlint:disable:this discouraged_optional_collection
+        let values: Dictionary<CBUUID, ServiceDescription>.Values? = _services?.values
+        return values.map { Set($0) }
+    }
 
+    private let _services: [CBUUID: ServiceDescription]?  // swiftlint:disable:this discouraged_optional_collection
 
-    /// Create a new discovery configuration for a certain type of device.
-    /// - Parameters:
-    ///   - discoveryCriteria: The criteria by which we identify a discovered device.
-    ///   - services: The set of service configurations we expect from the device.
-    ///     Use `nil` to discover all services.
-    public init(discoverBy discoveryCriteria: DiscoveryCriteria, services: Set<ServiceDescription>?) {
+    /// Create a new device description.
+    /// - Parameter services: The set of service descriptions specifying the expected services.
+    public init(services: Set<ServiceDescription>? = nil) {
         // swiftlint:disable:previous discouraged_optional_collection
-        self.discoveryCriteria = discoveryCriteria
-        self.services = services
+        self._services = services?.reduce(into: [:]) { partialResult, description in
+            partialResult[description.serviceId] = description
+        }
+    }
+
+
+    /// Retrieve the service description for a given service id.
+    /// - Parameter serviceId: The Bluetooth service id.
+    /// - Returns: Returns the service description if present.
+    public func description(for serviceId: CBUUID) -> ServiceDescription? {
+        _services?[serviceId]
     }
 }
 
 
-extension DeviceDescription: Identifiable {
-    public var id: DiscoveryCriteria {
-        discoveryCriteria
-    }
-}
+extension DeviceDescription: Sendable {}
 
 
-extension DeviceDescription: Hashable {
-    public static func == (lhs: DeviceDescription, rhs: DeviceDescription) -> Bool {
-        lhs.discoveryCriteria == rhs.discoveryCriteria
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(discoveryCriteria)
-    }
-}
+extension DeviceDescription: Hashable {}
 
 
 extension Collection where Element: Identifiable, Element.ID == DiscoveryCriteria {

@@ -29,12 +29,7 @@ struct DeviceRowView<Peripheral: SomePeripheral>: View {
         Button(action: peripheralAction) {
             VStack {
                 HStack {
-                    if let name = peripheral.name {
-                        Text(verbatim: "\(name)")
-                    } else {
-                        Text(verbatim: "unknown")
-                            .italic()
-                    }
+                    Text(verbatim: "\(Peripheral.self)")
                     Spacer()
                     Text(verbatim: "\(peripheral.rssi) dB")
                         .foregroundColor(.secondary)

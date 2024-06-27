@@ -6,7 +6,9 @@
 // SPDX-License-Identifier: MIT
 //
 
-import BluetoothServices
+@_spi(TestingSupport)
+import ByteCoding
+import SpeziBluetoothServices
 @_spi(TestingSupport)
 import SpeziBluetooth
 import SpeziViews
@@ -66,6 +68,16 @@ struct DeviceInformationView: View {
             if let regulatoryCertificationDataList = deviceInformation.regulatoryCertificationDataList {
                 ListRow("Regulatory Certification Data") {
                     Text(regulatoryCertificationDataList.hexString())
+                }
+            }
+
+            ListRow("Retain Count Check") {
+                if device.passedRetainCountCheck {
+                    Text("Passed")
+                        .foregroundStyle(.green)
+                } else {
+                    Text("Failed")
+                        .foregroundStyle(.red)
                 }
             }
         } header: {

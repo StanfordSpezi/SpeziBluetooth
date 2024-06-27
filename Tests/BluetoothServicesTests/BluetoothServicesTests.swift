@@ -6,12 +6,12 @@
 // SPDX-License-Identifier: MIT
 //
 
-@_spi(TestingSupport)
-@testable import BluetoothServices
 import CoreBluetooth
 import NIO
 @_spi(TestingSupport)
 @testable import SpeziBluetooth
+@_spi(TestingSupport)
+@testable import SpeziBluetoothServices
 import XCTByteCoding
 import XCTest
 

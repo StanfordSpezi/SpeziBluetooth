@@ -7,7 +7,7 @@
 //
 
 /// The content of an implemented peripheral action.
-public enum _PeripheralActionContent<ClosureType> { // swiftlint:disable:this type_name file_types_order
+public enum _PeripheralActionContent<ClosureType: Sendable> { // swiftlint:disable:this type_name file_types_order
     /// Execute the action on the provided bluetooth peripheral.
     case peripheral(BluetoothPeripheral)
     /// Execute the injected closure instead.
@@ -27,3 +27,6 @@ public protocol _BluetoothPeripheralAction { // swiftlint:disable:this type_name
     /// - Parameter content: The action content.
     init(_ content: _PeripheralActionContent<ClosureType>)
 }
+
+
+extension _PeripheralActionContent: Sendable {}

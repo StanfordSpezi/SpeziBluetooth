@@ -6,8 +6,8 @@
 // SPDX-License-Identifier: MIT
 //
 
-import BluetoothViews
 import SpeziBluetooth
+import SpeziViews
 import SwiftUI
 
 
@@ -16,9 +16,13 @@ struct BluetoothModuleView: View {
     private var bluetooth
     @Environment(TestDevice.self)
     private var device: TestDevice?
+    @Environment(ConnectedDevices<TestDevice>.self)
+    private var connectedDevices
+
+    @Binding private var pairedDeviceId: UUID?
 
     var body: some View {
-        List {
+        List { // swiftlint:disable:this closure_body_length
             BluetoothStateSection(state: bluetooth.state, isScanning: bluetooth.isScanning)
 
             let nearbyDevices = bluetooth.nearbyDevices(for: TestDevice.self)
@@ -28,9 +32,34 @@ struct BluetoothModuleView: View {
                     DeviceRowView(peripheral: device)
                 }
             } header: {
-                LoadingSectionHeaderView(verbatim: "Devices", loading: bluetooth.isScanning)
+                Text(verbatim: "Devices")
             } footer: {
                 Text(verbatim: "This is a list of nearby test peripherals. Auto connect is enabled.")
+            }
+
+            if !connectedDevices.isEmpty {
+                Section {
+                    ForEach(connectedDevices) { device in
+                        AsyncButton {
+                            pairedDeviceId = device.id
+                            await device.disconnect()
+                        } label: {
+                            VStack {
+                                Text(verbatim: "Pair \(type(of: device))")
+                                if let name = device.name {
+                                    Text(name)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                            .accessibilityLabel("Pair \(type(of: device))")
+                    }
+                } header: {
+                    Text("Connected Devices")
+                } footer: {
+                    Text("This tests the retrieval of connected devices using ConnectedDevices.")
+                }
             }
 
             if let device {
@@ -42,12 +71,17 @@ struct BluetoothModuleView: View {
             .scanNearbyDevices(with: bluetooth, autoConnect: true)
             .navigationTitle("Nearby Devices")
     }
+
+
+    init(pairedDeviceId: Binding<UUID?>) {
+        self._pairedDeviceId = pairedDeviceId
+    }
 }
 
 
 #Preview {
     NavigationStack {
-        BluetoothModuleView()
+        BluetoothModuleView(pairedDeviceId: .constant(nil))
             .previewWith {
                 Bluetooth {
                     Discover(TestDevice.self, by: .advertisedService("FFF0"))

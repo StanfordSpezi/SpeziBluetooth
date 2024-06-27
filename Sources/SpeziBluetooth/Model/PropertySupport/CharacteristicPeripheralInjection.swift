@@ -8,6 +8,7 @@
 
 import ByteCoding
 import CoreBluetooth
+import SpeziFoundation
 
 
 private protocol DecodableCharacteristic: Actor {
@@ -23,7 +24,8 @@ private protocol PrimitiveDecodableCharacteristic {
 actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
     let bluetoothQueue: DispatchSerialQueue
 
-    let peripheral: BluetoothPeripheral
+    private let bluetooth: Bluetooth
+    fileprivate let peripheral: BluetoothPeripheral
     let serviceId: CBUUID
     let characteristicId: CBUUID
 
@@ -37,8 +39,14 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
     /// Fore more information see ``ControlPointCharacteristic``.
     private var controlPointTransaction: ControlPointTransaction<Value>?
 
-    /// The user supplied onChange closure we use to forward notifications.
-    private var onChangeClosure: ChangeClosureState<Value>
+    /// Manages the user supplied subscriptions to the value.
+    private let subscriptions: ChangeSubscriptions<Value>
+    /// We track all onChange closure registrations with `initial=false` to make sure to not call them with the initial value.
+    /// The property is set to nil, once the initial value arrived.
+    ///
+    /// The initial value might only arrive later (e.g., only once the device is connected). Therefore, we need to keep track what handlers to call and which not while we are still waiting.
+    private var nonInitialChangeHandlers: Set<UUID>? = [] // swiftlint:disable:this discouraged_optional_collection
+
     /// The registration object we received from the ``BluetoothPeripheral`` for our instance onChange handler.
     private var instanceRegistration: OnChangeRegistration?
     /// The registration object we received from the ``BluetoothPeripheral`` for our value onChange handler.
@@ -69,20 +77,21 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
 
 
     init(
+        bluetooth: Bluetooth,
         peripheral: BluetoothPeripheral,
         serviceId: CBUUID,
         characteristicId: CBUUID,
         value: ObservableBox<Value?>,
-        characteristic: GATTCharacteristic?,
-        onChangeClosure: OnChangeClosure<Value>?
+        characteristic: GATTCharacteristic?
     ) {
+        self.bluetooth = bluetooth
         self.bluetoothQueue = peripheral.bluetoothQueue
         self.peripheral = peripheral
         self.serviceId = serviceId
         self.characteristicId = characteristicId
         self._value = value
         self._characteristic = .init(characteristic)
-        self.onChangeClosure = onChangeClosure.map { .value($0) } ?? .none
+        self.subscriptions = ChangeSubscriptions(queue: peripheral.bluetoothQueue)
     }
 
     /// Setup the injection. Must be called after initialization to set up all handlers and write the initial value.
@@ -108,28 +117,28 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
         }
     }
 
-    /// Signal from the Bluetooth state to cleanup the device
-    func clearState() {
-        self.instanceRegistration?.cancel()
-        self.instanceRegistration = nil
-        self.valueRegistration?.cancel()
-        self.valueRegistration = nil
-        self.onChangeClosure = .cleared // might contain a self reference, so we need to clear that!
+    nonisolated func newSubscription() -> AsyncStream<Value> {
+        subscriptions.newSubscription()
     }
 
+    nonisolated func newOnChangeSubscription(initial: Bool, perform action: @escaping (_ oldValue: Value, _ newValue: Value) async -> Void) {
+        let id = subscriptions.newOnChangeSubscription(perform: action)
 
-    func setOnChangeClosure(_ closure: OnChangeClosure<Value>) {
-        if case .cleared = onChangeClosure {
-            // object is about to be cleared. Make sure we don't create a self reference last minute.
-            return
+        // Must be called detached, otherwise it might inherit TaskLocal values which includes Spezi moduleInitContext
+        // which would create a strong reference to the device.
+        Task.detached { @SpeziBluetooth in
+            await self.handleInitialCall(id: id, initial: initial, action: action)
         }
-        self.onChangeClosure = .value(closure)
+    }
 
-        // if configured as initial, and there is a value, we notify
-        if let value, closure.initial {
-            Task { @SpeziBluetooth in
-                await closure(value)
+    private func handleInitialCall(id: UUID, initial: Bool, action: (_ oldValue: Value, _ newValue: Value) async -> Void) async {
+        if nonInitialChangeHandlers != nil {
+            if !initial {
+                nonInitialChangeHandlers?.insert(id)
             }
+        } else if initial, let value {
+            // nonInitialChangeHandlers is nil, meaning the initial value already arrived and we can call the action instantly if they wanted that
+            subscriptions.notifySubscriber(id: id, with: value)
         }
     }
 
@@ -212,14 +221,9 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
         }
     }
 
-    private func dispatchChangeHandler(previous previousValue: Value?, new newValue: Value, with onChangeClosure: ChangeClosureState<Value>) async {
-        guard case let .value(closure) = onChangeClosure else {
-            return
-        }
 
-        if closure.initial || previousValue != nil {
-            await closure(newValue)
-        }
+    deinit {
+        bluetooth.notifyDeviceDeinit(for: peripheral.id)
     }
 }
 
@@ -232,15 +236,11 @@ extension CharacteristicPeripheralInjection: DecodableCharacteristic where Value
                 return
             }
 
-            let previousValue = self.value
             self.value = value
-
             self.fullFillControlPointRequest(value)
 
-            let onChangeClosure = onChangeClosure // make sure we capture it now, not later where it might have changed.
-            Task { @SpeziBluetooth in
-                await self.dispatchChangeHandler(previous: previousValue, new: value, with: onChangeClosure)
-            }
+            self.subscriptions.notifySubscribers(with: value, ignoring: nonInitialChangeHandlers ?? [])
+            nonInitialChangeHandlers = nil
         } else {
             self.value = nil
         }
@@ -341,30 +341,27 @@ extension CharacteristicPeripheralInjection where Value: ControlPointCharacteris
         let transaction = ControlPointTransaction<Value>()
         self.controlPointTransaction = transaction
 
+        defer {
+            if controlPointTransaction?.id == transaction.id {
+                controlPointTransaction = nil
+            }
+        }
+
+        // make sure we are ready to receive the response
         async let response = controlPointContinuationTask(transaction)
 
         do {
             try await write(value)
         } catch {
             transaction.signalCancellation()
-            resetControlPointTransaction(with: transaction.id)
-            _ = try? await response
+            _ = try? await response // await response to avoid cancellation
             
             throw error
         }
 
-        let timeoutTask = Task {
-            try? await Task.sleep(for: timeout)
-            if !Task.isCancelled {
-                transaction.signalTimeout()
-                resetControlPointTransaction(with: transaction.id)
-            }
+        async let _ = withTimeout(of: timeout) {
+            transaction.signalTimeout()
         }
-
-        defer {
-            timeoutTask.cancel()
-        }
-
 
         return try await response
     }
@@ -376,15 +373,6 @@ extension CharacteristicPeripheralInjection where Value: ControlPointCharacteris
             }
         } onCancel: {
             transaction.signalCancellation()
-            Task {
-                await resetControlPointTransaction(with: transaction.id)
-            }
-        }
-    }
-
-    private func resetControlPointTransaction(with id: UUID) {
-        if controlPointTransaction?.id == id {
-            self.controlPointTransaction = nil
         }
     }
 }

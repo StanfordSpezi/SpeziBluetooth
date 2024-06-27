@@ -136,9 +136,10 @@ class ExampleDelegate: SpeziAppDelegate {
 Once you have the `Bluetooth` module configured within your Spezi app, you can access the module within your
 [`Environment`](https://developer.apple.com/documentation/swiftui/environment).
 
-You can use the ``SwiftUI/View/scanNearbyDevices(enabled:with:autoConnect:)`` and ``SwiftUI/View/autoConnect(enabled:with:)``
+You can use the ``SwiftUI/View/scanNearbyDevices(enabled:with:minimumRSSI:advertisementStaleInterval:autoConnect:)``
+and ``SwiftUI/View/autoConnect(enabled:with:minimumRSSI:advertisementStaleInterval:)``
 modifiers to scan for nearby devices and/or auto connect to the first available device. Otherwise, you can also manually start and stop scanning for nearby devices
-using ``Bluetooth/scanNearbyDevices(autoConnect:)`` and ``Bluetooth/stopScanning()``.
+using ``Bluetooth/scanNearbyDevices(minimumRSSI:advertisementStaleInterval:autoConnect:)`` and ``Bluetooth/stopScanning()``.
 
 To retrieve the list of nearby devices you may use ``Bluetooth/nearbyDevices(for:)``.
 
@@ -186,6 +187,27 @@ struct MyView: View {
             .scanNearbyDevices(with: bluetooth, autoConnect: true)
     }
 }
+```
+
+> Tip: Use ``ConnectedDevices`` to retrieve the full list of connected devices from the SwiftUI environment.
+
+#### Retrieving Devices
+
+The previous section explained how to discover nearby devices and retrieve the currently connected one from the environment.
+This is great ad-hoc connection establishment with devices currently nearby.
+However, this might not be the most efficient approach, if you want to connect to a specific, previously paired device.
+In these situations you can use the ``Bluetooth/retrieveDevice(for:as:)`` method to retrieve a known device.
+
+Below is a short code example illustrating this method.
+
+```swift
+let id: UUID = ... // a Bluetooth peripheral identifier (e.g., previously retrieved when pairing the device)
+
+let device = bluetooth.retrieveDevice(for: id, as: MyDevice.self)
+
+await device.connect() // assume declaration of @DeviceAction(\.connect)
+
+// Connect doesn't time out. Connection with the device will be established as soon as the device is in reach.
 ```
 
 ### Integration with Spezi Modules
@@ -249,8 +271,11 @@ due to their async nature.
 
 ### Discovering nearby devices
 
-- ``SwiftUI/View/scanNearbyDevices(enabled:with:autoConnect:)``
-- ``SwiftUI/View/autoConnect(enabled:with:)``
+- ``SwiftUI/View/scanNearbyDevices(enabled:with:minimumRSSI:advertisementStaleInterval:autoConnect:)``
+- ``SwiftUI/View/autoConnect(enabled:with:minimumRSSI:advertisementStaleInterval:)``
+- ``SwiftUI/EnvironmentValues/minimumRSSI``
+- ``SwiftUI/EnvironmentValues/advertisementStaleInterval``
+- ``ConnectedDevices``
 
 ### Declaring a Bluetooth Device
 
@@ -271,14 +296,12 @@ due to their async nature.
 - ``PeripheralState``
 - ``BluetoothError``
 - ``AdvertisementData``
+- ``ManufacturerIdentifier``
 - ``WriteType``
 
 ### Configuring Core Bluetooth
 
+- ``DiscoveryDescription``
 - ``DeviceDescription``
 - ``ServiceDescription``
 - ``CharacteristicDescription``
-
-### Errors
-
-- ``ControlPointTimeoutError``

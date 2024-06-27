@@ -9,20 +9,43 @@
 import SwiftUI
 
 
+@Observable
 class SurroundingScanModifiers: EnvironmentKey {
     static let defaultValue = SurroundingScanModifiers()
 
-    @MainActor private var registeredModifiers: [AnyHashable: Set<UUID>] = [:]
+    @MainActor private var registeredModifiers: [AnyHashable: [UUID: any BluetoothScanningState]] = [:]
 
     @MainActor
-    func setModifierScanningState<Scanner: BluetoothScanner>(enabled: Bool, with scanner: Scanner, modifierId: UUID) {
+    func setModifierScanningState<Scanner: BluetoothScanner>(enabled: Bool, with scanner: Scanner, modifierId: UUID, state: Scanner.ScanningState) {
         if enabled {
-            registeredModifiers[AnyHashable(scanner.id), default: []]
-                .insert(modifierId)
+            registeredModifiers[AnyHashable(scanner.id), default: [:]]
+                .updateValue(state, forKey: modifierId)
         } else {
-            registeredModifiers[AnyHashable(scanner.id), default: []]
-                .remove(modifierId)
+            registeredModifiers[AnyHashable(scanner.id), default: [:]]
+                .removeValue(forKey: modifierId)
+
+            if registeredModifiers[AnyHashable(scanner.id)]?.isEmpty == true {
+                registeredModifiers[AnyHashable(scanner.id)] = nil
+            }
         }
+    }
+
+    @MainActor
+    func retrieveReducedScanningState<Scanner: BluetoothScanner>(for scanner: Scanner) -> Scanner.ScanningState? {
+        guard let entries = registeredModifiers[AnyHashable(scanner.id)] else {
+            return nil
+        }
+
+        return entries.values
+            .compactMap { anyState in
+                anyState as? Scanner.ScanningState
+            }
+            .reduce(nil) { partialResult, state in
+                guard let partialResult else {
+                    return state
+                }
+                return partialResult.merging(with: state)
+            }
     }
 
     @MainActor

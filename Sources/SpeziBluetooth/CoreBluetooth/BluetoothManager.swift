@@ -23,12 +23,14 @@ import OSLog
 ///
 /// To configure the Bluetooth Manager, you need to specify what devices you want to discover and what services and
 /// characteristics you are interested in.
-/// To do so, provide a set of ``DeviceDescription``s upon initialization of the `BluetoothManager`.
+/// To do so, provide a set of ``DiscoveryDescription``s upon initialization of the `BluetoothManager`.
 ///
 /// Below is a short code example to discover devices with a Heart Rate service.
 ///
 /// ```swift
-/// let manager = BluetoothManager(devices [
+/// let manager = BluetoothManager()
+///
+/// manager.scanNearbyDevices(discovery: devices [
 ///     DeviceDescription(discoverBy: .advertisedService("180D"), services: [
 ///         ServiceDescription(serviceId: "180D", characteristics: [
 ///             "2A37", // heart rate measurement
@@ -37,20 +39,19 @@ import OSLog
 ///         ])
 ///     ])
 /// ])
-///
-/// manager.scanNearbyDevices()
 /// // ...
 /// manager.stopScanning()
 /// ```
 ///
 /// ### Searching for nearby devices
 ///
-/// You can scan for nearby devices using the ``scanNearbyDevices(autoConnect:)`` and stop scanning with ``stopScanning()``.
+/// You can scan for nearby devices using the ``scanNearbyDevices(discovery:minimumRSSI:advertisementStaleInterval:autoConnect:)`` and stop scanning with ``stopScanning()``.
 /// All discovered peripherals will be populated through the ``nearbyPeripherals`` properties.
 ///
 /// Refer to the documentation of ``BluetoothPeripheral`` on how to interact with a Bluetooth peripheral.
 ///
-/// - Tip: You can also use the ``SwiftUI/View/scanNearbyDevices(enabled:with:autoConnect:)`` and ``SwiftUI/View/autoConnect(enabled:with:)``
+/// - Tip: You can also use the ``SwiftUI/View/scanNearbyDevices(enabled:with:discovery:minimumRSSI:advertisementStaleInterval:autoConnect:)``
+///     and ``SwiftUI/View/autoConnect(enabled:with:discovery:minimumRSSI:advertisementStaleInterval:)``
 ///     modifiers within your SwiftUI view to automatically manage device scanning and/or auto connect to the
 ///     first available device.
 ///
@@ -58,123 +59,46 @@ import OSLog
 ///
 /// ### Create a Bluetooth Manager
 ///
-/// - ``init(devices:minimumRSSI:advertisementStaleInterval:)``
+/// - ``init()``
 ///
 /// ### Bluetooth State
 ///
 /// - ``state``
 /// - ``isScanning``
+/// - ``stateSubscription``
 ///
 /// ### Discovering nearby Peripherals
 /// - ``nearbyPeripherals``
-/// - ``scanNearbyDevices(autoConnect:)``
+/// - ``scanNearbyDevices(discovery:minimumRSSI:advertisementStaleInterval:autoConnect:)``
 /// - ``stopScanning()``
+/// - ``SwiftUI/View/scanNearbyDevices(enabled:with:discovery:minimumRSSI:advertisementStaleInterval:autoConnect:)``
+/// - ``SwiftUI/View/autoConnect(enabled:with:discovery:minimumRSSI:advertisementStaleInterval:)``
+///
+/// ### Retrieving known Peripherals
+/// - ``retrievePeripheral(for:with:)``
+///
+/// ### Manually Manage Powered State
+/// - ``powerOn()``
+/// - ``powerOff()``
 public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable:this type_body_length
-    @Observable
-    final class ObservableStorage: ValueObservable {
-        var state: BluetoothState = .unknown {
-            didSet {
-                _$simpleRegistrar.triggerDidChange(for: \.state, on: self)
-            }
-        }
-        var isScanning = false {
-            didSet {
-                _$simpleRegistrar.triggerDidChange(for: \.isScanning, on: self)
-            }
-        }
-        var discoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> = [:] {
-            didSet {
-                _$simpleRegistrar.triggerDidChange(for: \.discoveredPeripherals, on: self)
-            }
-        }
-
-        // swiftlint:disable:next identifier_name
-        @ObservationIgnored var _$simpleRegistrar = ValueObservationRegistrar<BluetoothManager.ObservableStorage>()
-
-        init() {}
-    }
-
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothManager")
     /// The serial executor for all Bluetooth related functionality.
     let bluetoothQueue: DispatchSerialQueue
-
-
-    /// The device descriptions describing how nearby devices are discovered.
-    private let configuredDevices: Set<DeviceDescription>
-    /// The minimum rssi that is required for a device to be discovered.
-    private let minimumRSSI: Int
-    /// The time interval after which an advertisement is considered stale and the device is removed.
-    private let advertisementStaleInterval: TimeInterval
 
     @Lazy private var centralManager: CBCentralManager
     private var centralDelegate: Delegate?
     private var isScanningObserver: KVOStateObserver<BluetoothManager>?
 
     private let _storage: ObservableStorage
-
-    /// Represents the current state of the Bluetooth Manager.
-    nonisolated public private(set) var state: BluetoothState {
-        get {
-            _storage.state
-        }
-        set {
-            _storage.state = newValue
-        }
-    }
-    /// Whether or not we are currently scanning for nearby devices.
-    nonisolated public private(set) var isScanning: Bool {
-        get {
-            _storage.isScanning
-        }
-        set {
-            _storage.isScanning = newValue
-        }
-    }
-    /// The list of discovered and connected bluetooth devices indexed by their identifier UUID.
-    /// The state is isolated to our `dispatchQueue`.
-    var discoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> {
-        get {
-            _storage.discoveredPeripherals
-        }
-        _modify {
-            yield &_storage.discoveredPeripherals
-        }
-        set {
-            _storage.discoveredPeripherals = newValue
-        }
+    private var isolatedStorage: ObservableStorage {
+        _storage
     }
 
-    /// Track if we should be scanning. This is important to check which resources should stay allocated.
-    private var shouldBeScanning = false
-    /// The identifier of the last manually disconnected device.
-    /// This is to avoid automatically reconnecting to a device that was manually disconnected.
-    private var lastManuallyDisconnectedDevice: UUID?
+    /// Flag indicating that we want the CBCentral to stay allocated.
+    private var keepPoweredOn = false
 
-    private var autoConnect = false
-    private var autoConnectItem: BluetoothWorkItem?
-    private var staleTimer: DiscoveryStaleTimer?
-
-    /// Checks and determines the device candidate for auto-connect.
-    ///
-    /// This will deliver a matching candidate with the lowest RSSI if we don't have a device already connected,
-    /// and there wasn't a device manually disconnected.
-    private var autoConnectDeviceCandidate: BluetoothPeripheral? {
-        guard autoConnect else {
-            return nil // auto-connect is disabled
-        }
-
-        guard lastManuallyDisconnectedDevice == nil && !hasConnectedDevices else {
-            return nil
-        }
-
-        let sortedCandidates = discoveredPeripherals.values
-            .filter { $0.cbPeripheral.state == .disconnected }
-            .sorted { lhs, rhs in
-                lhs.assumeIsolated { $0.rssi } < rhs.assumeIsolated { $0.rssi }
-            }
-
-        return sortedCandidates.first
-    }
+    /// Currently ongoing discovery session.
+    private var discoverySession: DiscoverySession?
 
     /// The list of nearby bluetooth devices.
     ///
@@ -183,38 +107,87 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
         Array(_storage.discoveredPeripherals.values)
     }
 
-    /// The set of serviceIds we request to discover upon scanning.
-    /// Returning nil means scanning for all peripherals.
-    private var serviceDiscoveryIds: [CBUUID]? { // swiftlint:disable:this discouraged_optional_collection
-        let discoveryIds = configuredDevices.compactMap { configuration in
-            configuration.discoveryCriteria.discoveryId
-        }
+    /// Represents the current state of the Bluetooth Manager.
+    nonisolated public var state: BluetoothState {
+        _storage.state
+    }
 
-        return discoveryIds.isEmpty ? nil : discoveryIds
+    /// Subscribe to changes of the `state` property.
+    ///
+    /// Creates an `AsyncStream` that yields all **future** changes to the ``state`` property.
+    public var stateSubscription: AsyncStream<BluetoothState> {
+        AsyncStream(BluetoothState.self) { continuation in
+            let id = isolatedStorage.subscribe(continuation)
+            continuation.onTermination = { @Sendable [weak self] _ in
+                guard let self = self else {
+                    return
+                }
+                Task.detached { @SpeziBluetooth in
+                    await self.isolatedStorage.unsubscribe(for: id)
+                }
+            }
+        }
+    }
+
+    /// Whether or not we are currently scanning for nearby devices.
+    nonisolated public var isScanning: Bool {
+        _storage.isScanning
+    }
+
+    /// The list of discovered and connected bluetooth devices indexed by their identifier UUID.
+    /// The state is isolated to our `dispatchQueue`.
+    private(set) var discoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> {
+        get {
+            isolatedStorage.discoveredPeripherals
+        }
+        _modify {
+            yield &isolatedStorage.discoveredPeripherals
+        }
+        set {
+            isolatedStorage.discoveredPeripherals = newValue
+        }
+    }
+
+    private(set) var retrievedPeripherals: OrderedDictionary<UUID, WeakReference<BluetoothPeripheral>> {
+        get {
+            isolatedStorage.retrievedPeripherals
+        }
+        _modify {
+            yield &isolatedStorage.retrievedPeripherals
+        }
+        set {
+            isolatedStorage.retrievedPeripherals = newValue
+        }
+    }
+
+    /// The combined collection of `discoveredPeripherals` and `retrievedPeripherals`.
+    ///
+    /// Don't store this dictionary as this will accidentally reference retrieved peripherals strongly.
+    var knownPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> {
+        let keysAndValues = retrievedPeripherals.elements
+            .map { ($0, $1.value) }
+            .compactMap { id, value in
+                if let value {
+                    return (id, value)
+                }
+                return nil
+            }
+
+        return discoveredPeripherals.merging(keysAndValues) { lhs, rhs in
+            assertionFailure("Peripheral was present in both, discovered and retrieved set, lhs: \(lhs), rhs: \(rhs)")
+            return lhs
+        }
     }
 
     
     /// Initialize a new Bluetooth Manager with provided device description and optional configuration options.
-    /// - Parameters:
-    ///   - devices: The set of device description describing **how** to discover **what** to discover.
-    ///   - minimumRSSI: The minimum rssi a nearby peripheral must have to be considered nearby.
-    ///   - advertisementStaleInterval: The time interval after which a peripheral advertisement is considered stale
-    ///     if we don't hear back from the device. Minimum is 1 second.
-    public init(
-        devices: Set<DeviceDescription>,
-        minimumRSSI: Int = Defaults.defaultMinimumRSSI,
-        advertisementStaleInterval: TimeInterval = Defaults.defaultStaleTimeout
-    ) {
+    public init() {
         let dispatchQueue = DispatchQueue(label: "edu.stanford.spezi.bluetooth", qos: .userInitiated)
         guard let serialQueue = dispatchQueue as? DispatchSerialQueue else {
             preconditionFailure("Dispatch queue \(dispatchQueue.label) was not initialized to be serial!")
         }
 
         self.bluetoothQueue = serialQueue
-
-        self.configuredDevices = devices
-        self.minimumRSSI = minimumRSSI
-        self.advertisementStaleInterval = max(1, advertisementStaleInterval)
 
         self._storage = ObservableStorage()
 
@@ -254,72 +227,128 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
         delegate.initManager(self)
     }
 
+    /// Request to power up the Bluetooth Central.
+    ///
+    /// This method manually instantiates the underlying Central Manager and ensure that it stays allocated.
+    /// Balance this call with a call to ``powerOff()``.
+    ///
+    /// - Note : The underlying `CBCentralManager` is lazily allocated and deallocated once it isn't needed anymore.
+    ///     This is used to delay Bluetooth permission and power prompts to the latest possible moment avoiding unexpected interruptions.
+    public func powerOn() {
+        keepPoweredOn = true
+        _ = centralManager // ensure it is allocated
+    }
+
+    /// Request to power down the Bluetooth Central.
+    ///
+    /// This method request to power off the central. This is delay if the central is still used (e.g., currently scanning or connected peripherals).
+    ///
+    /// - Note : The underlying `CBCentralManager` is lazily allocated and deallocated once it isn't needed anymore.
+    ///     This is used to delay Bluetooth permission and power prompts to the latest possible moment avoiding unexpected interruptions.
+    public func powerOff() {
+        keepPoweredOn = false
+        checkForCentralDeinit()
+    }
+
     /// Scan for nearby bluetooth devices.
     ///
-    /// Scans on nearby devices based on the ``DeviceDescription`` provided in the initializer.
+    /// Scans on nearby devices based on the ``DiscoveryDescription`` provided in the initializer.
     /// All discovered devices can be accessed through the ``nearbyPeripherals`` property.
     ///
-    /// - Tip: Scanning for nearby devices can easily be managed via the ``SwiftUI/View/scanNearbyDevices(enabled:with:autoConnect:)``
+    /// - Tip: Scanning for nearby devices can easily be managed via the ``SwiftUI/View/scanNearbyDevices(enabled:with:discovery:minimumRSSI:advertisementStaleInterval:autoConnect:)``
     ///     modifier.
     ///
-    /// - Parameter autoConnect: If enabled, the bluetooth manager will automatically connect to
+    /// - Parameters:
+    ///   - discovery: The set of device description describing **how** and **what** to discover.
+    ///   - minimumRSSI: The minimum rssi a nearby peripheral must have to be considered nearby.
+    ///   - advertisementStaleInterval: The time interval after which a peripheral advertisement is considered stale
+    ///     if we don't hear back from the device. Minimum is 1 second.
+    ///   - autoConnect: If enabled, the bluetooth manager will automatically connect to
     ///     the nearby device if only one is found for a given time threshold.
-    public func scanNearbyDevices(autoConnect: Bool = false) {
+    public func scanNearbyDevices(
+        discovery: Set<DiscoveryDescription>,
+        minimumRSSI: Int? = nil,
+        advertisementStaleInterval: TimeInterval? = nil,
+        autoConnect: Bool = false
+    ) {
+        let state = BluetoothManagerDiscoveryState(
+            configuredDevices: discovery,
+            minimumRSSI: minimumRSSI,
+            advertisementStaleInterval: advertisementStaleInterval,
+            autoConnect: autoConnect
+        )
+        scanNearbyDevices(state)
+    }
+
+    func scanNearbyDevices(_ state: BluetoothManagerDiscoveryState) {
+        guard discoverySession == nil else {
+            return // already scanning!
+        }
+
+        logger.debug("Creating discovery session ...")
+
+        let session = DiscoverySession(
+            boundTo: self,
+            configuration: state
+        )
+        self.discoverySession = session
+
+        // if powered of, we start scanning later in `handlePoweredOn()`
+        if case .poweredOn = centralManager.state {
+            _scanForPeripherals(using: session)
+        }
+    }
+
+    private func _scanForPeripherals(using session: DiscoverySession) {
         guard !isScanning else {
             return
         }
 
         logger.debug("Starting scanning for nearby devices ...")
-
-        shouldBeScanning = true
-        self.autoConnect = autoConnect
-
-        if case .poweredOn = centralManager.state {
-            centralManager.scanForPeripherals(
-                withServices: serviceDiscoveryIds,
-                options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
-            )
-            isScanning = centralManager.isScanning // ensure this is propagated instantly
-        }
+        centralManager.scanForPeripherals(
+            withServices: session.assumeIsolated { $0.serviceDiscoveryIds },
+            options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
+        )
+        isolatedStorage.isScanning = centralManager.isScanning // ensure this is propagated instantly
     }
 
-    /// If scanning, toggle the auto-connect feature.
-    /// - Parameter autoConnect: Flag to turn on or off auto-connect
-    @_documentation(visibility: internal)
-    public func setAutoConnect(_ autoConnect: Bool) {
-        if self.shouldBeScanning {
-            self.autoConnect = autoConnect
+    private func _restartScanning(using session: DiscoverySession) {
+        guard !isScanning else {
+            return
         }
+
+        centralManager.stopScan()
+        centralManager.scanForPeripherals(
+            withServices: session.assumeIsolated { $0.serviceDiscoveryIds },
+            options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
+        )
+        isolatedStorage.isScanning = centralManager.isScanning // ensure this is propagated instantly
     }
 
     /// Stop scanning for nearby bluetooth devices.
     public func stopScanning() {
         if isScanning { // transitively checks for state == .poweredOn
             centralManager.stopScan()
-            isScanning = centralManager.isScanning // ensure this is synced
+            isolatedStorage.isScanning = centralManager.isScanning // ensure this is synced
             logger.debug("Scanning stopped")
         }
 
-        if shouldBeScanning {
-            shouldBeScanning = false
+        if discoverySession != nil {
+            logger.debug("Discovery session cleared.")
+            discoverySession = nil
             checkForCentralDeinit()
         }
     }
 
-    func onChange<Value>(of keyPath: KeyPath<ObservableStorage, Value>, perform closure: @escaping (Value) -> Void) {
-        _storage.onChange(of: keyPath, perform: closure)
-    }
 
     /// Reactive scan upon powered on.
     private func handlePoweredOn() {
-        if shouldBeScanning && !isScanning {
-            scanNearbyDevices(autoConnect: autoConnect)
+        if let discoverySession, !isScanning {
+            _scanForPeripherals(using: discoverySession)
         }
     }
 
     private func handleStoppedScanning() {
-        self.autoConnect = false
-
         let devices = discoveredPeripherals.values.filter { device in
             device.cbPeripheral.state == .disconnected
         }
@@ -333,11 +362,119 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
         }
     }
 
-    private func clearDiscoveredPeripheral(forKey id: UUID) {
+
+    /// Retrieve a known `BluetoothPeripheral` by its identifier.
+    ///
+    /// This method queries the list of known ``BluetoothPeripheral``s (e.g., paired peripherals).
+    ///
+    /// - Tip: You can use this method to connect to a known peripheral. Retrieve the peripheral using this method and call the ``BluetoothPeripheral/connect()`` method.
+    ///     The `connect()` method doesn't time out and will make sure to connect to the peripheral once it is available without the need for continuous scanning.
+    ///
+    /// - Important: Make sure to keep a strong reference to the returned peripheral. The `BluetoothManager` only keeps a weak reference to the peripheral.
+    ///     If you don't need the peripheral anymore, ``BluetoothPeripheral/disconnect()`` and dereference it.
+    ///
+    /// - Parameters:
+    ///   - uuid: The Bluetooth peripheral identifier.
+    ///   - description: The expected device configuration of the peripheral. This is used to discover service and characteristics if you connect to the peripheral-
+    /// - Returns: The retrieved Peripheral. Returns nil if the Bluetooth Central could not be powered on (e.g., not authorized) or if no peripheral with the requested identifier was found.
+    public func retrievePeripheral(for uuid: UUID, with description: DeviceDescription) async -> BluetoothPeripheral? {
+        if !_centralManager.isInitialized {
+            _ = centralManager // make sure central is initialized!
+
+            // we are waiting for the next state transition, ideally to poweredOn state!
+            logger.debug("Waiting for CBCentral to power on, before retrieving peripheral.")
+            for await nextState in stateSubscription {
+                logger.debug("CBCentral state transitioned to state \(nextState)")
+                break
+            }
+        }
+
+        guard case .poweredOn = centralManager.state else {
+            logger.warning("Cannot retrieve peripheral with id \(uuid) while central is not powered on \(self.state)")
+            checkForCentralDeinit()
+            return nil
+        }
+
+        if let peripheral = knownPeripheral(for: uuid) {
+            return peripheral // peripheral was already retrieved or was recently discovered
+        }
+
+        guard let peripheral = centralManager.retrievePeripherals(withIdentifiers: [uuid]).first else {
+            checkForCentralDeinit()
+            return nil
+        }
+
+
+        let device = BluetoothPeripheral(
+            manager: self,
+            peripheral: peripheral,
+            configuration: description,
+            advertisementData: .init([:]), // there was no advertisement
+            rssi: 127 // value of 127 signifies unavailability of RSSI value
+        )
+
+        retrievedPeripherals.updateValue(WeakReference(device), forKey: peripheral.identifier)
+
+        return device
+    }
+
+    func onChange<Value>(of keyPath: KeyPath<ObservableStorage, Value>, perform closure: @escaping (Value) -> Void) {
+        _storage.onChange(of: keyPath, perform: closure)
+    }
+
+    func clearDiscoveredPeripheral(forKey id: UUID) {
+        if let peripheral = discoveredPeripherals[id] {
+            // `handleDiscarded` must be called before actually removing it from the dictionary to make sure peripherals can react to this event
+            peripheral.assumeIsolated { device in
+                device.handleDiscarded()
+            }
+
+            // Users might keep reference to Peripheral object. Therefore, we keep it as a weak reference so we can forward delegate calls.
+            retrievedPeripherals[id] = WeakReference(peripheral)
+        }
+
         discoveredPeripherals.removeValue(forKey: id)
 
-        if lastManuallyDisconnectedDevice == id {
-            lastManuallyDisconnectedDevice = nil
+        discoverySession?.assumeIsolated { session in
+            session.clearManuallyDisconnectedDevice(for: id)
+        }
+
+        checkForCentralDeinit()
+    }
+
+    fileprivate func knownPeripheral(for uuid: UUID) -> BluetoothPeripheral? {
+        if let peripheral = discoveredPeripherals[uuid] {
+            return peripheral
+        }
+
+        guard let reference = retrievedPeripherals[uuid] else {
+            return nil
+        }
+
+        guard let peripheral = reference.value else {
+            retrievedPeripherals.removeValue(forKey: uuid)
+            return nil
+        }
+        return peripheral
+    }
+
+    fileprivate func ensurePeripheralReference(_ peripheral: BluetoothPeripheral) {
+        guard retrievedPeripherals[peripheral.id] != nil else {
+            return // is not weakly referenced
+        }
+
+        retrievedPeripherals[peripheral.id] = nil
+        discoveredPeripherals[peripheral.id] = peripheral
+    }
+
+    /// The peripheral was finally deallocated.
+    ///
+    /// This method makes sure that all (weak) references to the de-initialized peripheral are fully cleared.
+    func handlePeripheralDeinit(id uuid: UUID) {
+        retrievedPeripherals.removeValue(forKey: uuid)
+
+        discoverySession?.assumeIsolated { session in
+            session.clearManuallyDisconnectedDevice(for: uuid)
         }
 
         checkForCentralDeinit()
@@ -345,22 +482,38 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
 
     /// De-initializes the Bluetooth Central if we currently don't use it.
     private func checkForCentralDeinit() {
-        if !shouldBeScanning && discoveredPeripherals.isEmpty {
-            _centralManager.destroy()
-            self.state = .unknown
-            self.lastManuallyDisconnectedDevice = nil
+        guard !keepPoweredOn else {
+            return // requested to stay allocated
         }
+
+        guard discoverySession == nil else {
+            return // discovery is currently running
+        }
+
+        guard discoveredPeripherals.isEmpty && retrievedPeripherals.isEmpty else {
+            let discoveredCount = discoveredPeripherals.count
+            let retrievedCount = retrievedPeripherals.count
+            logger.debug("Not deallocating central. Devices are still associated: discovered: \(discoveredCount), retrieved: \(retrievedCount)")
+            return // there are still associated devices
+        }
+
+        _centralManager.destroy()
+        isolatedStorage.state = .unknown
     }
 
     func connect(peripheral: BluetoothPeripheral) {
         logger.debug("Trying to connect to \(peripheral.cbPeripheral.debugIdentifier) ...")
 
-        let cancelled = self.cancelStaleTask(for: peripheral)
+        let cancelled = discoverySession?.assumeIsolated { session in
+            session.cancelStaleTask(for: peripheral)
+        }
 
         self.centralManager.connect(peripheral.cbPeripheral, options: nil)
 
-        if cancelled {
-            self.scheduleStaleTaskForOldestActivityDevice(ignore: peripheral)
+        if cancelled == true {
+            discoverySession?.assumeIsolated { session in
+                session.scheduleStaleTaskForOldestActivityDevice(ignore: peripheral)
+            }
         }
     }
 
@@ -369,145 +522,56 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
         // stale timer is handled in the delegate method
         centralManager.cancelPeripheralConnection(peripheral.cbPeripheral)
 
-        self.lastManuallyDisconnectedDevice = peripheral.id
-    }
-
-    // MARK: - Auto Connect
-
-    private func kickOffAutoConnect() {
-        guard autoConnectItem == nil && autoConnectDeviceCandidate != nil else {
-            return
-        }
-
-        let item = BluetoothWorkItem(manager: self) { manager in
-            manager.autoConnectItem = nil
-
-            guard let candidate = manager.autoConnectDeviceCandidate else {
-                return
-            }
-
-            candidate.assumeIsolated { peripheral in
-                peripheral.connect()
-            }
-        }
-
-        autoConnectItem = item
-        bluetoothQueue.schedule(for: .now() + .seconds(Defaults.defaultAutoConnectDebounce), execute: item)
-    }
-
-    // MARK: - Stale Advertisement Timeout
-
-    /// Schedule a new `DiscoveryStaleTimer`, cancelling any previous one.
-    /// - Parameters:
-    ///   - device: The device for which the timer is scheduled for.
-    ///   - timeout: The timeout for which the timer is scheduled for.
-    private func scheduleStaleTask(for device: BluetoothPeripheral, withTimeout timeout: TimeInterval) {
-        let timer = DiscoveryStaleTimer(device: device.id, manager: self) { manager in
-            manager.handleStaleTask()
-        }
-
-        self.staleTimer = timer
-        timer.schedule(for: timeout, in: bluetoothQueue)
-    }
-
-    private func scheduleStaleTaskForOldestActivityDevice(ignore device: BluetoothPeripheral? = nil) {
-        if let oldestActivityDevice = oldestActivityDevice(ignore: device) {
-            let lastActivity = oldestActivityDevice.assumeIsolated { $0.lastActivity }
-
-            let intervalSinceLastActivity = Date.now.timeIntervalSince(lastActivity)
-            let nextTimeout = max(0, advertisementStaleInterval - intervalSinceLastActivity)
-
-            scheduleStaleTask(for: oldestActivityDevice, withTimeout: nextTimeout)
+        discoverySession?.assumeIsolated { session in
+            session.deviceManuallyDisconnected(id: peripheral.id)
         }
     }
 
-    private func cancelStaleTask(for device: BluetoothPeripheral) -> Bool {
-        guard let staleTimer, staleTimer.targetDevice == device.id else {
-            return false
+    private func handledConnected(device: BluetoothPeripheral) {
+        device.assumeIsolated { device in
+            device.handleConnect()
         }
 
-        staleTimer.cancel()
-        self.staleTimer = nil
-        return true
-    }
-
-    /// The device with the oldest device activity.
-    /// - Parameter device: The device to ignore.
-    private func oldestActivityDevice(ignore device: BluetoothPeripheral? = nil) -> BluetoothPeripheral? {
-        // when we are just interested in the min device, this operation is a bit cheaper then sorting the whole list
-        discoveredPeripherals.values
-            // it's important to access the underlying state here
-            .filter {
-                $0.cbPeripheral.state == .disconnected && $0.id != device?.id
-            }
-            .min { lhs, rhs in
-                lhs.assumeIsolated {
-                    $0.lastActivity
-                } < rhs.assumeIsolated {
-                    $0.lastActivity
-                }
-            }
-    }
-
-    private func handleStaleTask() {
-        staleTimer = nil // reset the timer
-
-        let staleDevices = discoveredPeripherals.values.filter { device in
-            device.assumeIsolated { isolated in
-                isolated.isConsideredStale(interval: advertisementStaleInterval)
-            }
-        }
-
-        for device in staleDevices {
-            logger.debug("Removing stale peripheral \(device.cbPeripheral.debugIdentifier)")
-            // we know it won't be connected, therefore we just need to remove it
-            clearDiscoveredPeripheral(forKey: device.id)
-        }
-
-
-        // schedule the next timeout for devices in the list
-        scheduleStaleTaskForOldestActivityDevice()
+        // we might have connected a bluetooth peripheral that was weakly referenced
+        ensurePeripheralReference(device)
     }
 
     private func discardDevice(device: BluetoothPeripheral) {
-        if !isScanning {
+        if let discoverySession, isScanning {
+            // we will keep discarded devices for max 2s before the stale timer kicks off
+            let backdateInterval = max(0, discoverySession.assumeIsolated { $0.advertisementStaleInterval } - 2)
+
+            device.assumeIsolated { device in
+                device.markLastActivity(.now - backdateInterval)
+                device.handleDisconnect()
+            }
+
+            // We just schedule the new timer if there is a device to schedule one for.
+            discoverySession.assumeIsolated { session in
+                session.scheduleStaleTaskForOldestActivityDevice()
+            }
+        } else {
             device.assumeIsolated { device in
                 device.markLastActivity()
                 device.handleDisconnect()
             }
             clearDiscoveredPeripheral(forKey: device.id)
-        } else {
-            // we will keep discarded devices for max 2s before the stale timer kicks off
-            let interval = max(0, advertisementStaleInterval - 2)
-
-            device.assumeIsolated { device in
-                device.markLastActivity(.now - interval)
-                device.handleDisconnect()
-            }
-
-            // We just schedule the new timer if there is a device to schedule one for.
-            scheduleStaleTaskForOldestActivityDevice()
         }
     }
 
-    private func isolatedUpdate<Value>(of keyPath: WritableKeyPath<BluetoothManager, Value>, _ value: Value) {
-        var manager = self
-        manager[keyPath: keyPath] = value
-    }
-
     deinit {
-        staleTimer?.cancel()
-        autoConnectItem?.cancel()
+        discoverySession = nil
 
         // non-isolated workaround for calling stopScanning()
         if isScanning {
-            isScanning = false
+            _storage.isScanning = false
             _centralManager.wrappedValue.stopScan()
             logger.debug("Scanning stopped")
         }
 
-        state = .unknown
+        _storage.state = .unknown
         _storage.discoveredPeripherals = [:]
+        _storage.retrievedPeripherals = [:]
         centralDelegate = nil
 
         logger.debug("BluetoothManager destroyed")
@@ -515,11 +579,71 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
 }
 
 
+extension BluetoothManager {
+    @Observable
+    final class ObservableStorage: ValueObservable {
+        var state: BluetoothState = .unknown {
+            didSet {
+                _$simpleRegistrar.triggerDidChange(for: \.state, on: self)
+
+                for continuation in subscribedContinuations.values {
+                    continuation.yield(state)
+                }
+            }
+        }
+        
+        var isScanning = false {
+            didSet {
+                _$simpleRegistrar.triggerDidChange(for: \.isScanning, on: self)
+            }
+        }
+
+        var discoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> = [:] {
+            didSet {
+                _$simpleRegistrar.triggerDidChange(for: \.discoveredPeripherals, on: self)
+            }
+        }
+
+        var retrievedPeripherals: OrderedDictionary<UUID, WeakReference<BluetoothPeripheral>> = [:] {
+            didSet {
+                _$simpleRegistrar.triggerDidChange(for: \.retrievedPeripherals, on: self)
+            }
+        }
+
+        // swiftlint:disable:next identifier_name
+        @ObservationIgnored var _$simpleRegistrar = ValueObservationRegistrar<BluetoothManager.ObservableStorage>()
+
+
+        private var subscribedContinuations: [UUID: AsyncStream<BluetoothState>.Continuation] = [:]
+
+        init() {}
+
+
+        func subscribe(_ continuation: AsyncStream<BluetoothState>.Continuation) -> UUID {
+            let id = UUID()
+            subscribedContinuations[id] = continuation
+            return id
+        }
+
+        func unsubscribe(for id: UUID) {
+            subscribedContinuations[id] = nil
+        }
+
+
+        deinit {
+            for continuation in subscribedContinuations.values {
+                continuation.finish()
+            }
+            subscribedContinuations.removeAll()
+        }
+    }
+}
+
 extension BluetoothManager: KVOReceiver {
     func observeChange<K, V>(of keyPath: KeyPath<K, V>, value: V) {
         switch keyPath {
         case \CBCentralManager.isScanning:
-            self.isolatedUpdate(of: \.isScanning, value as! Bool) // swiftlint:disable:this force_cast
+            isolatedStorage.isScanning = value as! Bool // swiftlint:disable:this force_cast
             if !self.isScanning {
                 self.handleStoppedScanning()
             }
@@ -531,6 +655,11 @@ extension BluetoothManager: KVOReceiver {
 
 
 extension BluetoothManager: BluetoothScanner {
+    /// Default id based on `ObjectIdentifier`.
+    public nonisolated var id: ObjectIdentifier {
+        ObjectIdentifier(self)
+    }
+
     /// Support for the auto connect modifier.
     @_documentation(visibility: internal)
     public nonisolated var hasConnectedDevices: Bool {
@@ -538,6 +667,25 @@ extension BluetoothManager: BluetoothScanner {
         // swiftlint:disable:next reduce_boolean
         _storage.discoveredPeripherals.values.reduce(into: false) { partialResult, peripheral in
             partialResult = partialResult || (peripheral.unsafeState.state != .disconnected)
+        } || _storage.retrievedPeripherals.values.reduce(into: false, { partialResult, reference in
+            // swiftlint:disable:previous reduce_boolean
+            if let peripheral = reference.value {
+                partialResult = partialResult || (peripheral.unsafeState.state != .disconnected)
+            }
+        })
+    }
+
+    func updateScanningState(_ state: BluetoothManagerDiscoveryState) {
+        guard let discoverySession else {
+            return
+        }
+
+        let discoveryItemsChanged = discoverySession.assumeIsolated { session in
+            session.updateConfigurationReportingDiscoveryItemsChanged(state)
+        }
+
+        if discoveryItemsChanged == true {
+            _restartScanning(using: discoverySession)
         }
     }
 }
@@ -546,13 +694,13 @@ extension BluetoothManager: BluetoothScanner {
 // MARK: Defaults
 extension BluetoothManager {
     /// Set of default values used within the Bluetooth Manager
-    public enum Defaults {
+    enum Defaults {
         /// The default timeout after which stale advertisements are removed.
-        public static let defaultStaleTimeout: TimeInterval = 8
+        static let defaultStaleTimeout: TimeInterval = 8
         /// The minimum rssi of a peripheral to consider it for discovery.
-        public static let defaultMinimumRSSI = -80
+        static let defaultMinimumRSSI = -80
         /// The default time in seconds after which we check for auto connectable devices after the initial advertisement.
-        public static let defaultAutoConnectDebounce: Int = 1
+        static let defaultAutoConnectDebounce: Int = 1
     }
 }
 
@@ -580,8 +728,8 @@ extension BluetoothManager {
                 return
             }
 
-            // All these delegate methods are actually running on the DispatchQueue the Actor is isolated though.
-            // So in theory we should just be able to spring into isolation with assumeIsolated().
+            // All these delegate methods are actually running on the DispatchQueue the Actor is isolated to.
+            // So in theory we should just be able to jump into isolation with assumeIsolated().
             // However, executing a scheduled Job is different to just running a scheduled Job in the dispatch queue
             // form a Swift Runtime perspective.
             // Refer to _isCurrentExecutor (checked in assumeIsolated):
@@ -594,7 +742,7 @@ extension BluetoothManager {
             // order and make sure to capture all important state before that.
             Task { @SpeziBluetooth in
                 await manager.isolated { manager in
-                    manager.isolatedUpdate(of: \.state, state)
+                    manager.isolatedStorage.state = state
                     logger.info("BluetoothManager central state is now \(manager.state)")
 
                     if case .poweredOn = state {
@@ -627,41 +775,43 @@ extension BluetoothManager {
 
             Task { @SpeziBluetooth in
                 await manager.isolated { manager in
-                    guard manager.isScanning else {
+                    guard let session = manager.discoverySession,
+                          manager.isScanning else {
                         return
                     }
 
-                    // rssi of 127 is a magic value signifying unavailability of the value.
-                    guard rssi.intValue >= manager.minimumRSSI, rssi.intValue != 127 else { // ensure the signal strength is not too low
+                    // ensure the signal strength is not too low
+                    guard session.assumeIsolated({ $0.isInRange(rssi: rssi) }) else {
                         return // logging this would just be to verbose, so we don't.
                     }
 
-                    let data = AdvertisementData(advertisementData: advertisementData)
+                    let data = AdvertisementData(advertisementData)
 
 
                     // check if we already seen this device!
-
-                    let discoveredPeripherals = manager.discoveredPeripherals
-                    if let device = discoveredPeripherals[peripheral.identifier] {
+                    if let device = manager.knownPeripheral(for: peripheral.identifier) {
                         device.assumeIsolated { device in
                             device.markLastActivity()
                             device.update(advertisement: data, rssi: rssi.intValue)
                         }
 
-                        if manager.cancelStaleTask(for: device) {
-                            // current device was earliest to go stale, schedule timeout for next oldest device
-                            manager.scheduleStaleTaskForOldestActivityDevice()
-                        }
+                        // we might have discovered a previously "retrieved" peripheral that must be strongly referenced now
+                        manager.ensurePeripheralReference(device)
 
-                        manager.kickOffAutoConnect()
+                        session.assumeIsolated { session in
+                            session.deviceDiscoveryPostAction(device: device, newlyDiscovered: false)
+                        }
                         return
                     }
 
                     logger.debug("Discovered peripheral \(peripheral.debugIdentifier) at \(rssi.intValue) dB (data: \(advertisementData))")
 
+                    let descriptor = session.assumeIsolated { $0.configuredDevices }
+                        .find(for: data, logger: logger)
                     let device = BluetoothPeripheral(
                         manager: manager,
                         peripheral: peripheral,
+                        configuration: descriptor?.device ?? DeviceDescription(),
                         advertisementData: data,
                         rssi: rssi.intValue
                     )
@@ -669,12 +819,9 @@ extension BluetoothManager {
                     manager.discoveredPeripherals.updateValue(device, forKey: peripheral.identifier)
 
 
-                    if manager.staleTimer == nil {
-                        // There is no stale timer running. So new device will be the one with the oldest activity. Schedule ...
-                        manager.scheduleStaleTask(for: device, withTimeout: manager.advertisementStaleInterval)
+                    session.assumeIsolated { session in
+                        session.deviceDiscoveryPostAction(device: device, newlyDiscovered: true)
                     }
-
-                    manager.kickOffAutoConnect()
                 }
             }
         }
@@ -686,17 +833,14 @@ extension BluetoothManager {
 
             Task { @SpeziBluetooth in
                 await manager.isolated { manager in
-                    let discoveredPeripherals = manager.discoveredPeripherals
-                    guard let device = discoveredPeripherals[peripheral.identifier] else {
+                    guard let device = manager.knownPeripheral(for: peripheral.identifier) else {
                         logger.error("Received didConnect for unknown peripheral \(peripheral.debugIdentifier). Cancelling connection ...")
                         manager.centralManager.cancelPeripheralConnection(peripheral)
                         return
                     }
 
                     logger.debug("Peripheral \(peripheral.debugIdentifier) connected.")
-                    device.assumeIsolated { device in
-                        device.handleConnect(consider: manager.configuredDevices)
-                    }
+                    manager.handledConnected(device: device)
                 }
             }
         }
@@ -711,8 +855,7 @@ extension BluetoothManager {
 
             Task { @SpeziBluetooth in
                 await manager.isolated { manager in
-                    let discoveredPeripherals = manager.discoveredPeripherals
-                    guard let device = discoveredPeripherals[peripheral.identifier] else {
+                    guard let device = manager.knownPeripheral(for: peripheral.identifier) else {
                         logger.warning("Unknown peripheral \(peripheral.debugIdentifier) failed with error: \(String(describing: error))")
                         manager.centralManager.cancelPeripheralConnection(peripheral)
                         return
@@ -740,8 +883,7 @@ extension BluetoothManager {
 
             Task { @SpeziBluetooth in
                 await manager.isolated { manager in
-                    let discoveredPeripherals = manager.discoveredPeripherals
-                    guard let device = discoveredPeripherals[peripheral.identifier] else {
+                    guard let device = manager.knownPeripheral(for: peripheral.identifier) else {
                         logger.error("Received didDisconnect for unknown peripheral \(peripheral.debugIdentifier).")
                         return
                     }
@@ -757,4 +899,6 @@ extension BluetoothManager {
             }
         }
     }
-} // swiftlint:disable:this file_length
+}
+
+// swiftlint:disable:this file_length

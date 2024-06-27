@@ -6,12 +6,12 @@
 // SPDX-License-Identifier: MIT
 //
 
-@_spi(TestingSupport)
-@testable import BluetoothServices
 import CoreBluetooth
 import NIO
 @_spi(TestingSupport)
 @testable import SpeziBluetooth
+@_spi(TestingSupport)
+@testable import SpeziBluetoothServices
 import XCTByteCoding
 import XCTest
 
@@ -118,6 +118,17 @@ final class CurrentTimeTests: XCTestCase {
         try testIdentity(from: CurrentTime(time: exactTime))
         try testIdentity(from: CurrentTime(time: exactTime, adjustReason: .manualTimeUpdate))
         try testIdentity(from: CurrentTime(time: exactTime, adjustReason: [.manualTimeUpdate, .changeOfTimeZone]))
+    }
+
+    func testCurrentTimeCodable() throws {
+        // test that we are coding from a single value container
+        let encoded = try JSONEncoder().encode(UInt8(0x01))
+        let reason = try JSONDecoder().decode(CurrentTime.AdjustReason.self, from: encoded)
+        XCTAssertEqual(reason, .manualTimeUpdate)
+
+        let encodedReason = try JSONEncoder().encode(CurrentTime.AdjustReason.manualTimeUpdate)
+        let rawValue = try JSONDecoder().decode(UInt8.self, from: encodedReason)
+        XCTAssertEqual(rawValue, 0x01)
     }
 
     func testDateConversions() throws {

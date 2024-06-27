@@ -2,7 +2,14 @@
   "sourceLanguage" : "en",
   "strings" : {
     "Control Point Error" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Control Point Error"
+          }
+        }
+      }
     },
     "Control point request was sent to %@ on %@ but notifications weren't enabled for that characteristic." : {
       "localizations" : {
@@ -50,17 +57,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Not Present"
-          }
-        }
-      }
-    },
-    "The request characteristic was not present on the device." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The request characteristic was not present on the device."
           }
         }
       }

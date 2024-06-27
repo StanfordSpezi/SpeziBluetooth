@@ -73,7 +73,8 @@ import Observation
 /// - ``BluetoothPeripheral/advertisementData``
 ///
 /// ### Get notified about changes
-/// - ``DeviceStateAccessor/onChange(initial:perform:)``
+/// - ``DeviceStateAccessor/onChange(initial:perform:)-8x9cj``
+/// - ``DeviceStateAccessor/onChange(initial:perform:)-9igc9``
 ///
 /// ### Property wrapper access
 /// - ``wrappedValue``
@@ -84,7 +85,9 @@ import Observation
 public final class DeviceState<Value>: @unchecked Sendable {
     private let keyPath: KeyPath<BluetoothPeripheral, Value>
     private(set) var injection: DeviceStatePeripheralInjection<Value>?
+
     private var _injectedValue = ObservableBox<Value?>(nil)
+    private let _testInjections: Box<DeviceStateTestInjections<Value>?> = Box(nil)
 
     var objectId: ObjectIdentifier {
         ObjectIdentifier(self)
@@ -104,13 +107,13 @@ public final class DeviceState<Value>: @unchecked Sendable {
                 """
             )
         }
-        return injection.peripheral[keyPath: keyPath]
+        return injection.value
     }
 
 
     /// Retrieve a temporary accessors instance.
     public var projectedValue: DeviceStateAccessor<Value> {
-        DeviceStateAccessor(id: objectId, injection: injection, injectedValue: _injectedValue)
+        DeviceStateAccessor(id: objectId, keyPath: keyPath, injection: injection, injectedValue: _injectedValue, testInjections: _testInjections)
     }
 
 
@@ -121,10 +124,8 @@ public final class DeviceState<Value>: @unchecked Sendable {
     }
 
 
-    func inject(peripheral: BluetoothPeripheral) {
-        let changeClosure = ClosureRegistrar.readableView?.retrieve(for: objectId, value: Value.self)
-
-        let injection = DeviceStatePeripheralInjection(peripheral: peripheral, keyPath: keyPath, onChangeClosure: changeClosure)
+    func inject(bluetooth: Bluetooth, peripheral: BluetoothPeripheral) {
+        let injection = DeviceStatePeripheralInjection(bluetooth: bluetooth, peripheral: peripheral, keyPath: keyPath)
         self.injection = injection
 
         injection.assumeIsolated { injection in
@@ -151,30 +152,6 @@ extension DeviceState {
             return injected
         }
 
-        let value: Any? = switch keyPath {
-        case \.id:
-            nil // we cannot provide a stable id?
-        case \.name:
-            Optional<String>.none as Any
-        case \.state:
-            PeripheralState.disconnected
-        case \.advertisementData:
-            AdvertisementData(advertisementData: [:])
-        case \.rssi:
-            Int(UInt8.max)
-        case \.services:
-            Optional<[GATTService]>.none as Any
-        default:
-            nil
-        }
-
-        guard let value else {
-            return nil
-        }
-
-        guard let value = value as? Value else {
-            preconditionFailure("Default value \(value) was not the expected type for \(keyPath)")
-        }
-        return value
+        return _testInjections.value?.artificialValue(for: keyPath)
     }
 }

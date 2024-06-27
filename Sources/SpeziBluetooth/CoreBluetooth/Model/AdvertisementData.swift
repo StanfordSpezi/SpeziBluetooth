@@ -63,7 +63,7 @@ public struct AdvertisementData {
 
     /// Creates advertisement data based on CoreBluetooth's dictionary.
     /// - Parameter advertisementData: Core Bluetooth's advertisement data
-    init(advertisementData: [String: Any]) {
+    public init(_ advertisementData: [String: Any]) {
         self.rawAdvertisementData = advertisementData
     }
 }

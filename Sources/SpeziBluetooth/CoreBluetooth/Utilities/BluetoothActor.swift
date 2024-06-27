@@ -11,7 +11,9 @@ import Foundation
 protocol BluetoothActor: Actor {
     nonisolated var bluetoothQueue: DispatchSerialQueue { get }
 
-    func isolated(perform: (isolated Self) -> Void)
+    func isolated(perform: (isolated Self) throws -> Void) rethrows
+
+    func isolated(perform: (isolated Self) async throws -> Void) async rethrows
 }
 
 extension BluetoothActor {
@@ -20,7 +22,11 @@ extension BluetoothActor {
         bluetoothQueue.asUnownedSerialExecutor()
     }
 
-    func isolated(perform: (isolated Self) -> Void) {
-        perform(self)
+    func isolated(perform: (isolated Self) throws -> Void) rethrows {
+        try perform(self)
+    }
+
+    func isolated(perform: (isolated Self) async throws -> Void) async rethrows {
+        try await perform(self)
     }
 }

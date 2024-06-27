@@ -12,7 +12,7 @@
 		2F64EA8B2A86B3DE006789D0 /* XCTestExtensions in Frameworks */ = {isa = PBXBuildFile; productRef = 2F64EA8A2A86B3DE006789D0 /* XCTestExtensions */; };
 		2F6D139A28F5F386007C25D6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2F6D139928F5F386007C25D6 /* Assets.xcassets */; };
 		2FA43E922AE057CA009B1B2C /* BluetoothManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FA43E912AE057CA009B1B2C /* BluetoothManagerTests.swift */; };
-		A91E672E2B75A500009A1E02 /* BluetoothViews in Frameworks */ = {isa = PBXBuildFile; productRef = A91E672D2B75A500009A1E02 /* BluetoothViews */; };
+		A909BBA72C29712C00969FC4 /* RetrievePairedDevicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A909BBA62C29712C00969FC4 /* RetrievePairedDevicesView.swift */; };
 		A92802B72B5081F200874D0A /* SpeziBluetooth in Frameworks */ = {isa = PBXBuildFile; productRef = A92802B62B5081F200874D0A /* SpeziBluetooth */; };
 		A92802B92B50823600874D0A /* BluetoothManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A92802B82B50823600874D0A /* BluetoothManagerView.swift */; };
 		A92802BD2B51CBBE00874D0A /* DeviceRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A92802BC2B51CBBE00874D0A /* DeviceRowView.swift */; };
@@ -24,8 +24,9 @@
 		A95542B42B5E3E210066646D /* BluetoothModuleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A95542B32B5E3E210066646D /* BluetoothModuleView.swift */; };
 		A95542B92B5E3F490066646D /* SearchingNearbyDevicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A95542B82B5E3F490066646D /* SearchingNearbyDevicesView.swift */; };
 		A95542BD2B5E40DF0066646D /* TestDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = A95542BC2B5E40DF0066646D /* TestDevice.swift */; };
-		A97851BF2B79E01D007BCBE3 /* BluetoothServices in Frameworks */ = {isa = PBXBuildFile; productRef = A97851BE2B79E01D007BCBE3 /* BluetoothServices */; };
-		A9C17DEA2B5F1EAA00976924 /* BluetoothServices in Frameworks */ = {isa = PBXBuildFile; productRef = A9C17DE92B5F1EAA00976924 /* BluetoothServices */; };
+		A9AAC7ED2C26D6890034088B /* SpeziBluetoothServices in Frameworks */ = {isa = PBXBuildFile; productRef = A9AAC7EC2C26D6890034088B /* SpeziBluetoothServices */; };
+		A9AAC7EF2C26D6920034088B /* SpeziBluetoothServices in Frameworks */ = {isa = PBXBuildFile; productRef = A9AAC7EE2C26D6920034088B /* SpeziBluetoothServices */; };
+		A9AAC7F22C26D73C0034088B /* SpeziViews in Frameworks */ = {isa = PBXBuildFile; productRef = A9AAC7F12C26D73C0034088B /* SpeziViews */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -60,6 +61,7 @@
 		2F6D13AC28F5F386007C25D6 /* TestAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TestAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2FA43E912AE057CA009B1B2C /* BluetoothManagerTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BluetoothManagerTests.swift; sourceTree = "<group>"; };
 		2FB0758A299DDB9000C0B37F /* TestApp.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TestApp.xctestplan; sourceTree = "<group>"; };
+		A909BBA62C29712C00969FC4 /* RetrievePairedDevicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetrievePairedDevicesView.swift; sourceTree = "<group>"; };
 		A92802B82B50823600874D0A /* BluetoothManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothManagerView.swift; sourceTree = "<group>"; };
 		A92802BA2B5085BE00874D0A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		A92802BC2B51CBBE00874D0A /* DeviceRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceRowView.swift; sourceTree = "<group>"; };
@@ -79,8 +81,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				A92802B72B5081F200874D0A /* SpeziBluetooth in Frameworks */,
-				A91E672E2B75A500009A1E02 /* BluetoothViews in Frameworks */,
-				A9C17DEA2B5F1EAA00976924 /* BluetoothServices in Frameworks */,
+				A9AAC7ED2C26D6890034088B /* SpeziBluetoothServices in Frameworks */,
+				A9AAC7F22C26D73C0034088B /* SpeziViews in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -89,7 +91,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2F64EA8B2A86B3DE006789D0 /* XCTestExtensions in Frameworks */,
-				A97851BF2B79E01D007BCBE3 /* BluetoothServices in Frameworks */,
+				A9AAC7EF2C26D6920034088B /* SpeziBluetoothServices in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -120,15 +122,16 @@
 		2F6D139428F5F384007C25D6 /* TestApp */ = {
 			isa = PBXGroup;
 			children = (
-				A95542B72B5E3F260066646D /* Views */,
 				A92802BA2B5085BE00874D0A /* Info.plist */,
 				A92802B82B50823600874D0A /* BluetoothManagerView.swift */,
 				A95542B32B5E3E210066646D /* BluetoothModuleView.swift */,
+				A909BBA62C29712C00969FC4 /* RetrievePairedDevicesView.swift */,
 				2F64EA872A86B36C006789D0 /* TestApp.swift */,
 				2F64EA812A86B346006789D0 /* TestAppDelegate.swift */,
 				A95542BC2B5E40DF0066646D /* TestDevice.swift */,
-				2F6D139928F5F386007C25D6 /* Assets.xcassets */,
 				A93B82D92B78D0D200C5DF3D /* TestDeviceView.swift */,
+				2F6D139928F5F386007C25D6 /* Assets.xcassets */,
+				A95542B72B5E3F260066646D /* Views */,
 			);
 			path = TestApp;
 			sourceTree = "<group>";
@@ -180,8 +183,8 @@
 			name = TestApp;
 			packageProductDependencies = (
 				A92802B62B5081F200874D0A /* SpeziBluetooth */,
-				A9C17DE92B5F1EAA00976924 /* BluetoothServices */,
-				A91E672D2B75A500009A1E02 /* BluetoothViews */,
+				A9AAC7EC2C26D6890034088B /* SpeziBluetoothServices */,
+				A9AAC7F12C26D73C0034088B /* SpeziViews */,
 			);
 			productName = Example;
 			productReference = 2F6D139228F5F384007C25D6 /* TestApp.app */;
@@ -203,7 +206,7 @@
 			name = TestAppUITests;
 			packageProductDependencies = (
 				2F64EA8A2A86B3DE006789D0 /* XCTestExtensions */,
-				A97851BE2B79E01D007BCBE3 /* BluetoothServices */,
+				A9AAC7EE2C26D6920034088B /* SpeziBluetoothServices */,
 			);
 			productName = ExampleUITests;
 			productReference = 2F6D13AC28F5F386007C25D6 /* TestAppUITests.xctest */;
@@ -217,7 +220,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1500;
-				LastUpgradeCheck = 1520;
+				LastUpgradeCheck = 1540;
 				TargetAttributes = {
 					2F6D139128F5F384007C25D6 = {
 						CreatedOnToolsVersion = 14.1;
@@ -239,6 +242,7 @@
 			mainGroup = 2F6D138928F5F384007C25D6;
 			packageReferences = (
 				2F64EA892A86B3DE006789D0 /* XCRemoteSwiftPackageReference "XCTestExtensions" */,
+				A9AAC7F02C26D73C0034088B /* XCRemoteSwiftPackageReference "SpeziViews" */,
 			);
 			productRefGroup = 2F6D139328F5F384007C25D6 /* Products */;
 			projectDirPath = "";
@@ -280,6 +284,7 @@
 				A93B82D42B78C20700C5DF3D /* BluetoothStateSection.swift in Sources */,
 				A93B82D62B78C2D100C5DF3D /* DeviceInformationView.swift in Sources */,
 				A95542BD2B5E40DF0066646D /* TestDevice.swift in Sources */,
+				A909BBA72C29712C00969FC4 /* RetrievePairedDevicesView.swift in Sources */,
 				A92802BD2B51CBBE00874D0A /* DeviceRowView.swift in Sources */,
 				A92802B92B50823600874D0A /* BluetoothManagerView.swift in Sources */,
 				2F64EA882A86B36C006789D0 /* TestApp.swift in Sources */,
@@ -348,6 +353,7 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -370,6 +376,7 @@
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
 				XROS_DEPLOYMENT_TARGET = 1.0;
 			};
 			name = Debug;
@@ -411,6 +418,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -426,6 +434,7 @@
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = complete;
 				VALIDATE_PRODUCT = YES;
 				XROS_DEPLOYMENT_TARGET = 1.0;
 			};
@@ -438,9 +447,9 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 637867499T;
 				DEVELOPMENT_ASSET_PATHS = "";
-				DEVELOPMENT_TEAM = 637867499T;
+				DEVELOPMENT_TEAM = 484YT3X9X7;
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_TESTING_SEARCH_PATHS = YES;
@@ -603,6 +612,7 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -625,6 +635,7 @@
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = TEST;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
 				XROS_DEPLOYMENT_TARGET = 1.0;
 			};
 			name = Test;
@@ -741,7 +752,15 @@
 			repositoryURL = "https://github.com/StanfordBDHG/XCTestExtensions.git";
 			requirement = {
 				kind = upToNextMinorVersion;
-				minimumVersion = 0.4.10;
+				minimumVersion = 0.4.11;
+			};
+		};
+		A9AAC7F02C26D73C0034088B /* XCRemoteSwiftPackageReference "SpeziViews" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/StanfordSpezi/SpeziViews.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.4.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -752,21 +771,22 @@
 			package = 2F64EA892A86B3DE006789D0 /* XCRemoteSwiftPackageReference "XCTestExtensions" */;
 			productName = XCTestExtensions;
 		};
-		A91E672D2B75A500009A1E02 /* BluetoothViews */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = BluetoothViews;
-		};
 		A92802B62B5081F200874D0A /* SpeziBluetooth */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = SpeziBluetooth;
 		};
-		A97851BE2B79E01D007BCBE3 /* BluetoothServices */ = {
+		A9AAC7EC2C26D6890034088B /* SpeziBluetoothServices */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = BluetoothServices;
+			productName = SpeziBluetoothServices;
 		};
-		A9C17DE92B5F1EAA00976924 /* BluetoothServices */ = {
+		A9AAC7EE2C26D6920034088B /* SpeziBluetoothServices */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = BluetoothServices;
+			productName = SpeziBluetoothServices;
+		};
+		A9AAC7F12C26D73C0034088B /* SpeziViews */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A9AAC7F02C26D73C0034088B /* XCRemoteSwiftPackageReference "SpeziViews" */;
+			productName = SpeziViews;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
