@@ -11,8 +11,6 @@ builder:
   configs:
     - platform: ios
       documentation_targets:
-      - BluetoothServices
-      - BluetoothViews
       - SpeziBluetooth
+      - SpeziBluetoothServices
       - TestPeripheral
-      - SpeziDevices
