@@ -7,7 +7,7 @@
 //
 
 import ByteCoding
-import CoreBluetooth
+@preconcurrency import CoreBluetooth
 import OSLog
 import SpeziBluetooth
 @_spi(TestingSupport)
@@ -15,7 +15,7 @@ import SpeziBluetoothServices
 
 
 @main
-class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
+final class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "TestPeripheral")
     private let dispatchQueue = DispatchQueue(label: "edu.stanford.spezi.bluetooth-peripheral", qos: .userInitiated)
 

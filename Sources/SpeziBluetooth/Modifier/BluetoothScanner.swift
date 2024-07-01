@@ -9,7 +9,7 @@
 import Foundation
 
 
-protocol BluetoothScanningState: Equatable {
+protocol BluetoothScanningState: Equatable, Sendable {
     /// Merge with another state. Order should not matter in the operation.
     /// - Parameter other: The other state to merge with
     func merging(with other: Self) -> Self

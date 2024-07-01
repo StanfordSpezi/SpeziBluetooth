@@ -15,7 +15,9 @@ import SpeziBluetooth
 /// This class partially implements the Bluetooth [Blood Pressure Service 1.1](https://www.bluetooth.com/specifications/specs/blood-pressure-service-1-1-1).
 /// - Note: The Enhance Blood Pressure Service is currently not supported.
 public final class BloodPressureService: BluetoothService, @unchecked Sendable {
-    public static let id = CBUUID(string: "1810")
+    public static var id: CBUUID {
+        CBUUID(string: "1810")
+    }
 
     /// Receive blood pressure measurements
     ///

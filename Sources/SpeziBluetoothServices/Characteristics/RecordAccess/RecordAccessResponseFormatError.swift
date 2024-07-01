@@ -47,4 +47,7 @@ public struct RecordAccessResponseFormatError {
 }
 
 
+extension RecordAccessResponseFormatError.Reason: Sendable {}
+
+
 extension RecordAccessResponseFormatError: Error {}

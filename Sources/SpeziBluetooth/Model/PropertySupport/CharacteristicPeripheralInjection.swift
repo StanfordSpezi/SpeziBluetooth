@@ -7,7 +7,7 @@
 //
 
 import ByteCoding
-import CoreBluetooth
+@preconcurrency import CoreBluetooth
 import SpeziFoundation
 
 
@@ -121,7 +121,7 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
         subscriptions.newSubscription()
     }
 
-    nonisolated func newOnChangeSubscription(initial: Bool, perform action: @escaping (_ oldValue: Value, _ newValue: Value) async -> Void) {
+    nonisolated func newOnChangeSubscription(initial: Bool, perform action: @Sendable @escaping (_ oldValue: Value, _ newValue: Value) async -> Void) {
         let id = subscriptions.newOnChangeSubscription(perform: action)
 
         // Must be called detached, otherwise it might inherit TaskLocal values which includes Spezi moduleInitContext

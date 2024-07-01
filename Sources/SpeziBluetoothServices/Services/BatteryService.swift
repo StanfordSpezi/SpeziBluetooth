@@ -15,7 +15,9 @@ import SpeziBluetooth
 /// This class partially implements the Bluetooth [Battery Service 1.1](https://www.bluetooth.com/specifications/specs/battery-service).
 /// - Note: The current implementation only implements mandatory characteristics.
 public final class BatteryService: BluetoothService, @unchecked Sendable {
-    public static let id = CBUUID(string: "180F")
+    public static var id: CBUUID {
+        CBUUID(string: "180F")
+    }
 
 
     /// Battery Level in percent.

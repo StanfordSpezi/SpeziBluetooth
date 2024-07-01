@@ -12,7 +12,9 @@ import SpeziBluetooth
 
 @_spi(TestingSupport)
 public final class TestService: BluetoothService, @unchecked Sendable {
-    public static let id: CBUUID = .testService
+    public static var id: CBUUID {
+        .testService
+    }
 
     @Characteristic(id: .eventLogCharacteristic, notify: true)
     public var eventLog: EventLog?
