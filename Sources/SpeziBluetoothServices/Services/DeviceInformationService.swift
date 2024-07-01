@@ -18,7 +18,9 @@ import SpeziBluetooth
 /// It is possible that none are implemented at all.
 /// For more information refer to the specification.
 public final class DeviceInformationService: BluetoothService, @unchecked Sendable {
-    public static let id = CBUUID(string: "180A")
+    public static var id: CBUUID {
+        CBUUID(string: "180A")
+    }
 
     /// The manufacturer name string.
     @Characteristic(id: "2A29")

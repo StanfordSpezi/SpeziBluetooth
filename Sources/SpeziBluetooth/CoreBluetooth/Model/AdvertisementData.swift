@@ -67,3 +67,6 @@ public struct AdvertisementData {
         self.rawAdvertisementData = advertisementData
     }
 }
+
+
+extension AdvertisementData: Sendable {}

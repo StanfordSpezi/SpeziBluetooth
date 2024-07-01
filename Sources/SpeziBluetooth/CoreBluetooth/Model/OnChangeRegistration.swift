@@ -15,7 +15,7 @@ import Foundation
 /// track of a on-change handler and cancel the registration at a later point.
 ///
 /// - Tip: The on-change handler will be automatically unregistered when this object is deallocated.
-public class OnChangeRegistration {
+public final class OnChangeRegistration {
     private weak var peripheral: BluetoothPeripheral?
     let locator: CharacteristicLocator
     let handlerId: UUID
@@ -47,3 +47,6 @@ public class OnChangeRegistration {
         }
     }
 }
+
+
+extension OnChangeRegistration: @unchecked Sendable {}

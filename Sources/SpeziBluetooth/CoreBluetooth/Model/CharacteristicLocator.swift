@@ -15,7 +15,7 @@ struct CharacteristicLocator {
 }
 
 
-extension CharacteristicLocator: Hashable {}
+extension CharacteristicLocator: Hashable, Sendable {}
 
 extension CharacteristicLocator: CustomStringConvertible, CustomDebugStringConvertible {
     public var description: String {
