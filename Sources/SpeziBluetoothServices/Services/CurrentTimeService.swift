@@ -17,7 +17,9 @@ import SpeziBluetooth
 /// - Note: The Local Time Information and Reference Time Information characteristics are currently not implemented.
 ///     Both are optional to implement for peripherals.
 public final class CurrentTimeService: BluetoothService, @unchecked Sendable {
-    public static let id = CBUUID(string: "1805")
+    public static var id: CBUUID {
+        CBUUID(string: "1805")
+    }
 
     fileprivate static let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "CurrentTimeService")
 

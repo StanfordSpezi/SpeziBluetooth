@@ -12,8 +12,10 @@ import OSLog
 import SpeziBluetoothServices
 
 
-class TestService {
-    private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "TestService")
+final class TestService: @unchecked Sendable {
+    private var logger: Logger {
+        Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "TestService")
+    }
 
     private weak var peripheral: TestPeripheral?
     let service: CBMutableService
