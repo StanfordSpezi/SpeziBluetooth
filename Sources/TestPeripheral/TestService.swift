@@ -6,19 +6,19 @@
 // SPDX-License-Identifier: MIT
 //
 
-import CoreBluetooth
+@preconcurrency import CoreBluetooth
 import OSLog
 import SpeziBluetooth
 @_spi(TestingSupport)
 import SpeziBluetoothServices
 
 
-final class TestService: @unchecked Sendable {
+final class TestService: Sendable {
     private var logger: Logger {
         Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "TestService")
     }
 
-    private weak var peripheral: TestPeripheral?
+    private nonisolated(unsafe) weak var peripheral: TestPeripheral?
     let service: CBMutableService
 
     let eventLog: CBMutableCharacteristic

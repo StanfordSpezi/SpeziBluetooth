@@ -16,6 +16,24 @@ import SpeziBluetoothServices
 
 @main
 final class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
+    @MainActor
+    class QueueUpdates: Sendable {
+        private var queuedUpdates: [CheckedContinuation<Void, Never>] = []
+
+        func append(_ element: CheckedContinuation<Void, Never>) {
+            queuedUpdates.append(element)
+        }
+
+        func signalReady() {
+            let elements = queuedUpdates
+            queuedUpdates.removeAll()
+
+            for element in elements {
+                element.resume()
+            }
+        }
+    }
+
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "TestPeripheral")
     private let dispatchQueue = DispatchQueue(label: "edu.stanford.spezi.bluetooth-peripheral", qos: .userInitiated)
 
@@ -24,7 +42,7 @@ final class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
     private(set) var testService: TestService?
     private(set) var state: CBManagerState = .unknown
 
-    @MainActor private var queuedUpdates: [CheckedContinuation<Void, Never>] = []
+    private let queuedUpdates = QueueUpdates()
 
     override init() {
         super.init()
@@ -72,17 +90,6 @@ final class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
                 logger.warning("Peripheral update failed!")
                 queuedUpdates.append(continuation)
             }
-        }
-    }
-
-    @MainActor
-    private func receiveManagerIsReady() {
-        logger.debug("Received manager is ready.")
-        let elements = queuedUpdates
-        queuedUpdates.removeAll()
-
-        for element in elements {
-            element.resume()
         }
     }
 
@@ -149,8 +156,9 @@ final class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
     }
 
     func peripheralManagerIsReady(toUpdateSubscribers peripheral: CBPeripheralManager) {
-        Task { @MainActor in
-            receiveManagerIsReady()
+        Task { @MainActor [logger, queuedUpdates] in
+            logger.debug("Received manager is ready.")
+            queuedUpdates.signalReady()
         }
     }
 
@@ -222,7 +230,7 @@ final class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
         }
 
 
-        Task { @MainActor in
+        Task { @MainActor [testService] in
             // The following is mentioned in the docs:
             // Always respond with the first request.
             // Treat it as a multi request otherwise.

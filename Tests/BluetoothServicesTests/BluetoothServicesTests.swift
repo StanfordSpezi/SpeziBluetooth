@@ -6,7 +6,6 @@
 // SPDX-License-Identifier: MIT
 //
 
-import CoreBluetooth
 import NIO
 @_spi(TestingSupport)
 @testable import SpeziBluetooth
@@ -28,14 +27,14 @@ final class BluetoothServicesTests: XCTestCase {
     }
 
     func testUUID() {
-        XCTAssertEqual(CBUUID.toCustomShort(.testService), "F001")
+        XCTAssertEqual(BTUUID.toCustomShort(.testService), "F001")
     }
 
     func testEventLog() throws {
         try testIdentity(from: EventLog.none)
-        try testIdentity(from: EventLog.subscribedToNotification(.eventLogCharacteristic))
-        try testIdentity(from: EventLog.unsubscribedToNotification(.eventLogCharacteristic))
-        try testIdentity(from: EventLog.receivedRead(.readStringCharacteristic))
-        try testIdentity(from: EventLog.receivedWrite(.writeStringCharacteristic, value: "Hello World".encode()))
+        try testIdentity(from: EventLog.subscribedToNotification(BTUUID.eventLogCharacteristic.cbuuid))
+        try testIdentity(from: EventLog.unsubscribedToNotification(BTUUID.eventLogCharacteristic.cbuuid))
+        try testIdentity(from: EventLog.receivedRead(BTUUID.readStringCharacteristic.cbuuid))
+        try testIdentity(from: EventLog.receivedWrite(BTUUID.writeStringCharacteristic.cbuuid, value: "Hello World".encode()))
     }
 }
