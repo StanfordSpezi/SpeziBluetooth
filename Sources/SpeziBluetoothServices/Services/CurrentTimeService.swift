@@ -16,10 +16,8 @@ import SpeziBluetooth
 /// This class partially implements the Bluetooth [Current Time Service 1.1](https://www.bluetooth.com/specifications/specs/current-time-service-1-1).
 /// - Note: The Local Time Information and Reference Time Information characteristics are currently not implemented.
 ///     Both are optional to implement for peripherals.
-public final class CurrentTimeService: BluetoothService, @unchecked Sendable {
-    public static var id: CBUUID {
-        CBUUID(string: "1805")
-    }
+public struct CurrentTimeService: BluetoothService, Sendable {
+    public static let id: BTUUID = "1805"
 
     fileprivate static let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "CurrentTimeService")
 
@@ -37,7 +35,7 @@ public final class CurrentTimeService: BluetoothService, @unchecked Sendable {
     /// - Note: The peripheral may choose to ignore fields of the current time during writes. In this case
     ///     it may return the error code 0x80 _Data field ignored_.
     @Characteristic(id: "2A2B", notify: true)
-    public var currentTime: CurrentTime?
+    public var currentTime: CurrentTime? // TODO: make auto-read configurable
 
 
     public init() {}

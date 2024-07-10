@@ -82,8 +82,8 @@ import Observation
 /// - ``DeviceStateAccessor``
 @Observable
 @propertyWrapper
-public final class DeviceState<Value>: @unchecked Sendable {
-    private let keyPath: KeyPath<BluetoothPeripheral, Value>
+public final class DeviceState<Value: Sendable>: Sendable {
+    private let keyPath: KeyPath<BluetoothPeripheral, Value> & Sendable
     private(set) var injection: DeviceStatePeripheralInjection<Value>?
 
     private var _injectedValue = ObservableBox<Value?>(nil)
@@ -119,18 +119,17 @@ public final class DeviceState<Value>: @unchecked Sendable {
 
     /// Provide a `KeyPath` to the device state you want to access.
     /// - Parameter keyPath: The `KeyPath` to a property of the underlying ``BluetoothPeripheral`` instance.
-    public init(_ keyPath: KeyPath<BluetoothPeripheral, Value>) {
+    public init(_ keyPath: KeyPath<BluetoothPeripheral, Value> & Sendable) {
         self.keyPath = keyPath
     }
 
 
+    @SpeziBluetooth
     func inject(bluetooth: Bluetooth, peripheral: BluetoothPeripheral) {
         let injection = DeviceStatePeripheralInjection(bluetooth: bluetooth, peripheral: peripheral, keyPath: keyPath)
         self.injection = injection
 
-        injection.assumeIsolated { injection in
-            injection.setup()
-        }
+        injection.setup()
     }
 }
 

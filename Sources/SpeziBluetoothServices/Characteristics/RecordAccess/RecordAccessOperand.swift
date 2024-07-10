@@ -19,7 +19,7 @@ import NIOCore
 /// The format of a operand is defined by the Service specification using the ``RecordAccessControlPoint`` characteristic.
 ///
 /// Refer to GATT Specification Supplement, 3.178.3 Operand field.
-public protocol RecordAccessOperand: ByteEncodable {
+public protocol RecordAccessOperand: ByteEncodable, Sendable {
     /// General Response representation.
     ///
     /// The operand format with the code ``RecordAccessOpCode/responseCode`` contains at least the information modeled with

@@ -39,7 +39,7 @@ import CoreBluetooth
 /// - ``ServiceAccessor``
 @propertyWrapper
 public final class Service<S: BluetoothService>: @unchecked Sendable {
-    var id: CBUUID {
+    var id: BTUUID {
         S.id
     }
     private var injection: ServicePeripheralInjection?
@@ -66,12 +66,12 @@ public final class Service<S: BluetoothService>: @unchecked Sendable {
     }
 
 
+    @SpeziBluetooth
     func inject(peripheral: BluetoothPeripheral, service: GATTService?) {
         let injection = ServicePeripheralInjection(peripheral: peripheral, serviceId: id, service: service)
         self.injection = injection
-        injection.assumeIsolated { injection in
-            injection.setup()
-        }
+
+        injection.setup()
     }
 }
 

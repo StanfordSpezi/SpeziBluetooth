@@ -9,11 +9,10 @@
 import CoreBluetooth
 
 
-actor ServicePeripheralInjection: BluetoothActor {
-    let bluetoothQueue: DispatchSerialQueue
-
+@SpeziBluetooth
+class ServicePeripheralInjection: Sendable {
     private let peripheral: BluetoothPeripheral
-    private let serviceId: CBUUID
+    private let serviceId: BTUUID
 
     /// Do not access directly.
     private let _service: WeakObservableBox<GATTService>
@@ -33,8 +32,7 @@ actor ServicePeripheralInjection: BluetoothActor {
     }
 
 
-    init(peripheral: BluetoothPeripheral, serviceId: CBUUID, service: GATTService?) {
-        self.bluetoothQueue = peripheral.bluetoothQueue
+    init(peripheral: BluetoothPeripheral, serviceId: BTUUID, service: GATTService?) {
         self.peripheral = peripheral
         self.serviceId = serviceId
         self._service = WeakObservableBox(service)
@@ -45,18 +43,14 @@ actor ServicePeripheralInjection: BluetoothActor {
     }
 
     private func trackServicesUpdate() {
-        peripheral.assumeIsolated { peripheral in
-            peripheral.onChange(of: \.services) { [weak self] services in
-                guard let self = self,
-                      let service = services?.first(where: { $0.uuid == self.serviceId }) else {
-                    return
-                }
-
-                self.assumeIsolated { injection in
-                    injection.trackServicesUpdate()
-                    injection.service = service
-                }
+        peripheral.onChange(of: \.services) { [weak self] services in
+            guard let self = self,
+                  let service = services?.first(where: { $0.uuid == self.serviceId }) else {
+                return
             }
+
+            self.trackServicesUpdate()
+            self.service = service
         }
     }
 }

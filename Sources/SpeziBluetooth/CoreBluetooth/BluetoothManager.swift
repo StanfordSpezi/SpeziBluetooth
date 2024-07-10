@@ -80,13 +80,12 @@ import OSLog
 /// ### Manually Manage Powered State
 /// - ``powerOn()``
 /// - ``powerOff()``
-public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable:this type_body_length
+@SpeziBluetooth
+public class BluetoothManager: Observable, Sendable { // swiftlint:disable:this type_body_length
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothManager")
-    /// The serial executor for all Bluetooth related functionality.
-    let bluetoothQueue: DispatchSerialQueue
 
     @Lazy private var centralManager: CBCentralManager
-    private var centralDelegate: Delegate?
+    private var centralDelegate: Delegate? // swiftlint:disable:this weak_delegate
     private var isScanningObserver: KVOStateObserver<BluetoothManager>?
 
     private let _storage: ObservableStorage
@@ -182,13 +181,6 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
     
     /// Initialize a new Bluetooth Manager with provided device description and optional configuration options.
     public init() {
-        let dispatchQueue = DispatchQueue(label: "edu.stanford.spezi.bluetooth", qos: .userInitiated)
-        guard let serialQueue = dispatchQueue as? DispatchSerialQueue else {
-            preconditionFailure("Dispatch queue \(dispatchQueue.label) was not initialized to be serial!")
-        }
-
-        self.bluetoothQueue = serialQueue
-
         self._storage = ObservableStorage()
 
         let delegate = Delegate()
@@ -203,24 +195,20 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
         _centralManager.supply { [weak self] in
             // As `centralManager` is actor isolated, the initializer closure and the onCleanup closure
             // can both be assumed to be isolated to the BluetoothManager.
-            let centralDelegate = self?.assumeIsolated { $0.centralDelegate }
+            let centralDelegate = self?.centralDelegate
             let central = CBCentralManager(
                 delegate: centralDelegate,
-                queue: serialQueue,
+                queue: SpeziBluetooth.shared.dispatchQueue,
                 options: [CBCentralManagerOptionShowPowerAlertKey: true]
             )
 
-            self?.assumeIsolated { manager in
-                manager.isScanningObserver = KVOStateObserver(receiver: manager, entity: central, property: \.isScanning)
-            }
+            self?.isScanningObserver = KVOStateObserver(receiver: self, entity: central, property: \.isScanning)
 
             self?.logger.debug("Initialized the underlying CBCentralManager.")
             return central
         } onCleanup: { [weak self] in
             self?.logger.debug("Destroyed the underlying CBCentralManager.")
-            self?.assumeIsolated { manager in
-                manager.isScanningObserver = nil
-            }
+            self?.isScanningObserver = nil
         }
 
         // delay using self so we don't leave isolation
@@ -306,7 +294,7 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
 
         logger.debug("Starting scanning for nearby devices ...")
         centralManager.scanForPeripherals(
-            withServices: session.assumeIsolated { $0.serviceDiscoveryIds },
+            withServices: session.serviceDiscoveryIds?.map { $0.cbuuid },
             options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
         )
         isolatedStorage.isScanning = centralManager.isScanning // ensure this is propagated instantly
@@ -319,7 +307,7 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
 
         centralManager.stopScan()
         centralManager.scanForPeripherals(
-            withServices: session.assumeIsolated { $0.serviceDiscoveryIds },
+            withServices: session.serviceDiscoveryIds?.map { $0.cbuuid },
             options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
         )
         isolatedStorage.isScanning = centralManager.isScanning // ensure this is propagated instantly
@@ -425,9 +413,7 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
     func clearDiscoveredPeripheral(forKey id: UUID) {
         if let peripheral = discoveredPeripherals[id] {
             // `handleDiscarded` must be called before actually removing it from the dictionary to make sure peripherals can react to this event
-            peripheral.assumeIsolated { device in
-                device.handleDiscarded()
-            }
+            peripheral.handleDiscarded()
 
             // Users might keep reference to Peripheral object. Therefore, we keep it as a weak reference so we can forward delegate calls.
             retrievedPeripherals[id] = WeakReference(peripheral)
@@ -435,9 +421,7 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
 
         discoveredPeripherals.removeValue(forKey: id)
 
-        discoverySession?.assumeIsolated { session in
-            session.clearManuallyDisconnectedDevice(for: id)
-        }
+        discoverySession?.clearManuallyDisconnectedDevice(for: id)
 
         checkForCentralDeinit()
     }
@@ -473,9 +457,7 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
     func handlePeripheralDeinit(id uuid: UUID) {
         retrievedPeripherals.removeValue(forKey: uuid)
 
-        discoverySession?.assumeIsolated { session in
-            session.clearManuallyDisconnectedDevice(for: uuid)
-        }
+        discoverySession?.clearManuallyDisconnectedDevice(for: uuid)
 
         checkForCentralDeinit()
     }
@@ -504,16 +486,12 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
     func connect(peripheral: BluetoothPeripheral) {
         logger.debug("Trying to connect to \(peripheral.cbPeripheral.debugIdentifier) ...")
 
-        let cancelled = discoverySession?.assumeIsolated { session in
-            session.cancelStaleTask(for: peripheral)
-        }
+        let cancelled = discoverySession?.cancelStaleTask(for: peripheral)
 
         self.centralManager.connect(peripheral.cbPeripheral, options: nil)
 
         if cancelled == true {
-            discoverySession?.assumeIsolated { session in
-                session.scheduleStaleTaskForOldestActivityDevice(ignore: peripheral)
-            }
+            discoverySession?.scheduleStaleTaskForOldestActivityDevice(ignore: peripheral)
         }
     }
 
@@ -522,15 +500,11 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
         // stale timer is handled in the delegate method
         centralManager.cancelPeripheralConnection(peripheral.cbPeripheral)
 
-        discoverySession?.assumeIsolated { session in
-            session.deviceManuallyDisconnected(id: peripheral.id)
-        }
+        discoverySession?.deviceManuallyDisconnected(id: peripheral.id)
     }
 
     private func handledConnected(device: BluetoothPeripheral) {
-        device.assumeIsolated { device in
-            device.handleConnect()
-        }
+        device.handleConnect()
 
         // we might have connected a bluetooth peripheral that was weakly referenced
         ensurePeripheralReference(device)
@@ -539,22 +513,16 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
     private func discardDevice(device: BluetoothPeripheral) {
         if let discoverySession, isScanning {
             // we will keep discarded devices for max 2s before the stale timer kicks off
-            let backdateInterval = max(0, discoverySession.assumeIsolated { $0.advertisementStaleInterval } - 2)
+            let backdateInterval = max(0, discoverySession.advertisementStaleInterval - 2)
 
-            device.assumeIsolated { device in
-                device.markLastActivity(.now - backdateInterval)
-                device.handleDisconnect()
-            }
+            device.markLastActivity(.now - backdateInterval)
+            device.handleDisconnect()
 
             // We just schedule the new timer if there is a device to schedule one for.
-            discoverySession.assumeIsolated { session in
-                session.scheduleStaleTaskForOldestActivityDevice()
-            }
+            discoverySession.scheduleStaleTaskForOldestActivityDevice()
         } else {
-            device.assumeIsolated { device in
-                device.markLastActivity()
-                device.handleDisconnect()
-            }
+            device.markLastActivity()
+            device.handleDisconnect()
             clearDiscoveredPeripheral(forKey: device.id)
         }
     }
@@ -581,7 +549,7 @@ public actor BluetoothManager: Observable, BluetoothActor { // swiftlint:disable
 
 extension BluetoothManager {
     @Observable
-    final class ObservableStorage: ValueObservable {
+    final class ObservableStorage: ValueObservable { // TODO: make Sendable
         var state: BluetoothState = .unknown {
             didSet {
                 _$simpleRegistrar.triggerDidChange(for: \.state, on: self)
@@ -640,7 +608,7 @@ extension BluetoothManager {
 }
 
 extension BluetoothManager: KVOReceiver {
-    func observeChange<K, V>(of keyPath: KeyPath<K, V>, value: V) {
+    func observeChange<K, V: Sendable>(of keyPath: KeyPath<K, V> & Sendable, value: V) {
         switch keyPath {
         case \CBCentralManager.isScanning:
             isolatedStorage.isScanning = value as! Bool // swiftlint:disable:this force_cast
@@ -680,9 +648,7 @@ extension BluetoothManager: BluetoothScanner {
             return
         }
 
-        let discoveryItemsChanged = discoverySession.assumeIsolated { session in
-            session.updateConfigurationReportingDiscoveryItemsChanged(state)
-        }
+        let discoveryItemsChanged = discoverySession.updateConfigurationReportingDiscoveryItemsChanged(state)
 
         if discoveryItemsChanged == true {
             _restartScanning(using: discoverySession)
@@ -700,7 +666,7 @@ extension BluetoothManager {
         /// The minimum rssi of a peripheral to consider it for discovery.
         static let defaultMinimumRSSI = -80
         /// The default time in seconds after which we check for auto connectable devices after the initial advertisement.
-        static let defaultAutoConnectDebounce: Int = 1
+        static let defaultAutoConnectDebounce: Int = 1  // TODO: configurable?
     }
 }
 
@@ -740,22 +706,20 @@ extension BluetoothManager {
             // same Runtime state as an executing Task that is actor isolated.
             // So whats the solution? We schedule onto a background SerialExecutor (@SpeziBluetooth) so we maintain execution
             // order and make sure to capture all important state before that.
-            Task { @SpeziBluetooth in
-                await manager.isolated { manager in
-                    manager.isolatedStorage.state = state
-                    logger.info("BluetoothManager central state is now \(manager.state)")
+            Task { @SpeziBluetooth [logger] in
+                manager.isolatedStorage.state = state
+                logger.info("BluetoothManager central state is now \(manager.state)")
 
-                    if case .poweredOn = state {
-                        manager.handlePoweredOn()
-                    } else if case .unauthorized = state {
-                        switch CBCentralManager.authorization {
-                        case .denied:
-                            logger.log("Unauthorized reason: Access to Bluetooth was denied.")
-                        case .restricted:
-                            logger.log("Unauthorized reason: Bluetooth is restricted.")
-                        default:
-                            break
-                        }
+                if case .poweredOn = state {
+                    manager.handlePoweredOn()
+                } else if case .unauthorized = state {
+                    switch CBCentralManager.authorization {
+                    case .denied:
+                        logger.log("Unauthorized reason: Access to Bluetooth was denied.")
+                    case .restricted:
+                        logger.log("Unauthorized reason: Bluetooth is restricted.")
+                    default:
+                        break
                     }
                 }
             }
@@ -773,56 +737,48 @@ extension BluetoothManager {
                 return
             }
 
-            Task { @SpeziBluetooth in
-                await manager.isolated { manager in
-                    guard let session = manager.discoverySession,
-                          manager.isScanning else {
-                        return
-                    }
-
-                    // ensure the signal strength is not too low
-                    guard session.assumeIsolated({ $0.isInRange(rssi: rssi) }) else {
-                        return // logging this would just be to verbose, so we don't.
-                    }
-
-                    let data = AdvertisementData(advertisementData)
-
-
-                    // check if we already seen this device!
-                    if let device = manager.knownPeripheral(for: peripheral.identifier) {
-                        device.assumeIsolated { device in
-                            device.markLastActivity()
-                            device.update(advertisement: data, rssi: rssi.intValue)
-                        }
-
-                        // we might have discovered a previously "retrieved" peripheral that must be strongly referenced now
-                        manager.ensurePeripheralReference(device)
-
-                        session.assumeIsolated { session in
-                            session.deviceDiscoveryPostAction(device: device, newlyDiscovered: false)
-                        }
-                        return
-                    }
-
-                    logger.debug("Discovered peripheral \(peripheral.debugIdentifier) at \(rssi.intValue) dB (data: \(advertisementData))")
-
-                    let descriptor = session.assumeIsolated { $0.configuredDevices }
-                        .find(for: data, logger: logger)
-                    let device = BluetoothPeripheral(
-                        manager: manager,
-                        peripheral: peripheral,
-                        configuration: descriptor?.device ?? DeviceDescription(),
-                        advertisementData: data,
-                        rssi: rssi.intValue
-                    )
-                    // save local-copy, such CB doesn't deallocate it
-                    manager.discoveredPeripherals.updateValue(device, forKey: peripheral.identifier)
-
-
-                    session.assumeIsolated { session in
-                        session.deviceDiscoveryPostAction(device: device, newlyDiscovered: true)
-                    }
+            Task { @SpeziBluetooth [logger] in
+                guard let session = manager.discoverySession,
+                      manager.isScanning else {
+                    return
                 }
+
+                // ensure the signal strength is not too low
+                guard session.isInRange(rssi: rssi) else {
+                    return // logging this would just be to verbose, so we don't.
+                }
+
+                let data = AdvertisementData(advertisementData)
+
+
+                // check if we already seen this device!
+                if let device = manager.knownPeripheral(for: peripheral.identifier) {
+                    device.markLastActivity()
+                    device.update(advertisement: data, rssi: rssi.intValue)
+
+                    // we might have discovered a previously "retrieved" peripheral that must be strongly referenced now
+                    manager.ensurePeripheralReference(device)
+
+                    session.deviceDiscoveryPostAction(device: device, newlyDiscovered: false)
+                    return
+                }
+
+                logger.debug("Discovered peripheral \(peripheral.debugIdentifier) at \(rssi.intValue) dB (data: \(advertisementData))")
+
+                let descriptor = session.configuredDevices.find(for: data, logger: logger)
+
+                let device = BluetoothPeripheral(
+                    manager: manager,
+                    peripheral: peripheral,
+                    configuration: descriptor?.device ?? DeviceDescription(),
+                    advertisementData: data,
+                    rssi: rssi.intValue
+                )
+                // save local-copy, such CB doesn't deallocate it
+                manager.discoveredPeripherals.updateValue(device, forKey: peripheral.identifier)
+
+
+                session.deviceDiscoveryPostAction(device: device, newlyDiscovered: true)
             }
         }
 
@@ -831,17 +787,15 @@ extension BluetoothManager {
                 return
             }
 
-            Task { @SpeziBluetooth in
-                await manager.isolated { manager in
-                    guard let device = manager.knownPeripheral(for: peripheral.identifier) else {
-                        logger.error("Received didConnect for unknown peripheral \(peripheral.debugIdentifier). Cancelling connection ...")
-                        manager.centralManager.cancelPeripheralConnection(peripheral)
-                        return
-                    }
-
-                    logger.debug("Peripheral \(peripheral.debugIdentifier) connected.")
-                    manager.handledConnected(device: device)
+            Task { @SpeziBluetooth [logger] in
+                guard let device = manager.knownPeripheral(for: peripheral.identifier) else {
+                    logger.error("Received didConnect for unknown peripheral \(peripheral.debugIdentifier). Cancelling connection ...")
+                    manager.centralManager.cancelPeripheralConnection(peripheral)
+                    return
                 }
+
+                logger.debug("Peripheral \(peripheral.debugIdentifier) connected.")
+                manager.handledConnected(device: device)
             }
         }
 
@@ -853,25 +807,23 @@ extension BluetoothManager {
             // Documentation reads: "Because connection attempts don’t time out, a failed connection usually indicates a transient issue,
             // in which case you may attempt connecting to the peripheral again."
 
-            Task { @SpeziBluetooth in
-                await manager.isolated { manager in
-                    guard let device = manager.knownPeripheral(for: peripheral.identifier) else {
-                        logger.warning("Unknown peripheral \(peripheral.debugIdentifier) failed with error: \(String(describing: error))")
-                        manager.centralManager.cancelPeripheralConnection(peripheral)
-                        return
-                    }
-
-                    if let error {
-                        logger.error("Failed to connect to \(peripheral): \(error)")
-                    } else {
-                        logger.error("Failed to connect to \(peripheral)")
-                    }
-
-                    // just to make sure
-                    manager.centralManager.cancelPeripheralConnection(device.cbPeripheral)
-
-                    manager.discardDevice(device: device)
+            Task { @SpeziBluetooth [logger] in
+                guard let device = manager.knownPeripheral(for: peripheral.identifier) else {
+                    logger.warning("Unknown peripheral \(peripheral.debugIdentifier) failed with error: \(String(describing: error))")
+                    manager.centralManager.cancelPeripheralConnection(peripheral)
+                    return
                 }
+
+                if let error {
+                    logger.error("Failed to connect to \(peripheral): \(error)")
+                } else {
+                    logger.error("Failed to connect to \(peripheral)")
+                }
+
+                // just to make sure
+                manager.centralManager.cancelPeripheralConnection(device.cbPeripheral)
+
+                manager.discardDevice(device: device)
             }
         }
 
@@ -881,21 +833,19 @@ extension BluetoothManager {
                 return
             }
 
-            Task { @SpeziBluetooth in
-                await manager.isolated { manager in
-                    guard let device = manager.knownPeripheral(for: peripheral.identifier) else {
-                        logger.error("Received didDisconnect for unknown peripheral \(peripheral.debugIdentifier).")
-                        return
-                    }
-
-                    if let error {
-                        logger.debug("Peripheral \(peripheral.debugIdentifier) disconnected due to an error: \(error)")
-                    } else {
-                        logger.debug("Peripheral \(peripheral.debugIdentifier) disconnected.")
-                    }
-
-                    manager.discardDevice(device: device)
+            Task { @SpeziBluetooth [logger] in
+                guard let device = manager.knownPeripheral(for: peripheral.identifier) else {
+                    logger.error("Received didDisconnect for unknown peripheral \(peripheral.debugIdentifier).")
+                    return
                 }
+
+                if let error {
+                    logger.debug("Peripheral \(peripheral.debugIdentifier) disconnected due to an error: \(error)")
+                } else {
+                    logger.debug("Peripheral \(peripheral.debugIdentifier) disconnected.")
+                }
+
+                manager.discardDevice(device: device)
             }
         }
     }

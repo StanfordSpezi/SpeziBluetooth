@@ -10,7 +10,7 @@ import CoreBluetooth
 
 
 /// All advertised information of a peripheral.
-public struct AdvertisementData {
+public struct AdvertisementData { // TODO: make it a struct that stores all elements plainly
     /// The raw advertisement data dictionary provided by CoreBluetooth.
     public let rawAdvertisementData: [String: Any]
 
@@ -27,19 +27,24 @@ public struct AdvertisementData {
     /// Service-specific advertisement data.
     ///
     /// The keys are CBService UUIDs. The values are Data objects, representing service-specific data.
-    public var serviceData: [CBUUID: Data]? { // swiftlint:disable:this discouraged_optional_collection
-        rawAdvertisementData[CBAdvertisementDataServiceDataKey] as? [CBUUID: Data]
+    public var serviceData: [BTUUID: Data]? { // swiftlint:disable:this discouraged_optional_collection
+        (rawAdvertisementData[CBAdvertisementDataServiceDataKey] as? [CBUUID: Data])?
+            .reduce(into: [:]) { partialResult, entry in
+                partialResult[BTUUID(from: entry.key)] = entry.value
+            }
     }
 
     /// The advertised service UUIDs.
-    public var serviceUUIDs: [CBUUID]? { // swiftlint:disable:this discouraged_optional_collection
-        rawAdvertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID]
+    public var serviceUUIDs: [BTUUID]? { // swiftlint:disable:this discouraged_optional_collection
+        (rawAdvertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID])?
+            .map { BTUUID(from: $0) }
     }
 
     /// An array of one or more CBUUID objects, representing CBService UUIDs that were found in the “overflow”
     /// area of the advertisement data.
-    public var overflowServiceUUIDs: [CBUUID]? { // swiftlint:disable:this discouraged_optional_collection
-        rawAdvertisementData[CBAdvertisementDataOverflowServiceUUIDsKey] as? [CBUUID]
+    public var overflowServiceUUIDs: [BTUUID]? { // swiftlint:disable:this discouraged_optional_collection
+        (rawAdvertisementData[CBAdvertisementDataOverflowServiceUUIDsKey] as? [CBUUID])?
+            .map { BTUUID(from: $0) }
     }
 
     /// The transmit power of a peripheral.
@@ -56,14 +61,15 @@ public struct AdvertisementData {
     }
 
     /// An array solicited CBService UUIDs.
-    public var solicitedServiceUUIDs: [CBUUID]? { // swiftlint:disable:this discouraged_optional_collection
-        rawAdvertisementData[CBAdvertisementDataSolicitedServiceUUIDsKey] as? [CBUUID]
+    public var solicitedServiceUUIDs: [BTUUID]? { // swiftlint:disable:this discouraged_optional_collection
+        (rawAdvertisementData[CBAdvertisementDataSolicitedServiceUUIDsKey] as? [CBUUID])?
+            .map { BTUUID(data: $0.data) }
     }
 
 
     /// Creates advertisement data based on CoreBluetooth's dictionary.
     /// - Parameter advertisementData: Core Bluetooth's advertisement data
-    public init(_ advertisementData: [String: Any]) {
+    public init(_ advertisementData: [String: Any]) { // TODO: we can ignore Sendable warning, if we avoid exposing Any to the public?
         self.rawAdvertisementData = advertisementData
     }
 }

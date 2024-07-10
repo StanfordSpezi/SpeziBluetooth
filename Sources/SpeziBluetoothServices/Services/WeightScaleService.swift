@@ -6,17 +6,14 @@
 // SPDX-License-Identifier: MIT
 //
 
-import class CoreBluetooth.CBUUID
 import SpeziBluetooth
 
 
 /// Bluetooth Weight Scale Service implementation.
 ///
 /// This class implements the Bluetooth [Weight Scale Service 1.0](https://www.bluetooth.com/specifications/specs/weight-scale-service-1-0).
-public final class WeightScaleService: BluetoothService, @unchecked Sendable {
-    public static var id: CBUUID {
-        CBUUID(string: "181D")
-    }
+public struct WeightScaleService: BluetoothService, Sendable {
+    public static let id: BTUUID = "181D"
 
     /// Receive weight measurements.
     ///
@@ -31,5 +28,5 @@ public final class WeightScaleService: BluetoothService, @unchecked Sendable {
     public var features: WeightScaleFeature?
 
 
-    public init() {}
+    public init() {} // TODO: make autoRead configurable for all measurement services
 }

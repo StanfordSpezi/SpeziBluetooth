@@ -9,15 +9,16 @@
 import CoreBluetooth
 
 
+@SpeziBluetooth
 private struct SetupServiceVisitor: ServiceVisitor {
     private let bluetooth: Bluetooth
     private let peripheral: BluetoothPeripheral
-    private let serviceId: CBUUID
+    private let serviceId: BTUUID
     private let service: GATTService?
     private let didInjectAnything: Box<Bool>
 
 
-    init(bluetooth: Bluetooth, peripheral: BluetoothPeripheral, serviceId: CBUUID, service: GATTService?, didInjectAnything: Box<Bool>) {
+    init(bluetooth: Bluetooth, peripheral: BluetoothPeripheral, serviceId: BTUUID, service: GATTService?, didInjectAnything: Box<Bool>) {
         self.bluetooth = bluetooth
         self.peripheral = peripheral
         self.serviceId = serviceId
@@ -42,6 +43,7 @@ private struct SetupServiceVisitor: ServiceVisitor {
 }
 
 
+@SpeziBluetooth
 private struct SetupDeviceVisitor: DeviceVisitor {
     private let bluetooth: Bluetooth
     private let peripheral: BluetoothPeripheral
@@ -56,7 +58,7 @@ private struct SetupDeviceVisitor: DeviceVisitor {
 
 
     func visit<S: BluetoothService>(_ service: Service<S>) {
-        let blService = peripheral.assumeIsolated { $0.getService(id: service.id) }
+        let blService = peripheral.getService(id: service.id)
         service.inject(peripheral: peripheral, service: blService)
 
         var visitor = SetupServiceVisitor(
@@ -82,9 +84,8 @@ private struct SetupDeviceVisitor: DeviceVisitor {
 
 
 extension BluetoothDevice {
+    @SpeziBluetooth
     func inject(peripheral: BluetoothPeripheral, using bluetooth: Bluetooth) -> Bool {
-        peripheral.bluetoothQueue.assertIsolated("SetupDeviceVisitor must be called within the Bluetooth SerialExecutor!")
-
         // if we don't inject anything, we do not need to retain the device
         let didInjectAnything = Box(false)
 

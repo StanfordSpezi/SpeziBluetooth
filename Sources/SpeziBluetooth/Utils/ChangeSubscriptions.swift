@@ -10,28 +10,17 @@ import Foundation
 import OrderedCollections
 
 
-class ChangeSubscriptions<Value>: @unchecked Sendable {
-    private struct Registration {
+class ChangeSubscriptions<Value: Sendable>: @unchecked Sendable { // TODO: review how we implemented this, might just isolate?
+    private struct Registration: Sendable {
         let subscription: AsyncStream<Value>
         let id: UUID
     }
 
-    private actor Dispatch: BluetoothActor {
-        let bluetoothQueue: DispatchSerialQueue
-
-        init(_ bluetoothQueue: DispatchSerialQueue) {
-            self.bluetoothQueue = bluetoothQueue
-        }
-    }
-
-    private let dispatch: Dispatch
     private var continuations: OrderedDictionary<UUID, AsyncStream<Value>.Continuation> = [:]
     private var taskHandles: [UUID: Task<Void, Never>] = [:]
     private let lock = NSLock()
 
-    init(queue: DispatchSerialQueue) {
-        self.dispatch = Dispatch(queue)
-    }
+    init() {}
 
     func notifySubscribers(with value: Value, ignoring: Set<UUID> = []) {
         for (id, continuation) in continuations where !ignoring.contains(id) {
@@ -69,13 +58,13 @@ class ChangeSubscriptions<Value>: @unchecked Sendable {
     }
 
     @discardableResult
-    func newOnChangeSubscription(perform action: @escaping (_ oldValue: Value, _ newValue: Value) async -> Void) -> UUID {
+    func newOnChangeSubscription(perform action: @escaping @Sendable (_ oldValue: Value, _ newValue: Value) async -> Void) -> UUID {
         let registration = _newSubscription()
 
         // It's important to use a detached Task here.
         // Otherwise it might inherit TaskLocal values which might include Spezi moduleInitContext
         // which would create a strong reference to the device.
-        let task = Task.detached { @SpeziBluetooth [weak self, dispatch] in
+        let task = Task.detached { @SpeziBluetooth [weak self] in
             var currentValue: Value?
 
             for await element in registration.subscription {
@@ -83,7 +72,7 @@ class ChangeSubscriptions<Value>: @unchecked Sendable {
                     return
                 }
 
-                await dispatch.isolated { _ in
+                await SpeziBluetooth.run {
                     await action(currentValue ?? element, element)
                 }
                 currentValue = element

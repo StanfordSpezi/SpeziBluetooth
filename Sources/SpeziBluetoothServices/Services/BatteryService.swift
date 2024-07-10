@@ -6,7 +6,6 @@
 // SPDX-License-Identifier: MIT
 //
 
-import class CoreBluetooth.CBUUID
 import SpeziBluetooth
 
 
@@ -14,10 +13,8 @@ import SpeziBluetooth
 ///
 /// This class partially implements the Bluetooth [Battery Service 1.1](https://www.bluetooth.com/specifications/specs/battery-service).
 /// - Note: The current implementation only implements mandatory characteristics.
-public final class BatteryService: BluetoothService, @unchecked Sendable {
-    public static var id: CBUUID {
-        CBUUID(string: "180F")
-    }
+public struct BatteryService: BluetoothService, Sendable {
+    public static let id: BTUUID = "180F"
 
 
     /// Battery Level in percent.

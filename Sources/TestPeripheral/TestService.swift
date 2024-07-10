@@ -8,6 +8,7 @@
 
 import CoreBluetooth
 import OSLog
+import SpeziBluetooth
 @_spi(TestingSupport)
 import SpeziBluetoothServices
 
@@ -43,20 +44,35 @@ final class TestService: @unchecked Sendable {
 
     init(peripheral: TestPeripheral) {
         self.peripheral = peripheral
-        self.service = CBMutableService(type: .testService, primary: true)
+        self.service = CBMutableService(type: BTUUID.testService.cbuuid, primary: true)
 
         self.readWriteStringValue = ""
 
-        self.eventLog = CBMutableCharacteristic(type: .eventLogCharacteristic, properties: [.indicate, .read], value: nil, permissions: [.readable])
-        self.readString = CBMutableCharacteristic(type: .readStringCharacteristic, properties: [.read], value: nil, permissions: [.readable])
-        self.writeString = CBMutableCharacteristic(type: .writeStringCharacteristic, properties: [.write], value: nil, permissions: [.writeable])
+        self.eventLog = CBMutableCharacteristic(
+            type: BTUUID.eventLogCharacteristic.cbuuid,
+            properties: [.indicate, .read],
+            value: nil,
+            permissions: [.readable]
+        )
+        self.readString = CBMutableCharacteristic(
+            type: BTUUID.readStringCharacteristic.cbuuid,
+            properties: [.read],
+            value: nil,
+            permissions: [.readable]
+        )
+        self.writeString = CBMutableCharacteristic(
+            type: BTUUID.writeStringCharacteristic.cbuuid,
+            properties: [.write],
+            value: nil,
+            permissions: [.writeable]
+        )
         self.readWriteString = CBMutableCharacteristic(
-            type: .readWriteStringCharacteristic,
+            type: BTUUID.readWriteStringCharacteristic.cbuuid,
             properties: [.read, .write],
             value: nil,
             permissions: [.readable, .writeable]
         )
-        self.reset = CBMutableCharacteristic(type: .resetCharacteristic, properties: [.write], value: nil, permissions: [.writeable])
+        self.reset = CBMutableCharacteristic(type: BTUUID.resetCharacteristic.cbuuid, properties: [.write], value: nil, permissions: [.writeable])
 
         service.characteristics = [eventLog, readString, writeString, readWriteString, reset]
 

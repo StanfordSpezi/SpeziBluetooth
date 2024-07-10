@@ -7,6 +7,7 @@
 //
 
 
+@SpeziBluetooth
 protocol BaseVisitor {
     mutating func visit<Action: _BluetoothPeripheralAction>(_ action: DeviceAction<Action>)
 

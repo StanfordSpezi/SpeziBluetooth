@@ -6,13 +6,11 @@
 // SPDX-License-Identifier: MIT
 //
 
-@preconcurrency import class CoreBluetooth.CBUUID
-
 
 /// A characteristic description.
 public struct CharacteristicDescription: Sendable {
     /// The characteristic id.
-    public let characteristicId: CBUUID
+    public let characteristicId: BTUUID
     /// Flag indicating if descriptors should be discovered for this characteristic.
     public let discoverDescriptors: Bool
     /// Flag indicating if SpeziBluetooth should automatically read the initial value from the peripheral.
@@ -24,7 +22,7 @@ public struct CharacteristicDescription: Sendable {
     ///   - id: The bluetooth characteristic id.
     ///   - discoverDescriptors: Optional flag to specify that descriptors of this characteristic should be discovered.
     ///   - autoRead: Flag indicating if SpeziBluetooth should automatically read the initial value from the peripheral.
-    public init(id: CBUUID, discoverDescriptors: Bool = false, autoRead: Bool = true) {
+    public init(id: BTUUID, discoverDescriptors: Bool = false, autoRead: Bool = true) {
         self.characteristicId = id
         self.discoverDescriptors = discoverDescriptors
         self.autoRead = autoRead
@@ -34,7 +32,7 @@ public struct CharacteristicDescription: Sendable {
 
 extension CharacteristicDescription: ExpressibleByStringLiteral {
     public init(stringLiteral value: StringLiteralType) {
-        self.init(id: CBUUID(string: value))
+        self.init(id: BTUUID(stringLiteral: value))
     }
 }
 

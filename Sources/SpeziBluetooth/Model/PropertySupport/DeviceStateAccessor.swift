@@ -10,16 +10,13 @@ import Foundation
 import Spezi
 
 
-struct DeviceStateTestInjections<Value>: DefaultInitializable {
+struct DeviceStateTestInjections<Value: Sendable>: DefaultInitializable {
     var subscriptions: ChangeSubscriptions<Value>?
 
     init() {}
 
     mutating func enableSubscriptions() {
-        // there is no BluetoothManager, so we need to create a queue on the fly
-        subscriptions = ChangeSubscriptions<Value>(
-            queue: DispatchSerialQueue(label: "edu.stanford.spezi.bluetooth.testing-\(Self.self)", qos: .userInitiated)
-        )
+        subscriptions = ChangeSubscriptions<Value>()
     }
 
     func artificialValue(for keyPath: KeyPath<BluetoothPeripheral, Value>) -> Value? {
@@ -67,7 +64,7 @@ struct DeviceStateTestInjections<Value>: DefaultInitializable {
 /// ### Get notified about changes
 /// - ``onChange(initial:perform:)-8x9cj``
 /// - ``onChange(initial:perform:)-9igc9``
-public struct DeviceStateAccessor<Value> {
+public struct DeviceStateAccessor<Value: Sendable> {
     private let id: ObjectIdentifier
     private let keyPath: KeyPath<BluetoothPeripheral, Value>
     private let injection: DeviceStatePeripheralInjection<Value>?
@@ -127,7 +124,7 @@ extension DeviceStateAccessor {
     ///     - initial: Whether the action should be run with the initial state value. Otherwise, the action will only run
     ///     strictly if the value changes.
     ///     - action: The change handler to register.
-    public func onChange(initial: Bool = false, perform action: @escaping (Value) async -> Void) {
+    public func onChange(initial: Bool = false, perform action: @escaping @Sendable (Value) async -> Void) {
         onChange(initial: true) { _, newValue in
             await action(newValue)
         }
@@ -151,7 +148,7 @@ extension DeviceStateAccessor {
     ///     - initial: Whether the action should be run with the initial state value. Otherwise, the action will only run
     ///     strictly if the value changes.
     ///     - action: The change handler to register, receiving both the old and new value.
-    public func onChange(initial: Bool = false, perform action: @escaping (_ oldValue: Value, _ newValue: Value) async -> Void) {
+    public func onChange(initial: Bool = false, perform action: @escaping @Sendable (_ oldValue: Value, _ newValue: Value) async -> Void) {
         if let testInjections = _testInjections.value,
            let subscriptions = testInjections.subscriptions {
             let id = subscriptions.newOnChangeSubscription(perform: action)

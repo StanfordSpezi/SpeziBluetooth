@@ -7,11 +7,12 @@
 //
 
 import ByteCoding
-@preconcurrency import CoreBluetooth
+import CoreBluetooth
 import SpeziFoundation
 
 
-private protocol DecodableCharacteristic: Actor {
+private protocol DecodableCharacteristic {
+    @SpeziBluetooth
     func handleUpdateValueAssumingIsolation(_ data: Data?)
 }
 
@@ -21,13 +22,12 @@ private protocol PrimitiveDecodableCharacteristic {
 
 
 /// Captures and synchronizes access to the state of a ``Characteristic`` property wrapper.
-actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
-    let bluetoothQueue: DispatchSerialQueue
-
+@SpeziBluetooth
+class CharacteristicPeripheralInjection<Value: Sendable>: Sendable {
     private let bluetooth: Bluetooth
     fileprivate let peripheral: BluetoothPeripheral
-    let serviceId: CBUUID
-    let characteristicId: CBUUID
+    let serviceId: BTUUID
+    let characteristicId: BTUUID
 
     /// Observable value. Don't access directly.
     private let _value: ObservableBox<Value?>
@@ -79,19 +79,18 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
     init(
         bluetooth: Bluetooth,
         peripheral: BluetoothPeripheral,
-        serviceId: CBUUID,
-        characteristicId: CBUUID,
+        serviceId: BTUUID,
+        characteristicId: BTUUID,
         value: ObservableBox<Value?>,
         characteristic: GATTCharacteristic?
     ) {
         self.bluetooth = bluetooth
-        self.bluetoothQueue = peripheral.bluetoothQueue
         self.peripheral = peripheral
         self.serviceId = serviceId
         self.characteristicId = characteristicId
         self._value = value
         self._characteristic = .init(characteristic)
-        self.subscriptions = ChangeSubscriptions(queue: peripheral.bluetoothQueue)
+        self.subscriptions = ChangeSubscriptions()
     }
 
     /// Setup the injection. Must be called after initialization to set up all handlers and write the initial value.
@@ -121,7 +120,10 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
         subscriptions.newSubscription()
     }
 
-    nonisolated func newOnChangeSubscription(initial: Bool, perform action: @Sendable @escaping (_ oldValue: Value, _ newValue: Value) async -> Void) {
+    nonisolated func newOnChangeSubscription(
+        initial: Bool,
+        perform action: @escaping @Sendable (_ oldValue: Value, _ newValue: Value) async -> Void
+    ) {
         let id = subscriptions.newOnChangeSubscription(perform: action)
 
         // Must be called detached, otherwise it might inherit TaskLocal values which includes Spezi moduleInitContext
@@ -145,40 +147,21 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
     /// Enable or disable notifications for the characteristic.
     /// - Parameter enabled: Flag indicating if notifications should be enabled.
     func enableNotifications(_ enabled: Bool = true) {
-        peripheral.assumeIsolated { peripheral in
-            peripheral.enableNotifications(enabled, serviceId: serviceId, characteristicId: characteristicId)
-        }
+        peripheral.enableNotifications(enabled, serviceId: serviceId, characteristicId: characteristicId)
     }
 
     private func registerCharacteristicInstanceChanges() {
-        self.instanceRegistration = peripheral.assumeIsolated { peripheral in
-            peripheral.registerOnChangeCharacteristicHandler(
-                service: serviceId,
-                characteristic: characteristicId
-            ) { [weak self] characteristic in
-                guard let self = self else {
-                    return
-                }
-
-                self.assertIsolated("BluetoothPeripheral onChange handler was unexpectedly executed outside the peripheral actor!")
-                self.assumeIsolated { injection in
-                    injection.handleChangedCharacteristic(characteristic)
-                }
-            }
+        self.instanceRegistration = peripheral.registerOnChangeCharacteristicHandler(
+            service: serviceId,
+            characteristic: characteristicId
+        ) { [weak self] characteristic in
+            self?.handleChangedCharacteristic(characteristic)
         }
     }
 
     private func registerCharacteristicValueChanges() {
-        self.valueRegistration = peripheral.assumeIsolated { peripheral in
-            peripheral.registerOnChangeHandler(service: serviceId, characteristic: characteristicId) { [weak self] data in
-                guard let self = self else {
-                    return
-                }
-                self.assertIsolated("BluetoothPeripheral onChange handler was unexpectedly executed outside the peripheral actor!")
-                self.assumeIsolated { injection in
-                    injection.handleUpdatedValue(data)
-                }
-            }
+        self.valueRegistration = peripheral.registerOnChangeHandler(service: serviceId, characteristic: characteristicId) { [weak self] data in
+            self?.handleUpdatedValue(data)
         }
     }
 
@@ -216,9 +199,7 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
             return
         }
 
-        decodable.assumeIsolated { decodable in
-            decodable.handleUpdateValueAssumingIsolation(data)
-        }
+        decodable.handleUpdateValueAssumingIsolation(data)
     }
 
 
@@ -329,7 +310,7 @@ extension CharacteristicPeripheralInjection where Value: ControlPointCharacteris
         if !characteristic.isNotifying { // shortcut that doesn't require actor isolation.
             // It takes some time for the characteristic to acknowledge notification registration. Assuming the characteristic was injected,
             // and notifications were requests is good enough for us to assume we will receive the notification. Allows to send request much earlier.
-            guard await peripheral.didRequestNotifications(serviceId: serviceId, characteristicId: characteristicId) else {
+            guard peripheral.didRequestNotifications(serviceId: serviceId, characteristicId: characteristicId) else {
                 throw BluetoothError.controlPointRequiresNotifying(service: serviceId, characteristic: characteristicId)
             }
         }

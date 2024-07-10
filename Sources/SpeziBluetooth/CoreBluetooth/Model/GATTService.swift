@@ -6,11 +6,11 @@
 // SPDX-License-Identifier: MIT
 //
 
-@preconcurrency import CoreBluetooth
+import CoreBluetooth
 import Foundation
 
 struct ServiceChangeProtocol {
-    let removedCharacteristics: Set<CBUUID>
+    let removedCharacteristics: Set<BTUUID>
     let updatedCharacteristics: [GATTCharacteristic]
 }
 
@@ -25,13 +25,14 @@ struct ServiceChangeProtocol {
 /// - ``characteristics``
 @Observable
 public final class GATTService {
-    let underlyingService: CBService
+    // fine to be non-isolated. CBService is non-Sendable as it is an open class.
+    nonisolated(unsafe) let underlyingService: CBService
     /// The stored characteristics, indexed by their uuid.
-    private var _characteristics: [CBUUID: GATTCharacteristic]
+    private nonisolated(unsafe) var _characteristics: [BTUUID: GATTCharacteristic]
 
     /// The Bluetooth UUID of the service.
-    public var uuid: CBUUID {
-        underlyingService.uuid
+    public var uuid: BTUUID {
+        BTUUID(data: underlyingService.uuid.data)
     }
 
     /// The type of the service (primary or secondary).
@@ -49,7 +50,7 @@ public final class GATTService {
         self.underlyingService = service
         self._characteristics = [:]
         self._characteristics = service.characteristics?.reduce(into: [:], { result, characteristic in
-            result[characteristic.uuid] = GATTCharacteristic(characteristic: characteristic, service: self)
+            result[BTUUID(from: characteristic.uuid)] = GATTCharacteristic(characteristic: characteristic, service: self)
         }) ?? [:]
     }
 
@@ -57,22 +58,23 @@ public final class GATTService {
     /// Retrieve a characteristic.
     /// - Parameter id: The Bluetooth characteristic id.
     /// - Returns: The characteristic instance if present.
-    public func getCharacteristic(id: CBUUID) -> GATTCharacteristic? {
+    public func getCharacteristic(id: BTUUID) -> GATTCharacteristic? {
         characteristics.first { characteristics in
             characteristics.uuid == id
         }
     }
 
     /// Signal from the BluetoothManager to update your stored representations.
-    func synchronizeModel() -> ServiceChangeProtocol { // always called from the Bluetooth thread
+    @SpeziBluetooth
+    func synchronizeModel() -> ServiceChangeProtocol {
         var removedCharacteristics = Set(_characteristics.keys)
         var updatedCharacteristics: [GATTCharacteristic] = []
 
         for cbCharacteristic in underlyingService.characteristics ?? [] {
-            let characteristic = _characteristics[cbCharacteristic.uuid]
+            let characteristic = _characteristics[BTUUID(from: cbCharacteristic.uuid)]
             if characteristic != nil {
                 // The characteristic is there. Mark it as not removed.
-                removedCharacteristics.remove(cbCharacteristic.uuid)
+                removedCharacteristics.remove(BTUUID(from: cbCharacteristic.uuid))
             }
 
 
@@ -81,7 +83,7 @@ public final class GATTService {
                 // create/replace it
                 let characteristic = GATTCharacteristic(characteristic: cbCharacteristic, service: self)
                 updatedCharacteristics.append(characteristic)
-                _characteristics[cbCharacteristic.uuid] = characteristic
+                _characteristics[BTUUID(from: cbCharacteristic.uuid)] = characteristic
             }
         }
 
@@ -95,7 +97,7 @@ public final class GATTService {
 }
 
 
-extension GATTService: @unchecked Sendable {}
+extension GATTService: Sendable {}
 
 
 extension GATTService: Hashable {

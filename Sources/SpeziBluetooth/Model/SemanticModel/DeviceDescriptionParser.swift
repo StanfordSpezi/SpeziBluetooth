@@ -30,6 +30,7 @@ private struct ServiceDescriptionBuilder: DeviceVisitor {
 
 
 extension BluetoothDevice {
+    @SpeziBluetooth
     static func parseDeviceDescription() -> DeviceDescription {
         let device = Self()
 
@@ -41,6 +42,7 @@ extension BluetoothDevice {
 
 
 extension DeviceDiscoveryDescriptor {
+    @SpeziBluetooth
     func parseDiscoveryDescription() -> DiscoveryDescription {
         let deviceDescription = deviceType.parseDeviceDescription()
         return DiscoveryDescription(discoverBy: discoveryCriteria, device: deviceDescription)
@@ -55,6 +57,7 @@ extension Set where Element == DeviceDiscoveryDescriptor {
         }
     }
 
+    @SpeziBluetooth
     func parseDiscoveryDescription() -> Set<DiscoveryDescription> {
         Set<DiscoveryDescription>(map { $0.parseDiscoveryDescription() })
     }

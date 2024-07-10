@@ -11,7 +11,7 @@ import CoreBluetooth
 import Spezi
 
 
-struct CharacteristicTestInjections<Value>: DefaultInitializable {
+struct CharacteristicTestInjections<Value: Sendable>: DefaultInitializable {
     var writeClosure: ((Value, WriteType) async throws -> Void)?
     var readClosure: (() async throws -> Value)?
     var requestClosure: ((Value) async throws -> Value)?
@@ -21,10 +21,7 @@ struct CharacteristicTestInjections<Value>: DefaultInitializable {
     init() {}
 
     mutating func enableSubscriptions() {
-        // there is no BluetoothManager, so we need to create a queue on the fly
-        subscriptions = ChangeSubscriptions<Value>(
-            queue: DispatchSerialQueue(label: "edu.stanford.spezi.bluetooth.testing-\(Self.self)", qos: .userInitiated)
-        )
+        subscriptions = ChangeSubscriptions<Value>()
     }
 }
 
@@ -62,7 +59,7 @@ struct CharacteristicTestInjections<Value>: DefaultInitializable {
 ///
 /// ### Control Point Characteristics
 /// - ``sendRequest(_:timeout:)``
-public struct CharacteristicAccessor<Value> {
+public struct CharacteristicAccessor<Value: Sendable> {
     let configuration: Characteristic<Value>.Configuration
     let injection: CharacteristicPeripheralInjection<Value>?
     /// Capture of the characteristic.
@@ -163,7 +160,7 @@ extension CharacteristicAccessor where Value: ByteDecodable {
     ///     - initial: Whether the action should be run with the initial characteristic value.
     ///     Otherwise, the action will only run strictly if the value changes.
     ///     - action: The change handler to register.
-    public func onChange(initial: Bool = false, perform action: @escaping (_ value: Value) async -> Void) {
+    public func onChange(initial: Bool = false, perform action: @escaping @Sendable (_ value: Value) async -> Void) {
         onChange(initial: initial) { _, newValue in
             await action(newValue)
         }
@@ -187,7 +184,7 @@ extension CharacteristicAccessor where Value: ByteDecodable {
     ///     - initial: Whether the action should be run with the initial characteristic value.
     ///     Otherwise, the action will only run strictly if the value changes.
     ///     - action: The change handler to register, receiving both the old and new value.
-    public func onChange(initial: Bool = false, perform action: @escaping (_ oldValue: Value, _ newValue: Value) async -> Void) {
+    public func onChange(initial: Bool = false, perform action: @escaping @Sendable (_ oldValue: Value, _ newValue: Value) async -> Void) {
         if let subscriptions = _testInjections.value?.subscriptions {
             let id = subscriptions.newOnChangeSubscription(perform: action)
 

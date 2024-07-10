@@ -6,14 +6,15 @@
 // SPDX-License-Identifier: MIT
 //
 
-@preconcurrency import CoreBluetooth
+import CoreBluetooth
 import Foundation
 
 
-struct CBCharacteristicCapture {
+struct CBCharacteristicCapture: Sendable {
     let isNotifying: Bool
     let value: Data?
-    let descriptors: [CBDescriptor]? // swiftlint:disable:this discouraged_optional_collection
+    nonisolated(unsafe) let descriptors: [CBDescriptor]? // swiftlint:disable:this discouraged_optional_collection
+    // TODO: review above!
 
     init(from characteristic: CBCharacteristic) {
         self.isNotifying = characteristic.isNotifying
@@ -36,7 +37,8 @@ struct CBCharacteristicCapture {
 /// - ``service``
 @Observable
 public final class GATTCharacteristic {
-    let underlyingCharacteristic: CBCharacteristic
+    // fine to be non-isolated. CBCharacteristic is non-Sendable as it is an open class.
+    nonisolated(unsafe) let underlyingCharacteristic: CBCharacteristic
 
     /// The associated service if still available.
     public private(set) weak var service: GATTService?
@@ -49,8 +51,8 @@ public final class GATTCharacteristic {
     public private(set) var descriptors: [CBDescriptor]? // swiftlint:disable:this discouraged_optional_collection
 
     /// The Bluetooth UUID of the characteristic.
-    public var uuid: CBUUID {
-        underlyingCharacteristic.uuid
+    public var uuid: BTUUID {
+        BTUUID(data: underlyingCharacteristic.uuid.data)
     }
 
     /// The properties of the characteristic.
@@ -67,7 +69,8 @@ public final class GATTCharacteristic {
     }
 
 
-    func synchronizeModel(capture: CBCharacteristicCapture) { // always called from the Bluetooth thread
+    @SpeziBluetooth
+    func synchronizeModel(capture: CBCharacteristicCapture) {
         if capture.isNotifying != isNotifying {
             isNotifying = capture.isNotifying
         }
@@ -81,7 +84,7 @@ public final class GATTCharacteristic {
 }
 
 
-extension GATTCharacteristic: @unchecked Sendable {}
+extension GATTCharacteristic: Sendable {}
 
 
 extension GATTCharacteristic: CustomDebugStringConvertible {

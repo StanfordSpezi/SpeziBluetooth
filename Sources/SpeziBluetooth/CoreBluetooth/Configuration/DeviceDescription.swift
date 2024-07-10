@@ -6,7 +6,6 @@
 // SPDX-License-Identifier: MIT
 //
 
-@preconcurrency import class CoreBluetooth.CBUUID
 import OSLog
 
 
@@ -19,11 +18,11 @@ public struct DeviceDescription {
     ///
     /// This will be the list of services we are interested in and we try to discover.
     public var services: Set<ServiceDescription>? { // swiftlint:disable:this discouraged_optional_collection
-        let values: Dictionary<CBUUID, ServiceDescription>.Values? = _services?.values
+        let values: Dictionary<BTUUID, ServiceDescription>.Values? = _services?.values
         return values.map { Set($0) }
     }
 
-    private let _services: [CBUUID: ServiceDescription]?  // swiftlint:disable:this discouraged_optional_collection
+    private let _services: [BTUUID: ServiceDescription]?  // swiftlint:disable:this discouraged_optional_collection
 
     /// Create a new device description.
     /// - Parameter services: The set of service descriptions specifying the expected services.
@@ -38,7 +37,7 @@ public struct DeviceDescription {
     /// Retrieve the service description for a given service id.
     /// - Parameter serviceId: The Bluetooth service id.
     /// - Returns: Returns the service description if present.
-    public func description(for serviceId: CBUUID) -> ServiceDescription? {
+    public func description(for serviceId: BTUUID) -> ServiceDescription? {
         _services?[serviceId]
     }
 }

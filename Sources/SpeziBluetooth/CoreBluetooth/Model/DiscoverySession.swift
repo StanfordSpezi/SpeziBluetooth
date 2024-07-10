@@ -90,9 +90,9 @@ struct BluetoothModuleDiscoveryState: BluetoothScanningState {
 }
 
 
-actor DiscoverySession: BluetoothActor {
+@SpeziBluetooth
+class DiscoverySession: Sendable {
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "DiscoverySession")
-    let bluetoothQueue: DispatchSerialQueue
 
 
     fileprivate weak var manager: BluetoothManager?
@@ -120,7 +120,7 @@ actor DiscoverySession: BluetoothActor {
 
     /// The set of serviceIds we request to discover upon scanning.
     /// Returning nil means scanning for all peripherals.
-    var serviceDiscoveryIds: [CBUUID]? { // swiftlint:disable:this discouraged_optional_collection
+    var serviceDiscoveryIds: [BTUUID]? { // swiftlint:disable:this discouraged_optional_collection
         let discoveryIds = configuration.configuredDevices.compactMap { configuration in
             configuration.discoveryCriteria.discoveryId
         }
@@ -133,7 +133,6 @@ actor DiscoverySession: BluetoothActor {
         boundTo manager: BluetoothManager,
         configuration: BluetoothManagerDiscoveryState
     ) {
-        self.bluetoothQueue = manager.bluetoothQueue
         self.manager = manager
         self.configuration = configuration
     }
@@ -174,11 +173,6 @@ actor DiscoverySession: BluetoothActor {
         self.configuration = configuration
         return discoveryItemsChanged
     }
-
-    deinit {
-        staleTimer?.cancel()
-        autoConnectItem?.cancel()
-    }
 }
 
 
@@ -207,12 +201,11 @@ extension DiscoverySession {
             return nil
         }
 
-        manager.assertIsolated("\(#function) was not called from within isolation.")
-        let sortedCandidates = manager.assumeIsolated { $0.discoveredPeripherals }
+        let sortedCandidates = manager.discoveredPeripherals
             .values
             .filter { $0.cbPeripheral.state == .disconnected }
             .sorted { lhs, rhs in
-                lhs.assumeIsolated { $0.rssi } < rhs.assumeIsolated { $0.rssi }
+                lhs.rssi < rhs.rssi
             }
 
         return sortedCandidates.first
@@ -224,20 +217,22 @@ extension DiscoverySession {
             return
         }
 
-        let item = BluetoothWorkItem(boundTo: self) { session in
-            session.autoConnectItem = nil
-
-            guard let candidate = session.autoConnectDeviceCandidate else {
+        let item = BluetoothWorkItem { [weak self] in
+            guard let self else {
                 return
             }
 
-            candidate.assumeIsolated { peripheral in
-                peripheral.connect()
+            self.autoConnectItem = nil
+
+            guard let candidate = self.autoConnectDeviceCandidate else {
+                return
             }
+
+            candidate.connect()
         }
 
+        item.schedule(for: .now() + .seconds(BluetoothManager.Defaults.defaultAutoConnectDebounce))
         autoConnectItem = item
-        self.bluetoothQueue.schedule(for: .now() + .seconds(BluetoothManager.Defaults.defaultAutoConnectDebounce), execute: item)
     }
 }
 
@@ -249,17 +244,17 @@ extension DiscoverySession {
     ///   - device: The device for which the timer is scheduled for.
     ///   - timeout: The timeout for which the timer is scheduled for.
     func scheduleStaleTask(for device: BluetoothPeripheral, withTimeout timeout: TimeInterval) {
-        let timer = DiscoveryStaleTimer(device: device.id, boundTo: self) { session in
-            session.handleStaleTask()
+        let timer = DiscoveryStaleTimer(device: device.id) { [weak self] in
+            self?.handleStaleTask()
         }
 
         self.staleTimer = timer
-        timer.schedule(for: timeout, in: self.bluetoothQueue)
+        timer.schedule(for: timeout, in: SpeziBluetooth.shared.dispatchQueue)
     }
 
     func scheduleStaleTaskForOldestActivityDevice(ignore device: BluetoothPeripheral? = nil) {
         if let oldestActivityDevice = oldestActivityDevice(ignore: device) {
-            let lastActivity = oldestActivityDevice.assumeIsolated { $0.lastActivity }
+            let lastActivity = oldestActivityDevice.lastActivity
 
             let intervalSinceLastActivity = Date.now.timeIntervalSince(lastActivity)
             let nextTimeout = max(0, advertisementStaleInterval - intervalSinceLastActivity)
@@ -286,18 +281,14 @@ extension DiscoverySession {
         }
 
         // when we are just interested in the min device, this operation is a bit cheaper then sorting the whole list
-        return manager.assumeIsolated { $0.discoveredPeripherals }
+        return manager.discoveredPeripherals
             .values
             .filter {
                 // it's important to access the underlying state here
                 $0.cbPeripheral.state == .disconnected && $0.id != device?.id
             }
             .min { lhs, rhs in
-                lhs.assumeIsolated {
-                    $0.lastActivity
-                } < rhs.assumeIsolated {
-                    $0.lastActivity
-                }
+                lhs.lastActivity < rhs.lastActivity
             }
     }
 
@@ -309,20 +300,16 @@ extension DiscoverySession {
         staleTimer = nil // reset the timer
 
         let staleInternal = advertisementStaleInterval
-        let staleDevices = manager.assumeIsolated { $0.discoveredPeripherals }
+        let staleDevices = manager.discoveredPeripherals
             .values
             .filter { device in
-                device.assumeIsolated { isolated in
-                    isolated.isConsideredStale(interval: staleInternal)
-                }
+                device.isConsideredStale(interval: staleInternal)
             }
 
         for device in staleDevices {
             logger.debug("Removing stale peripheral \(device.cbPeripheral.debugIdentifier)")
             // we know it won't be connected, therefore we just need to remove it
-            manager.assumeIsolated { manager in
-                manager.clearDiscoveredPeripheral(forKey: device.id)
-            }
+            manager.clearDiscoveredPeripheral(forKey: device.id)
         }
 
 

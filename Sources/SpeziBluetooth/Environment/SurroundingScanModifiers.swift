@@ -10,10 +10,12 @@ import SwiftUI
 
 
 @Observable
-class SurroundingScanModifiers: EnvironmentKey {
+final class SurroundingScanModifiers: EnvironmentKey, Sendable {
     static let defaultValue = SurroundingScanModifiers()
 
     @MainActor private var registeredModifiers: [AnyHashable: [UUID: any BluetoothScanningState]] = [:]
+
+    init() {}
 
     @MainActor
     func setModifierScanningState<Scanner: BluetoothScanner>(enabled: Bool, with scanner: Scanner, modifierId: UUID, state: Scanner.ScanningState) {

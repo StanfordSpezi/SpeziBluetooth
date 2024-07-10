@@ -6,8 +6,6 @@
 // SPDX-License-Identifier: MIT
 //
 
-@preconcurrency import CoreBluetooth
-
 
 /// Interact with a given Service.
 ///
@@ -23,7 +21,7 @@
 /// - ``isPresent``
 /// - ``isPrimary``
 public struct ServiceAccessor {
-    private let id: CBUUID
+    private let id: BTUUID
     private let injection: ServicePeripheralInjection?
     /// Capture of the service.
     private let service: GATTService?
@@ -42,7 +40,7 @@ public struct ServiceAccessor {
         service?.isPrimary == true
     }
 
-    init(id: CBUUID, injection: ServicePeripheralInjection?) {
+    init(id: BTUUID, injection: ServicePeripheralInjection?) {
         self.id = id
         self.injection = injection
         self.service = injection?.unsafeService

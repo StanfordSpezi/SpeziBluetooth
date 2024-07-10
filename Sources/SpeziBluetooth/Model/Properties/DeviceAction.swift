@@ -55,8 +55,9 @@
 /// ### Device Actions
 /// - ``DeviceActions``
 @propertyWrapper
-public final class DeviceAction<Action: _BluetoothPeripheralAction>: @unchecked Sendable {
-    private var injection: DeviceActionPeripheralInjection?
+public final class DeviceAction<Action: _BluetoothPeripheralAction>: Sendable {
+    // injection is set once at the start, unsafe non-isolation is okay here
+    private nonisolated(unsafe) var injection: DeviceActionPeripheralInjection?
     /// Support injection of closures for testing support.
     private let _injectedClosure = Box<Action.ClosureType?>(nil)
 

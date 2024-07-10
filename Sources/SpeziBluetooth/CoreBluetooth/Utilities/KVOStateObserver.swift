@@ -10,17 +10,19 @@ import Foundation
 
 
 protocol KVOReceiver: AnyObject {
-    func observeChange<K, V>(of keyPath: KeyPath<K, V>, value: V) async
+    func observeChange<K, V: Sendable>(of keyPath: KeyPath<K, V> & Sendable, value: V) async
 }
 
 
-class KVOStateObserver<Receiver: KVOReceiver>: NSObject {
-    private weak var receiver: Receiver?
+final class KVOStateObserver<Receiver: KVOReceiver>: NSObject, Sendable {
+    // reference counting is atomic, so non-isolated unsafe is fine (as long as we don't mutate)
+    private nonisolated(unsafe) weak var receiver: Receiver?
 
-    private var observation: NSKeyValueObservation?
+    // we never mutate, but has to be var, as we weakly capture self in this property
+    private nonisolated(unsafe) var observation: NSKeyValueObservation?
 
     // swiftlint:disable:next function_default_parameter_at_end
-    init<Entity: NSObject, V>(receiver: Receiver? = nil, entity: Entity, property: KeyPath<Entity, V>) {
+    init<Entity: NSObject, V>(receiver: Receiver? = nil, entity: Entity, property: KeyPath<Entity, V> & Sendable) where V: Sendable {
         self.receiver = receiver
         super.init()
 
@@ -34,7 +36,7 @@ class KVOStateObserver<Receiver: KVOReceiver>: NSObject {
         self.receiver = receiver
     }
 
-    func observeChange<K, V>(of keyPath: KeyPath<K, V>, value: V) {
+    func observeChange<K, V: Sendable>(of keyPath: KeyPath<K, V> & Sendable, value: V) {
         Task { @SpeziBluetooth in
             await receiver?.observeChange(of: keyPath, value: value)
         }

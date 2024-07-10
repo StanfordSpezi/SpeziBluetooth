@@ -21,7 +21,7 @@ public enum _PeripheralActionContent<ClosureType: Sendable> { // swiftlint:disab
 /// a `callAsFunction()` method and declare the respective extension to ``DeviceActions``.
 public protocol _BluetoothPeripheralAction { // swiftlint:disable:this type_name
     /// The closure type of the action.
-    associatedtype ClosureType
+    associatedtype ClosureType: Sendable
 
     /// Create a new action for a given peripheral instance.
     /// - Parameter content: The action content.
