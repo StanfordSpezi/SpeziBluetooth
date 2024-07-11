@@ -33,7 +33,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/StanfordSpezi/SpeziFoundation", from: "1.1.0"),
-        .package(url: "https://github.com/StanfordSpezi/Spezi", from: "1.4.0"),
+        .package(url: "https://github.com/StanfordSpezi/Spezi", branch: "fix/swift-concurrency"),
         .package(url: "https://github.com/StanfordSpezi/SpeziNetworking", from: "2.1.0"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.59.0"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.0.4"),
