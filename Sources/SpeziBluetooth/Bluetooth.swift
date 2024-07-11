@@ -409,6 +409,9 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
                 }
 
                 device = prepareDevice(id: uuid, configuration.deviceType, peripheral: peripheral)
+                Task { @MainActor in
+                    await loadDevice(device, using: spezi)
+                }
             }
 
             nearbyDevices[uuid] = device
@@ -529,6 +532,7 @@ public actor Bluetooth: Module, EnvironmentAccessible, BluetoothActor {
 
 
         let device = prepareDevice(id: uuid, Device.self, peripheral: peripheral)
+        await loadDevice(device, using: spezi)
 
         // The semantics of retrievePeripheral is as follows: it returns a BluetoothPeripheral that is weakly allocated by the BluetoothManager.´
         // Therefore, the BluetoothPeripheral is owned by the caller and is automatically deallocated if the caller decides to not require the instance anymore.
@@ -628,12 +632,14 @@ extension Bluetooth {
         
         precondition(!(device is EnvironmentAccessible), "Cannot load BluetoothDevice \(Device.self) that conforms to \(EnvironmentAccessible.self)!")
 
+        return device
+    }
 
+    @MainActor
+    func loadDevice(_ device: some BluetoothDevice, using spezi: Spezi) {
         // We load the module with external ownership. Meaning, Spezi won't keep any strong references to the Module and deallocation of
         // the module is possible, freeing all Spezi related resources.
         spezi.loadModule(device, ownership: .external) // implicitly calls the configure() method once everything is injected
-
-        return device
     }
 
 
