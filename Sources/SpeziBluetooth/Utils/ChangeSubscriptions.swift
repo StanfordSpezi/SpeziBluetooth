@@ -10,15 +10,15 @@ import Foundation
 import OrderedCollections
 
 
-class ChangeSubscriptions<Value: Sendable>: @unchecked Sendable { // TODO: review how we implemented this, might just isolate?
+final class ChangeSubscriptions<Value: Sendable>: Sendable {
     private struct Registration: Sendable {
         let subscription: AsyncStream<Value>
         let id: UUID
     }
 
-    private var continuations: OrderedDictionary<UUID, AsyncStream<Value>.Continuation> = [:]
-    private var taskHandles: [UUID: Task<Void, Never>] = [:]
-    private let lock = NSLock()
+    private nonisolated(unsafe) var continuations: OrderedDictionary<UUID, AsyncStream<Value>.Continuation> = [:]
+    private nonisolated(unsafe) var taskHandles: [UUID: Task<Void, Never>] = [:]
+    private let lock = NSLock() // protects both non-isolated unsafe vars above
 
     init() {}
 

@@ -41,7 +41,7 @@ public final class GATTCharacteristic {
     nonisolated(unsafe) let underlyingCharacteristic: CBCharacteristic
 
     /// The associated service if still available.
-    public private(set) weak var service: GATTService?
+    public private(set) nonisolated(unsafe) weak var service: GATTService? // never mutated, var required for weak reference
 
     /// Whether the characteristic is currently notifying or not.
     public private(set) var isNotifying: Bool

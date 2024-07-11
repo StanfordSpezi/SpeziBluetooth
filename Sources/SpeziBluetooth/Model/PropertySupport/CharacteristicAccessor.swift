@@ -87,7 +87,7 @@ public struct CharacteristicAccessor<Value: Sendable> {
 }
 
 
-extension CharacteristicAccessor: @unchecked Sendable {}
+extension CharacteristicAccessor: Sendable {}
 
 
 extension CharacteristicAccessor {

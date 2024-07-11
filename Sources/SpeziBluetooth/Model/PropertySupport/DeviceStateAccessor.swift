@@ -66,7 +66,7 @@ struct DeviceStateTestInjections<Value: Sendable>: DefaultInitializable {
 /// - ``onChange(initial:perform:)-9igc9``
 public struct DeviceStateAccessor<Value: Sendable> {
     private let id: ObjectIdentifier
-    private let keyPath: KeyPath<BluetoothPeripheral, Value>
+    private let keyPath: KeyPath<BluetoothPeripheral, Value> & Sendable
     private let injection: DeviceStatePeripheralInjection<Value>?
     /// To support testing support.
     private let _injectedValue: ObservableBox<Value?>
@@ -75,7 +75,7 @@ public struct DeviceStateAccessor<Value: Sendable> {
 
     init(
         id: ObjectIdentifier,
-        keyPath: KeyPath<BluetoothPeripheral, Value>,
+        keyPath: KeyPath<BluetoothPeripheral, Value> & Sendable,
         injection: DeviceStatePeripheralInjection<Value>?,
         injectedValue: ObservableBox<Value?>,
         testInjections: Box<DeviceStateTestInjections<Value>?>
@@ -181,7 +181,7 @@ extension DeviceStateAccessor {
 }
 
 
-extension DeviceStateAccessor: @unchecked Sendable {}
+extension DeviceStateAccessor: Sendable {}
 
 
 // MARK: - Testing Support

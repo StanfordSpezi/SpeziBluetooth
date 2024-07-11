@@ -8,7 +8,8 @@
 
 
 @propertyWrapper
-class Lazy<Value> {
+@SpeziBluetooth
+final class Lazy<Value>: Sendable {
     private var initializer: (() -> Value)?
     private var onCleanup: (() -> Void)?
 

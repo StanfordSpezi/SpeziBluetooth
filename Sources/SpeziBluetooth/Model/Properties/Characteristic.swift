@@ -158,7 +158,7 @@ import Foundation
 /// - ``projectedValue``
 /// - ``CharacteristicAccessor``
 @propertyWrapper
-public final class Characteristic<Value: Sendable>: Sendable { // TODO: review all @unchecked Sendable
+public final class Characteristic<Value: Sendable>: Sendable {
     class Configuration {
         let description: CharacteristicDescription
         var defaultNotify: Bool
@@ -180,7 +180,7 @@ public final class Characteristic<Value: Sendable>: Sendable { // TODO: review a
 
     let configuration: Configuration
     private let _value: ObservableBox<Value?>
-    private var injection: CharacteristicPeripheralInjection<Value>?
+    private nonisolated(unsafe) var injection: CharacteristicPeripheralInjection<Value>? // only mutate from SpeziBluetooth actor (and only once)
 
     private let _testInjections: Box<CharacteristicTestInjections<Value>?> = Box(nil)
 

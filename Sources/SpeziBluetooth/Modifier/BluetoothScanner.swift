@@ -19,7 +19,7 @@ protocol BluetoothScanningState: Equatable, Sendable {
 
 
 /// Any kind of Bluetooth Scanner.
-protocol BluetoothScanner: Identifiable where ID: Hashable {
+protocol BluetoothScanner: Identifiable, Sendable where ID: Hashable {
     /// Captures state required to start scanning.
     associatedtype ScanningState: BluetoothScanningState
 

@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
-import CoreBluetooth
+@preconcurrency import CoreBluetooth // TODO: revisit!
 import Foundation
 import OSLog
 import SpeziFoundation
@@ -63,14 +63,14 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothDevice")
 
     private weak var manager: BluetoothManager?
-    private let peripheral: CBPeripheral
+    let cbPeripheral: CBPeripheral
     private let configuration: DeviceDescription
 
     private let delegate: Delegate // swiftlint:disable:this weak_delegate
-    private let stateObserver: KVOStateObserver<BluetoothPeripheral>
+    private var stateObserver: KVOStateDidChangeObserver<CBPeripheral, CBPeripheralState>?
 
     /// Observable state container for local state.
-    private let _storage: PeripheralStorage
+    private let storage: PeripheralStorage
 
 
     /// Ongoing accessed per characteristic.
@@ -93,116 +93,69 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     /// A set of service ids we are currently awaiting characteristics discovery for
     private var servicesAwaitingCharacteristicsDiscovery: Set<BTUUID> = []
 
-    nonisolated var cbPeripheral: CBPeripheral {
-        peripheral
-    }
-
-    nonisolated var unsafeState: PeripheralStorage {
-        _storage
-    }
+    /// The internally managed identifier for the peripheral.
+    public let id: UUID
 
     /// The name of the peripheral.
     ///
     /// Returns the name reported through the Generic Access Profile, otherwise falls back to the local name.
     nonisolated public var name: String? {
-        _storage.name
+        storage.name
     }
 
 
     /// The local name included in the advertisement.
-    nonisolated public private(set) var localName: String? {
-        get {
-            _storage.localName
-        }
-        set {
-            _storage.update(localName: newValue)
-        }
+    nonisolated public var localName: String? {
+        storage._localName
     }
 
-    nonisolated private(set) var peripheralName: String? {
-        get {
-            _storage.peripheralName
-        }
-        set {
-            _storage.update(peripheralName: newValue)
-        }
+    nonisolated var peripheralName: String? {
+        storage._peripheralName
     }
 
     /// The current signal strength.
     ///
     /// This value is automatically updated when the device is advertising.
     /// Once the device establishes a connection this has to be manually updated.
-    nonisolated public private(set) var rssi: Int {
-        get {
-            _storage.rssi
-        }
-        set {
-            _storage.update(rssi: newValue)
-        }
+    nonisolated public var rssi: Int {
+        storage._rssi
     }
 
     /// The advertisement data of the last bluetooth advertisement.
-    nonisolated public private(set) var advertisementData: AdvertisementData {
-        get {
-            _storage.advertisementData
-        }
-        set {
-            _storage.update(advertisementData: newValue)
-        }
+    nonisolated public var advertisementData: AdvertisementData {
+        storage._advertisementData
     }
 
     /// The current peripheral device state.
-    nonisolated public internal(set) var state: PeripheralState {
-        get {
-            _storage.state
-        }
-        set {
-            _storage.update(state: newValue)
-        }
+    nonisolated public var state: PeripheralState {
+        storage._state
     }
 
     /// The list of discovered services.
     ///
     /// Services are discovered automatically upon connection
-    nonisolated public private(set) var services: [GATTService]? { // swiftlint:disable:this discouraged_optional_collection
-        get {
-            _storage.services
-        }
-        set {
-            if let newValue {
-                _storage.assign(services: newValue)
-            }
-        }
+    nonisolated public var services: [GATTService]? { // swiftlint:disable:this discouraged_optional_collection
+        storage._services
     }
 
     /// The last device activity.
     ///
     /// Returns the date of the last advertisement received from the device or the point in time the device disconnected.
     /// Returns `now` if the device is currently connected.
-    nonisolated public private(set) var lastActivity: Date {
-        get {
-            if case .connected = state {
-                // we are currently connected or connecting/disconnecting, therefore last activity is defined as "now"
-                .now
-            } else {
-                _storage.lastActivity
-            }
-        }
-        set {
-            _storage.update(lastActivity: newValue)
+    nonisolated public var lastActivity: Date {
+        if case .connected = state {
+            // we are currently connected or connecting/disconnecting, therefore last activity is defined as "now"
+            .now
+        } else {
+            storage._lastActivity
         }
     }
 
     /// Indicates that the peripheral is nearby.
     ///
     /// A device is nearby if either we consider it discovered because we are currently scanning or the device is connected.
-    nonisolated public private(set) var nearby: Bool {
-        get {
-            _storage.nearby
-        }
-        set {
-            _storage.update(nearby: newValue)
-        }
+    nonisolated public var nearby: Bool {
+        storage._nearby
     }
 
 
@@ -214,10 +167,12 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
         rssi: Int
     ) {
         self.manager = manager
-        self.peripheral = peripheral
+        self.cbPeripheral = peripheral
         self.configuration = configuration
 
-        self._storage = PeripheralStorage(
+        self.id = peripheral.identifier
+
+        self.storage = PeripheralStorage(
             peripheralName: peripheral.name,
             rssi: rssi,
             advertisementData: advertisementData,
@@ -225,15 +180,16 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
         )
 
         let delegate = Delegate()
-        let observer = KVOStateObserver<BluetoothPeripheral>(entity: peripheral, property: \.state)
 
         self.delegate = delegate
-        self.stateObserver = observer
 
-        // we have this separate initDevice methods as otherwise above access to `delegate` and `stateObserver` properties
+        self.stateObserver = KVOStateDidChangeObserver(entity: peripheral, property: \.state) { [weak self] value in
+            self?.storage.update(state: PeripheralState(from: value))
+        }
+
+        // we have this separate initDevice method as otherwise above access to `delegate`
         // would become non-isolated accesses (due to usage of self beforehand).
         delegate.initDevice(self)
-        observer.initReceiver(self)
 
         peripheral.delegate = delegate
     }
@@ -268,7 +224,7 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
 
         manager.disconnect(peripheral: self)
         // ensure that it is updated instantly.
-        self.isolatedUpdate(of: \.state, PeripheralState(from: peripheral.state))
+        storage.update(state: PeripheralState(from: cbPeripheral.state))
     }
 
     /// Retrieve a service.
@@ -290,29 +246,29 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     }
 
     func onChange<Value>(of keyPath: KeyPath<PeripheralStorage, Value>, perform closure: @escaping (Value) -> Void) {
-        _storage.onChange(of: keyPath, perform: closure)
+        storage.onChange(of: keyPath, perform: closure)
     }
 
     func handleConnect() {
         // ensure that it is updated instantly.
-        self.isolatedUpdate(of: \.state, PeripheralState(from: peripheral.state))
+        storage.update(state: PeripheralState(from: cbPeripheral.state))
 
-        logger.debug("Discovering services for \(self.peripheral.debugIdentifier) ...")
+        logger.debug("Discovering services for \(self.cbPeripheral.debugIdentifier) ...")
         let serviceIds = configuration.services?.reduce(into: Set()) { result, description in
             result.insert(description.serviceId.cbuuid)
         }
         
         if let serviceIds, serviceIds.isEmpty {
-            _storage.signalFullyDiscovered()
+            storage.signalFullyDiscovered()
         } else {
-            peripheral.discoverServices(serviceIds.map { Array($0) })
+            cbPeripheral.discoverServices(serviceIds.map { Array($0) })
         }
     }
 
     /// Handles a disconnect or failed connection attempt.
     func handleDisconnect() {
         // ensure that it is updated instantly.
-        self.isolatedUpdate(of: \.state, PeripheralState(from: peripheral.state))
+        storage.update(state: PeripheralState(from: cbPeripheral.state))
 
         // clear all the ongoing access
 
@@ -337,18 +293,18 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     }
 
     func handleDiscarded() {
-        isolatedUpdate(of: \.nearby, false)
+        storage.update(nearby: false)
     }
 
     func markLastActivity(_ lastActivity: Date = .now) {
-        self.lastActivity = lastActivity
+        storage.update(lastActivity: lastActivity)
     }
 
     func update(advertisement: AdvertisementData, rssi: Int) {
-        self.isolatedUpdate(of: \.localName, advertisement.localName)
-        self.isolatedUpdate(of: \.advertisementData, advertisement)
-        self.isolatedUpdate(of: \.rssi, rssi)
-        self.isolatedUpdate(of: \.nearby, true)
+        storage.advertisementData = advertisement
+        storage.localName = advertisementData.localName
+        storage.rssi = rssi
+        storage.update(nearby: true)
     }
 
     /// Determines if the device is considered stale.
@@ -358,7 +314,7 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     /// - Parameter interval: The time interval after which the device is considered stale.
     /// - Returns: True if the device is considered stale given the above criteria.
     func isConsideredStale(interval: TimeInterval) -> Bool {
-        peripheral.state == .disconnected && lastActivity.addingTimeInterval(interval) < .now
+        cbPeripheral.state == .disconnected && lastActivity.addingTimeInterval(interval) < .now
     }
 
     /// Register a on-change handler for a characteristic.
@@ -466,7 +422,7 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
         }
 
         if characteristic.properties.supportsNotifications {
-            peripheral.setNotifyValue(notify, for: characteristic.underlyingCharacteristic)
+            cbPeripheral.setNotifyValue(notify, for: characteristic.underlyingCharacteristic)
         }
     }
 
@@ -474,14 +430,14 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     /// This cancels any subscriptions if there are any, or straight disconnects if not.
     /// (didUpdateNotificationStateForCharacteristic will cancel the connection if a subscription is involved)
     private func removeAllNotifications() {
-        guard case .connected = peripheral.state else {
+        guard case .connected = cbPeripheral.state else {
             return
         }
 
         // we need to unsubscribe before we cancel the connection
-        for service in peripheral.services ?? [] {
+        for service in cbPeripheral.services ?? [] {
             for characteristic in service.characteristics ?? []  where characteristic.isNotifying {
-                peripheral.setNotifyValue(false, for: characteristic)
+                cbPeripheral.setNotifyValue(false, for: characteristic)
             }
         }
     }
@@ -505,7 +461,7 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
 
         try await withCheckedThrowingContinuation { continuation in
             access.store(.write(continuation))
-            peripheral.writeValue(data, for: characteristic, type: .withResponse)
+            cbPeripheral.writeValue(data, for: characteristic, type: .withResponse)
         }
     }
 
@@ -530,7 +486,7 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
         await withCheckedContinuation { continuation in
             assert(writeWithoutResponseContinuation == nil, "writeWithoutResponseAccess was unexpectedly not nil")
             writeWithoutResponseContinuation = continuation
-            peripheral.writeValue(data, for: characteristic.underlyingCharacteristic, type: .withoutResponse)
+            cbPeripheral.writeValue(data, for: characteristic.underlyingCharacteristic, type: .withoutResponse)
         }
     }
 
@@ -549,7 +505,7 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
 
         return try await withCheckedThrowingContinuation { continuation in
             access.store(.read(continuation))
-            peripheral.readValue(for: characteristic)
+            cbPeripheral.readValue(for: characteristic)
         }
     }
 
@@ -564,7 +520,7 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
         return try await withCheckedThrowingContinuation { continuation in
             assert(rssiContinuation == nil, "rssiAccess was unexpectedly not nil")
             rssiContinuation = continuation
-            peripheral.readRSSI()
+            cbPeripheral.readRSSI()
         }
     }
 
@@ -620,7 +576,9 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
             // Note: we iterate over the zipped array in reverse such that the indices stay valid if remove elements
 
             // the service was invalidated!
-            self.services?.remove(at: index)
+            var services = self.services
+            services?.remove(at: index)
+            self.storage.update(services: services)
 
             // make sure we notify subscribed handlers about removed services!
             for characteristic in service.characteristics {
@@ -647,22 +605,13 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
             }
 
         if let services = self.services {
-            isolatedUpdate(of: \.services, services + addedServices)
+            storage.update(services: services + addedServices)
         } else {
-            isolatedUpdate(of: \.services, addedServices)
+            storage.update(services: addedServices)
         }
-    }
-
-    private func isolatedUpdate<Value>(of keyPath: WritableKeyPath<BluetoothPeripheral, Value>, _ value: Value) {
-        var peripheral = self
-        peripheral[keyPath: keyPath] = value
     }
 
     deinit {
-        if !_storage.nearby { // make sure signal is sent
-            _storage.update(nearby: false)
-        }
-
         guard let manager else {
             self.logger.warning("Orphaned device \(self.id), \(self.name ?? "unnamed") was de-initialized")
             return
@@ -672,28 +621,13 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
         let name = name
 
         self.logger.debug("Device \(id), \(name ?? "unnamed") was de-initialized...")
-        Task.detached { @SpeziBluetooth in
-            await manager.handlePeripheralDeinit(id: id)
-        }
-    }
-}
 
+        Task.detached { @SpeziBluetooth [storage, nearby] in
+            if nearby { // make sure signal is sent
+                storage.update(nearby: false)
+            }
 
-extension BluetoothPeripheral: Identifiable {
-    /// The internally managed identifier for the peripheral.
-    public nonisolated var id: UUID {
-        peripheral.identifier
-    }
-}
-
-extension BluetoothPeripheral: KVOReceiver {
-    func observeChange<K, V: Sendable>(of keyPath: KeyPath<K, V> & Sendable, value: V) {
-        switch keyPath {
-        case \CBPeripheral.state:
-            // force cast is okay as we implicitly verify the type using the KeyPath in the case statement.
-            self.isolatedUpdate(of: \.state, PeripheralState(from: value as! CBPeripheralState)) // swiftlint:disable:this force_cast
-        default:
-            break
+            manager.handlePeripheralDeinit(id: id)
         }
     }
 }
@@ -718,7 +652,7 @@ extension BluetoothPeripheral {
 
             // pull initial value if none is present
             if description?.autoRead != false && characteristic.value == nil && characteristic.properties.contains(.read) {
-                peripheral.readValue(for: characteristic)
+                cbPeripheral.readValue(for: characteristic)
             }
 
             // enable notifications if registered
@@ -727,13 +661,13 @@ extension BluetoothPeripheral {
 
                 if notifyRequested.contains(locator) {
                     logger.debug("Automatically subscribing to discovered characteristic \(locator)...")
-                    peripheral.setNotifyValue(true, for: characteristic)
+                    cbPeripheral.setNotifyValue(true, for: characteristic)
                 }
             }
 
             if description?.discoverDescriptors == true {
                 logger.debug("Discovering descriptors for \(characteristic.debugIdentifier)...")
-                peripheral.discoverDescriptors(for: characteristic)
+                cbPeripheral.discoverDescriptors(for: characteristic)
             }
         }
     }
@@ -794,20 +728,24 @@ extension BluetoothPeripheral {
 
 extension BluetoothPeripheral: CustomDebugStringConvertible {
     public nonisolated var debugDescription: String {
-        cbPeripheral.debugIdentifier
+        if let name {
+            "'\(name)' @ \(id)"
+        } else {
+            "\(id)"
+        }
     }
 }
 
 
 // MARK: Hashable
 extension BluetoothPeripheral: Hashable {
-    public static func == (lhs: BluetoothPeripheral, rhs: BluetoothPeripheral) -> Bool {
-        lhs.peripheral == rhs.peripheral
+    public nonisolated static func == (lhs: BluetoothPeripheral, rhs: BluetoothPeripheral) -> Bool {
+        lhs.id == rhs.id
     }
 
 
     public nonisolated func hash(into hasher: inout Hasher) {
-        hasher.combine(peripheral)
+        hasher.combine(id)
     }
 }
 
@@ -836,7 +774,7 @@ extension BluetoothPeripheral {
             let name = peripheral.name
 
             Task { @SpeziBluetooth in
-                device.isolatedUpdate(of: \.peripheralName, name)
+                device.storage.peripheralName = name
             }
         }
 
@@ -847,7 +785,7 @@ extension BluetoothPeripheral {
 
             Task { @SpeziBluetooth in
                 let rssi = RSSI.intValue
-                device.isolatedUpdate(of: \.rssi, rssi)
+                device.storage.rssi = rssi
 
                 let result: Result<Int, Error> = error.map { .failure($0) } ?? .success(rssi)
 
@@ -901,10 +839,10 @@ extension BluetoothPeripheral {
                 return
             }
 
-            Task { @SpeziBluetooth in
+            Task { @SpeziBluetooth [logger] in
                 device.discovered(services: services)
 
-                logger.debug("Discovered \(services) services for peripheral \(device.peripheral.debugIdentifier)")
+                logger.debug("Discovered \(services) services for peripheral \(device.debugDescription)")
 
                 for service in services {
                     let serviceId = BTUUID(from: service.uuid)
@@ -926,7 +864,7 @@ extension BluetoothPeripheral {
                 }
 
                 if device.servicesAwaitingCharacteristicsDiscovery.isEmpty {
-                    device._storage.signalFullyDiscovered()
+                    device.storage.signalFullyDiscovered()
                 }
             }
         }
@@ -936,18 +874,19 @@ extension BluetoothPeripheral {
                 return
             }
 
-            Task { @SpeziBluetooth in
+            let errorLocalizedDescription = error?.localizedDescription // apparently error is not sendable
+            Task { @SpeziBluetooth [logger, errorLocalizedDescription] in
                 // update our model with latest characteristics!
                 device.synchronizeModel(for: service)
 
                 // ensure we keep track of all discoveries, set .connected state
                 device.servicesAwaitingCharacteristicsDiscovery.remove(BTUUID(from: service.uuid))
                 if device.servicesAwaitingCharacteristicsDiscovery.isEmpty {
-                    device._storage.signalFullyDiscovered()
+                    device.storage.signalFullyDiscovered()
                 }
 
-                if let error {
-                    logger.error("Error discovering characteristics: \(error.localizedDescription)")
+                if let errorLocalizedDescription {
+                    logger.error("Error discovering characteristics: \(errorLocalizedDescription)")
                     return
                 }
 

@@ -38,11 +38,11 @@ import CoreBluetooth
 /// - ``projectedValue``
 /// - ``ServiceAccessor``
 @propertyWrapper
-public final class Service<S: BluetoothService>: @unchecked Sendable {
+public final class Service<S: BluetoothService> {
     var id: BTUUID {
         S.id
     }
-    private var injection: ServicePeripheralInjection?
+    private nonisolated(unsafe) var injection: ServicePeripheralInjection? // only mutated via SpeziBluetooth actor, and only once
 
     /// Access the service instance.
     public let wrappedValue: S
@@ -74,6 +74,9 @@ public final class Service<S: BluetoothService>: @unchecked Sendable {
         injection.setup()
     }
 }
+
+
+extension Service: Sendable where S: Sendable {}
 
 
 extension Service: DeviceVisitable {

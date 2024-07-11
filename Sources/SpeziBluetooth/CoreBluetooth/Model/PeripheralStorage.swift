@@ -15,94 +15,132 @@ import Foundation
 /// Main motivation is to have `BluetoothPeripheral` be implemented as an actor and moving state
 /// into a separate state container that is `@Observable`.
 @Observable
-final class PeripheralStorage: ValueObservable {
-    var name: String? {
-        peripheralName ?? localName
+final class PeripheralStorage: ValueObservable, Sendable {
+    nonisolated var name: String? {
+        _peripheralName ?? _localName
     }
 
-    private(set) var peripheralName: String? {
-        didSet {
-            _$simpleRegistrar.triggerDidChange(for: \.peripheralName, on: self)
+    // swiftlint:disable identifier_name
+    private(set) nonisolated(unsafe) var _peripheralName: String?
+    private(set) nonisolated(unsafe) var _localName: String?
+    private(set) nonisolated(unsafe) var _rssi: Int
+    private(set) nonisolated(unsafe) var _advertisementData: AdvertisementData
+    private(set) nonisolated(unsafe) var _state: PeripheralState
+    private(set) nonisolated(unsafe) var _nearby: Bool
+    private(set) nonisolated(unsafe) var _services: [GATTService]? // swiftlint:disable:this discouraged_optional_collection
+    private(set) nonisolated(unsafe) var _lastActivity: Date
+    // swiftlint:enable identifier_name
+
+    @SpeziBluetooth var peripheralName: String? {
+        get {
+            _peripheralName
+        }
+        set {
+            let didChange = newValue != _peripheralName
+            _peripheralName = newValue
+            if didChange {
+                _$simpleRegistrar.triggerDidChange(for: \.peripheralName, on: self)
+            }
         }
     }
 
-    private(set) var localName: String? {
-        didSet {
-            _$simpleRegistrar.triggerDidChange(for: \.localName, on: self)
+    @SpeziBluetooth var localName: String? {
+        get {
+            _localName
+        }
+        set {
+            let didChange = newValue != _localName
+            _localName = newValue
+            if didChange {
+                _$simpleRegistrar.triggerDidChange(for: \.localName, on: self)
+            }
         }
     }
 
-    private(set) var rssi: Int {
-        didSet {
-            _$simpleRegistrar.triggerDidChange(for: \.rssi, on: self)
+    @SpeziBluetooth var rssi: Int {
+        get {
+            _rssi
+        }
+        set {
+            let didChange = newValue != _rssi
+            _rssi = newValue
+            if didChange {
+                _$simpleRegistrar.triggerDidChange(for: \.rssi, on: self)
+            }
         }
     }
 
-    private(set) var advertisementData: AdvertisementData {
-        didSet {
-            _$simpleRegistrar.triggerDidChange(for: \.advertisementData, on: self)
+    @SpeziBluetooth var advertisementData: AdvertisementData {
+        get {
+            _advertisementData
+        }
+        set {
+            let didChange = newValue != _advertisementData
+            _advertisementData = newValue
+            if didChange {
+                _$simpleRegistrar.triggerDidChange(for: \.advertisementData, on: self)
+            }
         }
     }
 
-    private(set) var state: PeripheralState {
-        didSet {
-            _$simpleRegistrar.triggerDidChange(for: \.state, on: self)
+    @SpeziBluetooth var state: PeripheralState {
+        get {
+            _state
+        }
+        set {
+            let didChange = newValue != _state
+            _state = newValue
+            if didChange {
+                _$simpleRegistrar.triggerDidChange(for: \.state, on: self)
+            }
         }
     }
 
-    private(set) var nearby: Bool {
-        didSet {
+    @SpeziBluetooth var nearby: Bool {
+        get {
+            _nearby
+        }
+        set {
+            _nearby = newValue
             _$simpleRegistrar.triggerDidChange(for: \.nearby, on: self)
         }
     }
 
-    private(set) var services: [GATTService]? { // swiftlint:disable:this discouraged_optional_collection
-        didSet {
+    @SpeziBluetooth var services: [GATTService]? { // swiftlint:disable:this discouraged_optional_collection
+        get {
+            _services
+        }
+        set {
+            _services = newValue
             _$simpleRegistrar.triggerDidChange(for: \.services, on: self)
         }
     }
 
-    private(set) var lastActivity: Date {
-        didSet {
+    @SpeziBluetooth var lastActivity: Date {
+        get {
+            _lastActivity
+        }
+        set {
+            _lastActivity = newValue
             _$simpleRegistrar.triggerDidChange(for: \.lastActivity, on: self)
         }
     }
 
     // swiftlint:disable:next identifier_name
-    @ObservationIgnored var _$simpleRegistrar = ValueObservationRegistrar<PeripheralStorage>()
+    @ObservationIgnored let _$simpleRegistrar = ValueObservationRegistrar<PeripheralStorage>()
 
+    @SpeziBluetooth
     init(peripheralName: String?, rssi: Int, advertisementData: AdvertisementData, state: CBPeripheralState, lastActivity: Date = .now) {
-        self.peripheralName = peripheralName
-        self.localName = advertisementData.localName
-        self.advertisementData = advertisementData
-        self.rssi = rssi
-        self.state = .init(from: state)
-        self.nearby = false
-        self.lastActivity = lastActivity
+        self._peripheralName = peripheralName
+        self._localName = advertisementData.localName
+        self._advertisementData = advertisementData
+        self._rssi = rssi
+        self._state = .init(from: state)
+        self._nearby = false
+        self._lastActivity = lastActivity
     }
 
-    func update(localName: String?) {
-        if self.localName != localName {
-            self.localName = localName
-        }
-    }
-
-    func update(peripheralName: String?) {
-        if self.peripheralName != peripheralName {
-            self.peripheralName = peripheralName
-        }
-    }
-
-    func update(rssi: Int) {
-        if self.rssi != rssi {
-            self.rssi = rssi
-        }
-    }
-
-    func update(advertisementData: AdvertisementData) {
-        self.advertisementData = advertisementData // not equatable
-    }
-
+    @SpeziBluetooth
     func update(state: PeripheralState) {
         if self.state != state {
             // we set connected on our own! See `signalFullyDiscovered`
@@ -116,12 +154,14 @@ final class PeripheralStorage: ValueObservable {
         }
     }
 
+    @SpeziBluetooth
     func update(nearby: Bool) {
         if nearby != self.nearby {
             self.nearby = nearby
         }
     }
 
+    @SpeziBluetooth
     func signalFullyDiscovered() {
         if state == .connecting {
             state = .connected
@@ -129,11 +169,13 @@ final class PeripheralStorage: ValueObservable {
         }
     }
 
+    @SpeziBluetooth
     func update(lastActivity: Date = .now) {
         self.lastActivity = lastActivity
     }
 
-    func assign(services: [GATTService]) {
+    @SpeziBluetooth
+    func update(services: [GATTService]?) { // swiftlint:disable:this discouraged_optional_collection
         self.services = services
     }
 }

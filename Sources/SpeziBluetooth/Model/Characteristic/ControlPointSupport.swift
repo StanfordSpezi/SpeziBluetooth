@@ -10,10 +10,10 @@ import Foundation
 import SpeziFoundation
 
 
-final class ControlPointTransaction<Value>: @unchecked Sendable {
+final class ControlPointTransaction<Value: Sendable>: Sendable {
     let id: UUID
 
-    private(set) var continuation: CheckedContinuation<Value, Error>?
+    private(set) nonisolated(unsafe) var continuation: CheckedContinuation<Value, Error>?
     private let lock = NSLock()
 
     init(id: UUID = UUID()) {

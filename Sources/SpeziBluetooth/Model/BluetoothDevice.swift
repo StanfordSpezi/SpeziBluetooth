@@ -28,7 +28,7 @@ import Spezi
 ///     init() {}
 /// }
 /// ```
-public protocol BluetoothDevice: AnyObject, Module, Observable {
+public protocol BluetoothDevice: AnyObject, Module, Observable, Sendable {
     /// Initializes the Bluetooth Device.
     ///
     /// This initializer is called automatically when a peripheral of this type connects.

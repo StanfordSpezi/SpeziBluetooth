@@ -29,4 +29,4 @@ public struct DeviceActionAccessor<ClosureType> {
 }
 
 
-extension DeviceActionAccessor: @unchecked Sendable {}
+extension DeviceActionAccessor: Sendable {}

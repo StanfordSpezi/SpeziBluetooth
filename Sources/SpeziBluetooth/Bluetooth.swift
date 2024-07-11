@@ -294,7 +294,7 @@ public class Bluetooth: Module, EnvironmentAccessible, Sendable {
     private var spezi
 
     /// Stores the connected device instance for every configured ``BluetoothDevice`` type.
-    @Model private var connectedDevicesModel = ConnectedDevicesModel()
+    @Model @MainActor private var connectedDevicesModel = ConnectedDevicesModel()
     /// Injects the ``BluetoothDevice`` instances from the `ConnectedDevices` model into the SwiftUI environment.
     @Modifier @MainActor private var devicesInjector: ConnectedDevicesEnvironmentModifier
 
@@ -311,7 +311,7 @@ public class Bluetooth: Module, EnvironmentAccessible, Sendable {
     /// ```
     ///
     /// - Parameter devices: The set of configured devices.
-    public init(
+    public init( // TODO: this must be @MainActor (or non-isolated) to really be useable from the configuration section!
         @DiscoveryDescriptorBuilder _ devices: @Sendable () -> Set<DeviceDiscoveryDescriptor>
     ) {
         let configuration = devices()
@@ -319,9 +319,7 @@ public class Bluetooth: Module, EnvironmentAccessible, Sendable {
         let deviceTypes = configuration.deviceTypes
         let discovery = configuration.parseDiscoveryDescription()
 
-        let bluetoothManager = BluetoothManager()
-
-        self.bluetoothManager = bluetoothManager
+        self.bluetoothManager = BluetoothManager()
         self.configuration = configuration
         self.discoveryConfiguration = discovery
         self._devicesInjector = Modifier(wrappedValue: ConnectedDevicesEnvironmentModifier(configuredDeviceTypes: deviceTypes))
@@ -392,8 +390,8 @@ public class Bluetooth: Module, EnvironmentAccessible, Sendable {
                 }
 
                 device = prepareDevice(id: uuid, configuration.deviceType, peripheral: peripheral)
-                Task { @MainActor in // TODO: we should probably await that!
-                    await loadDevice(device, using: spezi)
+                Task { @MainActor [spezi] in // TODO: we should probably await that!
+                    Self.loadDevice(device, using: spezi)
                 }
             }
 
@@ -449,8 +447,8 @@ public class Bluetooth: Module, EnvironmentAccessible, Sendable {
                 result[tuple.0] = tuple.1
             }
 
-        let connectedDevicesModel = connectedDevicesModel
         Task { @MainActor in
+            let connectedDevicesModel = self.connectedDevicesModel
             connectedDevicesModel.update(with: connectedDevices)
         }
     }
@@ -511,7 +509,8 @@ public class Bluetooth: Module, EnvironmentAccessible, Sendable {
 
 
         let device = prepareDevice(id: uuid, Device.self, peripheral: peripheral)
-        await loadDevice(device, using: spezi)
+        let spezi = self.spezi
+        await Self.loadDevice(device, using: spezi)
 
         // The semantics of retrievePeripheral is as follows: it returns a BluetoothPeripheral that is weakly allocated by the BluetoothManager.´
         // Therefore, the BluetoothPeripheral is owned by the caller and is automatically deallocated if the caller decides to not require the instance anymore.
@@ -583,6 +582,13 @@ extension Bluetooth: BluetoothScanner {
 // MARK: - Device Handling
 
 extension Bluetooth {
+    @MainActor
+    static func loadDevice(_ device: some BluetoothDevice, using spezi: Spezi) {
+        // We load the module with external ownership. Meaning, Spezi won't keep any strong references to the Module and deallocation of
+        // the module is possible, freeing all Spezi related resources.
+        spezi.loadModule(device, ownership: .external) // implicitly calls the configure() method once everything is injected
+    }
+
     func prepareDevice<Device: BluetoothDevice>(id uuid: UUID, _ device: Device.Type, peripheral: BluetoothPeripheral) -> Device {
         let device = device.init()
         
@@ -606,13 +612,6 @@ extension Bluetooth {
         precondition(!(device is EnvironmentAccessible), "Cannot load BluetoothDevice \(Device.self) that conforms to \(EnvironmentAccessible.self)!")
 
         return device
-    }
-
-    @MainActor
-    func loadDevice(_ device: some BluetoothDevice, using spezi: Spezi) {
-        // We load the module with external ownership. Meaning, Spezi won't keep any strong references to the Module and deallocation of
-        // the module is possible, freeing all Spezi related resources.
-        spezi.loadModule(device, ownership: .external) // implicitly calls the configure() method once everything is injected
     }
 
 

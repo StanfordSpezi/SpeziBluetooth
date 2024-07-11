@@ -307,7 +307,7 @@ extension DiscoverySession {
             }
 
         for device in staleDevices {
-            logger.debug("Removing stale peripheral \(device.cbPeripheral.debugIdentifier)")
+            logger.debug("Removing stale peripheral \(device.debugDescription)")
             // we know it won't be connected, therefore we just need to remove it
             manager.clearDiscoveredPeripheral(forKey: device.id)
         }
