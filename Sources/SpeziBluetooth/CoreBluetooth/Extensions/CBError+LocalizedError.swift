@@ -10,22 +10,34 @@ import CoreBluetooth
 import Foundation
 
 
-extension CBError: @retroactive LocalizedError {
+#if compiler(>=6)
+extension CBError: @retroactive LocalizedError {}
+extension CBATTError: @retroactive LocalizedError {}
+#else
+extension CBError: LocalizedError {}
+extension CBATTError: LocalizedError {}
+#endif
+
+extension CBError {
+    /// The error description.
     public var errorDescription: String? {
         "CoreBluetooth Error"
     }
 
+    /// The localized failure reason.
     public var failureReason: String? {
         localizedDescription
     }
 }
 
 
-extension CBATTError: @retroactive LocalizedError {
+extension CBATTError {
+    /// The error description.
     public var errorDescription: String? {
         "CoreBluetooth ATT Error"
     }
 
+    /// The localized failure reason.
     public var failureReason: String? {
         localizedDescription
     }
