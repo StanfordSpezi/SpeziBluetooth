@@ -23,6 +23,17 @@ jobs:
       runsonlabels: '["macOS", "self-hosted", "spezi"]'
       scheme: SpeziBluetooth-Package
       artifactname: SpeziBluetooth-Package.xcresult
+      resultBundle: SpeziBluetooth-Package.xcresult
+  packageios_latest:
+    name: Build and Test Swift Package iOS Latest
+    uses: StanfordSpezi/.github/.github/workflows/xcodebuild-or-fastlane.yml@v2
+    with:
+      runsonlabels: '["macOS", "self-hosted", "spezi"]'
+      scheme: SpeziBluetooth-Package
+      xcodeversion: latest
+      swiftVersion: 6
+      artifactname: SpeziBluetooth-Package-Latest.xcresult
+      resultBundle: SpeziBluetooth-Package-Latest.xcresult
   ios:
     name: Build and Test iOS
     uses: StanfordSpezi/.github/.github/workflows/xcodebuild-or-fastlane.yml@v2
@@ -32,6 +43,17 @@ jobs:
       scheme: TestApp
       artifactname: TestApp-iOS.xcresult
       resultBundle: TestApp-iOS.xcresult
+  ios_latest:
+    name: Build and Test iOS Latest
+    uses: StanfordSpezi/.github/.github/workflows/xcodebuild-or-fastlane.yml@v2
+    with:
+      runsonlabels: '["macOS", "self-hosted", "spezi"]'
+      path: 'Tests/UITests'
+      scheme: TestApp
+      xcodeversion: latest
+      swiftVersion: 6
+      artifactname: TestApp-iOS-Latest.xcresult
+      resultBundle: TestApp-iOS-Latest.xcresult
   macos:
     name: Build and Test macOS
     uses: StanfordSpezi/.github/.github/workflows/xcodebuild-or-fastlane.yml@v2

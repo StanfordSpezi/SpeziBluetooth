@@ -392,7 +392,7 @@ public class Bluetooth: Module, EnvironmentAccessible, Sendable {
                 }
 
                 device = prepareDevice(id: uuid, configuration.deviceType, peripheral: peripheral)
-                Task { @MainActor in
+                Task { @MainActor in // TODO: we should probably await that!
                     await loadDevice(device, using: spezi)
                 }
             }
