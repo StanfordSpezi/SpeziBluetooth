@@ -258,12 +258,12 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
 
 
     /// Represents the current state of Bluetooth.
-    public var state: BluetoothState { // TODO: make all state @MainActor
+    public var state: BluetoothState {
         bluetoothManager.state
     }
 
     /// Whether or not we are currently scanning for nearby devices.
-    public var isScanning: Bool { // TODO: make all state @MainActor
+    public var isScanning: Bool {
         bluetoothManager.isScanning
     }
 
@@ -662,7 +662,11 @@ extension Bluetooth {
 
     @SpeziBluetooth
     private func _notifyDeviceDeinit(for uuid: UUID) {
-        // TODO: assert(nearbyDevices[uuid] == nil, "\(#function) was wrongfully called for a device that is still referenced: \(uuid)")
+        #if DEBUG || TEST
+        Task { @MainActor in
+            assert(nearbyDevices[uuid] == nil, "\(#function) was wrongfully called for a device that is still referenced: \(uuid)")
+        }
+        #endif
 
         // this clears our weak reference that we use to reuse already created device class once they connect
         let removedEntry = initializedDevices.removeValue(forKey: uuid)

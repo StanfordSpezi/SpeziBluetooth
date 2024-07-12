@@ -85,10 +85,15 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothManager")
 
     @Lazy private var centralManager: CBCentralManager
-    private let centralDelegate = Delegate() // swiftlint:disable:this weak_delegate
+    private lazy var centralDelegate: Delegate = { // swiftlint:disable:this weak_delegate
+        let delegate = Delegate()
+        delegate.initManager(self)
+        return delegate
+    }()
+
     private var isScanningObserver: KVOStateDidChangeObserver<CBCentralManager, Bool>?
 
-    private let _storage: BluetoothManagerStorage
+    private let storage = BluetoothManagerStorage()
 
     /// Flag indicating that we want the CBCentral to stay allocated.
     private var keepPoweredOn = false
@@ -100,12 +105,12 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
     ///
     /// This array contains all discovered bluetooth peripherals and those with which we are currently connected.
     public var nearbyPeripherals: [BluetoothPeripheral] {
-        Array(_storage._discoveredPeripherals.values)
+        Array(storage._discoveredPeripherals.values)
     }
 
     /// Represents the current state of the Bluetooth Manager.
-    public var state: BluetoothState {
-        _storage._state
+    public nonisolated var state: BluetoothState {
+        storage._state
     }
 
     /// Subscribe to changes of the `state` property.
@@ -114,13 +119,13 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
     public nonisolated var stateSubscription: AsyncStream<BluetoothState> {
         AsyncStream(BluetoothState.self) { continuation in
             Task { @SpeziBluetooth in
-                let id = _storage.subscribe(continuation)
+                let id = storage.subscribe(continuation)
                 continuation.onTermination = { @Sendable [weak self] _ in
                     guard let self = self else {
                         return
                     }
                     Task.detached { @SpeziBluetooth in
-                        self._storage.unsubscribe(for: id)
+                        self.storage.unsubscribe(for: id)
                     }
                 }
             }
@@ -128,18 +133,18 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
     }
 
     /// Whether or not we are currently scanning for nearby devices.
-    public var isScanning: Bool {
-        _storage._isScanning
+    public nonisolated var isScanning: Bool {
+        storage._isScanning
     }
 
     /// The list of discovered and connected bluetooth devices indexed by their identifier UUID.
     /// The state is isolated to our `dispatchQueue`.
     var discoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> {
-        _storage.discoveredPeripherals
+        storage.discoveredPeripherals
     }
 
     var retrievedPeripherals: OrderedDictionary<UUID, WeakReference<BluetoothPeripheral>> {
-        _storage.retrievedPeripherals
+        storage.retrievedPeripherals
     }
 
     /// The combined collection of `discoveredPeripherals` and `retrievedPeripherals`.
@@ -164,14 +169,7 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
     
     /// Initialize a new Bluetooth Manager with provided device description and optional configuration options.
     public nonisolated init() {
-        self._storage = BluetoothManagerStorage()
-        self._centralManager = Lazy()
-
-        // TODO: task is not a good idea! => if initialized on the SpeziBluetooth actor and calling any function later on, this crashes!
         Task { @SpeziBluetooth in
-            // delay using self so we don't leave isolation
-            centralDelegate.initManager(self)
-
             // The Bluetooth permission alert shows every time when a CBCentralManager is initialized.
             // If we already have permissions the a power alert will be shown if the user has Bluetooth disabled.
             // To have those alerts shown at the right time (and repeatedly), we lazily initialize the CBCentralManager and also deinit it
@@ -191,7 +189,7 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
                     guard let self else {
                         return
                     }
-                    _storage.isScanning = value
+                    storage.isScanning = value
                     if !isScanning {
                         handleStoppedScanning()
                     }
@@ -288,7 +286,7 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
             withServices: session.serviceDiscoveryIds?.map { $0.cbuuid },
             options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
         )
-        _storage.isScanning = centralManager.isScanning // ensure this is propagated instantly
+        storage.isScanning = centralManager.isScanning // ensure this is propagated instantly
     }
 
     private func _restartScanning(using session: DiscoverySession) {
@@ -301,14 +299,14 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
             withServices: session.serviceDiscoveryIds?.map { $0.cbuuid },
             options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
         )
-        _storage.isScanning = centralManager.isScanning // ensure this is propagated instantly
+        storage.isScanning = centralManager.isScanning // ensure this is propagated instantly
     }
 
     /// Stop scanning for nearby bluetooth devices.
     public func stopScanning() {
         if isScanning { // transitively checks for state == .poweredOn
             centralManager.stopScan()
-            _storage.isScanning = centralManager.isScanning // ensure this is synced
+            storage.isScanning = centralManager.isScanning // ensure this is synced
             logger.debug("Scanning stopped")
         }
 
@@ -392,13 +390,13 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
             rssi: 127 // value of 127 signifies unavailability of RSSI value
         )
 
-        _storage.retrievedPeripherals.updateValue(WeakReference(device), forKey: peripheral.identifier)
+        storage.retrievedPeripherals.updateValue(WeakReference(device), forKey: peripheral.identifier)
 
         return device
     }
 
     func onChange<Value>(of keyPath: KeyPath<BluetoothManagerStorage, Value>, perform closure: @escaping (Value) -> Void) {
-        _storage.onChange(of: keyPath, perform: closure)
+        storage.onChange(of: keyPath, perform: closure)
     }
 
     func clearDiscoveredPeripheral(forKey id: UUID) {
@@ -407,10 +405,10 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
             peripheral.handleDiscarded()
 
             // Users might keep reference to Peripheral object. Therefore, we keep it as a weak reference so we can forward delegate calls.
-            _storage.retrievedPeripherals[id] = WeakReference(peripheral)
+            storage.retrievedPeripherals[id] = WeakReference(peripheral)
         }
 
-        _storage.discoveredPeripherals.removeValue(forKey: id)
+        storage.discoveredPeripherals.removeValue(forKey: id)
 
         discoverySession?.clearManuallyDisconnectedDevice(for: id)
 
@@ -427,7 +425,7 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
         }
 
         guard let peripheral = reference.value else {
-            _storage.retrievedPeripherals.removeValue(forKey: uuid)
+            storage.retrievedPeripherals.removeValue(forKey: uuid)
             return nil
         }
         return peripheral
@@ -438,15 +436,15 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
             return // is not weakly referenced
         }
 
-        _storage.retrievedPeripherals[peripheral.id] = nil
-        _storage.discoveredPeripherals[peripheral.id] = peripheral
+        storage.retrievedPeripherals[peripheral.id] = nil
+        storage.discoveredPeripherals[peripheral.id] = peripheral
     }
 
     /// The peripheral was finally deallocated.
     ///
     /// This method makes sure that all (weak) references to the de-initialized peripheral are fully cleared.
     func handlePeripheralDeinit(id uuid: UUID) {
-        _storage.retrievedPeripherals.removeValue(forKey: uuid)
+        storage.retrievedPeripherals.removeValue(forKey: uuid)
 
         discoverySession?.clearManuallyDisconnectedDevice(for: uuid)
 
@@ -471,7 +469,7 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
         }
 
         _centralManager.destroy()
-        _storage.update(state: .unknown)
+        storage.update(state: .unknown)
     }
 
     func connect(peripheral: BluetoothPeripheral) {
@@ -521,17 +519,16 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
     deinit {
         discoverySession = nil
 
-        // non-isolated workaround for calling stopScanning()
-        Task { @SpeziBluetooth [_storage, _centralManager, logger] in
+        Task { @SpeziBluetooth [isScanning, storage, _centralManager, logger] in
             if isScanning {
-                _storage.isScanning = false
+                storage.isScanning = false
                 _centralManager.wrappedValue.stopScan()
                 logger.debug("Scanning stopped")
             }
 
-            _storage.update(state: .unknown)
-            _storage.discoveredPeripherals = [:]
-            _storage.retrievedPeripherals = [:]
+            storage.update(state: .unknown)
+            storage.discoveredPeripherals = [:]
+            storage.retrievedPeripherals = [:]
             logger.debug("BluetoothManager destroyed")
         }
     }
@@ -549,9 +546,9 @@ extension BluetoothManager: BluetoothScanner {
     public nonisolated var hasConnectedDevices: Bool {
         // We make sure to loop over all peripherals here. This ensures observability subscribes to all changing states.
         // swiftlint:disable:next reduce_boolean
-        _storage._discoveredPeripherals.values.reduce(into: false) { partialResult, peripheral in // TODO: review unsafe access!
+        storage._discoveredPeripherals.values.reduce(into: false) { partialResult, peripheral in
             partialResult = partialResult || (peripheral.state != .disconnected)
-        } || _storage._retrievedPeripherals.values.reduce(into: false, { partialResult, reference in
+        } || storage._retrievedPeripherals.values.reduce(into: false, { partialResult, reference in
             // swiftlint:disable:previous reduce_boolean
             if let peripheral = reference.value {
                 partialResult = partialResult || (peripheral.state != .disconnected)
@@ -623,7 +620,7 @@ extension BluetoothManager {
             // So whats the solution? We schedule onto a background SerialExecutor (@SpeziBluetooth) so we maintain execution
             // order and make sure to capture all important state before that.
             Task { @SpeziBluetooth [logger] in
-                manager._storage.update(state: state)
+                manager.storage.update(state: state)
                 logger.info("BluetoothManager central state is now \(manager.state)")
 
                 if case .poweredOn = state {
@@ -693,7 +690,7 @@ extension BluetoothManager {
                     rssi: rssi.intValue
                 )
                 // save local-copy, such CB doesn't deallocate it
-                manager._storage.discoveredPeripherals.updateValue(device, forKey: peripheral.identifier)
+                manager.storage.discoveredPeripherals.updateValue(device, forKey: peripheral.identifier)
 
 
                 session.deviceDiscoveryPostAction(device: device, newlyDiscovered: true)
