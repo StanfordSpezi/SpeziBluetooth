@@ -720,6 +720,9 @@ extension BluetoothPeripheral {
 }
 
 
+extension BluetoothPeripheral: Identifiable {}
+
+
 extension BluetoothPeripheral: CustomDebugStringConvertible {
     public nonisolated var debugDescription: String {
         if let name {

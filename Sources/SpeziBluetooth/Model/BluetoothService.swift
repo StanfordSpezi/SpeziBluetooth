@@ -6,8 +6,6 @@
 // SPDX-License-Identifier: MIT
 //
 
-import class CoreBluetooth.CBUUID
-
 
 /// A Bluetooth service implementation.
 ///
