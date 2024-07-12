@@ -8,22 +8,6 @@
 
 import ByteCoding
 import CoreBluetooth
-import Spezi
-
-
-struct CharacteristicTestInjections<Value: Sendable>: DefaultInitializable {
-    var writeClosure: ((Value, WriteType) async throws -> Void)?
-    var readClosure: (() async throws -> Value)?
-    var requestClosure: ((Value) async throws -> Value)?
-    var subscriptions: ChangeSubscriptions<Value>?
-    var simulatePeripheral = false
-
-    init() {}
-
-    mutating func enableSubscriptions() {
-        subscriptions = ChangeSubscriptions<Value>()
-    }
-}
 
 
 /// Interact with a given Characteristic.
@@ -60,29 +44,13 @@ struct CharacteristicTestInjections<Value: Sendable>: DefaultInitializable {
 /// ### Control Point Characteristics
 /// - ``sendRequest(_:timeout:)``
 public struct CharacteristicAccessor<Value: Sendable> {
-    let configuration: Characteristic<Value>.Configuration
-    let injection: CharacteristicPeripheralInjection<Value>?
-    /// Capture of the characteristic.
-    private let characteristic: GATTCharacteristic?
-
-    /// We keep track of this for testing support.
-    private let _value: ObservableBox<Value?>
-    /// Closure that captures write for testing support.
-    private let _testInjections: Box<CharacteristicTestInjections<Value>?>
+    private let storage: Characteristic<Value>.Storage
 
 
     init(
-        configuration: Characteristic<Value>.Configuration,
-        injection: CharacteristicPeripheralInjection<Value>?,
-        value: ObservableBox<Value?>,
-        testInjections: Box<CharacteristicTestInjections<Value>?>
+        _ storage: Characteristic<Value>.Storage
     ) {
-        self.configuration = configuration
-        self.injection = injection
-        self.characteristic = injection?.unsafeCharacteristic
-
-        self._value = value
-        self._testInjections = testInjections
+        self.storage = storage
     }
 }
 
@@ -96,21 +64,14 @@ extension CharacteristicAccessor {
     /// Returns `true` if the characteristic is available for the current device.
     /// It is `true` if (a) the device is connected and (b) the device exposes the requested characteristic.
     public var isPresent: Bool {
-        characteristic != nil
+        storage.state.capturedCharacteristic != nil
     }
 
     /// Properties of the characteristic.
     ///
     /// `nil` if device is not connected.
     public var properties: CBCharacteristicProperties? {
-        characteristic?.properties
-    }
-
-    /// Descriptors of the characteristic.
-    ///
-    /// `nil` if device is not connected or descriptors are not yet discovered.
-    public var descriptors: [CBDescriptor]? { // swiftlint:disable:this discouraged_optional_collection
-        characteristic?.descriptors
+        storage.state.capturedCharacteristic?.properties
     }
 }
 
@@ -121,7 +82,7 @@ extension CharacteristicAccessor where Value: ByteDecodable {
     ///
     /// This is also `false` if device is not connected.
     public var isNotifying: Bool {
-        characteristic?.isNotifying ?? false
+        storage.state.capturedCharacteristic?.isNotifying ?? false
     }
 
 
@@ -129,11 +90,11 @@ extension CharacteristicAccessor where Value: ByteDecodable {
     ///
     /// This property creates an AsyncStream that yields all future updates to the characteristic value.
     public var subscription: AsyncStream<Value> {
-        if let subscriptions = _testInjections.value?.subscriptions {
+        if let subscriptions = storage.testInjections.load()?.subscriptions {
             return subscriptions.newSubscription()
         }
 
-        guard let injection else {
+        guard let injection = storage.injection.load() else {
             preconditionFailure(
                 "The `subscription` of a @Characteristic cannot be accessed within the initializer. Defer access to the `configure() method"
             )
@@ -185,17 +146,17 @@ extension CharacteristicAccessor where Value: ByteDecodable {
     ///     Otherwise, the action will only run strictly if the value changes.
     ///     - action: The change handler to register, receiving both the old and new value.
     public func onChange(initial: Bool = false, perform action: @escaping @Sendable (_ oldValue: Value, _ newValue: Value) async -> Void) {
-        if let subscriptions = _testInjections.value?.subscriptions {
+        if let subscriptions = storage.testInjections.load()?.subscriptions {
             let id = subscriptions.newOnChangeSubscription(perform: action)
 
-            if initial, let value = _value.value {
+            if initial, let value = storage.state.value {
                 // if there isn't a value already, initial won't work properly with injections
                 subscriptions.notifySubscriber(id: id, with: value)
             }
             return
         }
 
-        guard let injection else {
+        guard let injection = storage.injection.load() else {
             preconditionFailure(
                 """
                 Register onChange(perform:) inside the initializer is not supported anymore. \
@@ -218,9 +179,9 @@ extension CharacteristicAccessor where Value: ByteDecodable {
     /// Enable or disable characteristic notifications.
     /// - Parameter enabled: Flag indicating if notifications should be enabled.
     public func enableNotifications(_ enabled: Bool = true) async {
-        guard let injection else {
+        guard let injection = storage.injection.load() else { // load always reads with acquire order
             // this value will be populated to the injection once it is set up
-            configuration.defaultNotify = enabled
+            storage.defaultNotify.store(enabled, ordering: .releasing)
             return
         }
 
@@ -233,21 +194,21 @@ extension CharacteristicAccessor where Value: ByteDecodable {
     ///     It might also throw a ``BluetoothError/notPresent(service:characteristic:)`` or ``BluetoothError/incompatibleDataFormat`` error.
     @discardableResult
     public func read() async throws -> Value {
-        if let testInjection = _testInjections.value {
+        if let testInjection = storage.testInjections.load() {
             if let injectedReadClosure = testInjection.readClosure {
                 return try await injectedReadClosure()
             }
 
             if testInjection.simulatePeripheral {
-                guard let value = _value.value else {
-                    throw BluetoothError.notPresent(characteristic: configuration.id)
+                guard let value = storage.state.value else {
+                    throw BluetoothError.notPresent(characteristic: storage.description.characteristicId)
                 }
                 return value
             }
         }
 
-        guard let injection  else {
-            throw BluetoothError.notPresent(characteristic: configuration.id)
+        guard let injection = storage.injection.load() else {
+            throw BluetoothError.notPresent(characteristic: storage.description.characteristicId)
         }
 
         return try await injection.read()
@@ -268,7 +229,7 @@ extension CharacteristicAccessor where Value: ByteEncodable {
     /// - Throws: Throws an `CBError` or `CBATTError` if the write fails.
     ///     It might also throw a ``BluetoothError/notPresent(service:characteristic:)`` error.
     public func write(_ value: Value) async throws {
-        if let testInjection = _testInjections.value {
+        if let testInjection = storage.testInjections.load() {
             if let injectedWriteClosure = testInjection.writeClosure {
                 try await injectedWriteClosure(value, .withResponse)
                 return
@@ -280,8 +241,8 @@ extension CharacteristicAccessor where Value: ByteEncodable {
             }
         }
 
-        guard let injection else {
-            throw BluetoothError.notPresent(characteristic: configuration.id)
+        guard let injection = storage.injection.load() else {
+            throw BluetoothError.notPresent(characteristic: storage.description.characteristicId)
         }
 
         try await injection.write(value)
@@ -297,7 +258,7 @@ extension CharacteristicAccessor where Value: ByteEncodable {
     /// - Throws: Throws an `CBError` or `CBATTError` if the write fails.
     ///     It might also throw a ``BluetoothError/notPresent(service:characteristic:)`` error.
     public func writeWithoutResponse(_ value: Value) async throws {
-        if let testInjection = _testInjections.value {
+        if let testInjection = storage.testInjections.load() {
             if let injectedWriteClosure = testInjection.writeClosure {
                 try await injectedWriteClosure(value, .withoutResponse)
                 return
@@ -309,8 +270,8 @@ extension CharacteristicAccessor where Value: ByteEncodable {
             }
         }
 
-        guard let injection else {
-            throw BluetoothError.notPresent(characteristic: configuration.id)
+        guard let injection = storage.injection.load() else {
+            throw BluetoothError.notPresent(characteristic: storage.description.characteristicId)
         }
 
         try await injection.writeWithoutResponse(value)
@@ -336,12 +297,12 @@ extension CharacteristicAccessor where Value: ControlPointCharacteristic {
     ///     ``BluetoothError/controlPointRequiresNotifying(service:characteristic:)`` or
     ///     ``BluetoothError/controlPointInProgress(service:characteristic:)`` error.
     public func sendRequest(_ value: Value, timeout: Duration = .seconds(20)) async throws -> Value {
-        if let injectedRequestClosure = _testInjections.value?.requestClosure {
+        if let injectedRequestClosure = storage.testInjections.load()?.requestClosure {
             return try await injectedRequestClosure(value)
         }
 
-        guard let injection else {
-            throw BluetoothError.notPresent(characteristic: configuration.id)
+        guard let injection = storage.injection.load() else {
+            throw BluetoothError.notPresent(characteristic: storage.description.characteristicId)
         }
 
         return try await injection.sendRequest(value, timeout: timeout)
@@ -358,14 +319,14 @@ extension CharacteristicAccessor {
     /// will be stored and called  when injecting new values via `inject(_:)`.
     /// - Note: Make sure to inject a initial value if you want to make the `initial` property work properly
     public func enableSubscriptions() {
-        _testInjections.valueOrInitialize.enableSubscriptions()
+        storage.testInjections.storeIfNilThenLoad(.init()).enableSubscriptions()
     }
 
     /// Simulate a peripheral by automatically mocking read and write commands.
     ///
     /// - Note: `onWrite(perform:)` and `onRead(return:)` closures take precedence.
     public func enablePeripheralSimulation(_ enabled: Bool = true) {
-        _testInjections.valueOrInitialize.simulatePeripheral = enabled
+        storage.testInjections.storeIfNilThenLoad(.init()).simulatePeripheral = enabled
     }
 
     /// Inject a custom value for previewing purposes.
@@ -378,9 +339,9 @@ extension CharacteristicAccessor {
     ///
     /// - Parameter value: The value to inject.
     public func inject(_ value: Value) {
-        _value.value = value
+        storage.state.value = value
 
-        if let subscriptions = _testInjections.value?.subscriptions {
+        if let subscriptions = storage.testInjections.load()?.subscriptions {
             subscriptions.notifySubscribers(with: value)
         }
     }
@@ -392,7 +353,7 @@ extension CharacteristicAccessor {
     ///
     /// - Parameter action: The action to inject. Called for every write.
     public func onWrite(perform action: @escaping (Value, WriteType) async throws -> Void) {
-        _testInjections.valueOrInitialize.writeClosure = action
+        storage.testInjections.storeIfNilThenLoad(.init()).writeClosure = action
     }
 
     /// Inject a custom action that sinks all read operations for testing purposes.
@@ -402,7 +363,7 @@ extension CharacteristicAccessor {
     ///
     /// - Parameter action: The action to inject. Called for every read.
     public func onRead(return action: @escaping () async throws -> Value) {
-        _testInjections.valueOrInitialize.readClosure = action
+        storage.testInjections.storeIfNilThenLoad(.init()).readClosure = action
     }
 
     /// Inject a custom action that sinks all control point request operations for testing purposes.
@@ -412,6 +373,6 @@ extension CharacteristicAccessor {
     ///
     /// - Parameter action: The action to inject. Called for every control point request.
     public func onRequest(perform action: @escaping (Value) async throws -> Value) {
-        _testInjections.valueOrInitialize.requestClosure = action
+        storage.testInjections.storeIfNilThenLoad(.init()).requestClosure = action
     }
 }

@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
+import Atomics
 import CoreBluetooth
 
 
@@ -38,11 +39,38 @@ import CoreBluetooth
 /// - ``projectedValue``
 /// - ``ServiceAccessor``
 @propertyWrapper
-public final class Service<S: BluetoothService> {
+public struct Service<S: BluetoothService> {
+    final class Storage: Sendable {
+        let injection = ManagedAtomicLazyReference<ServicePeripheralInjection<S>>()
+        let state = State()
+    }
+
+    @Observable
+    final class State: Sendable {
+        private nonisolated(unsafe) var _capturedService: GATTServiceCapture?
+        private let lock = NSLock()
+
+        var capturedService: GATTServiceCapture? {
+            get {
+                lock.withLock {
+                    _capturedService
+                }
+            }
+            set {
+                lock.withLock {
+                    _capturedService = newValue
+                }
+            }
+        }
+
+        init() {}
+    }
+
     var id: BTUUID {
         S.id
     }
-    private nonisolated(unsafe) var injection: ServicePeripheralInjection? // only mutated via SpeziBluetooth actor, and only once
+
+    private let storage = Storage()
 
     /// Access the service instance.
     public let wrappedValue: S
@@ -54,8 +82,8 @@ public final class Service<S: BluetoothService> {
     /// - Note: The accessor captures the service instance upon creation. Within the same `ServiceAccessor` instance
     ///     the view on the service is consistent. However, if you project a new `ServiceAccessor` instance right
     ///     after your access, the view on the service might have changed due to the asynchronous nature of SpeziBluetooth.
-    public var projectedValue: ServiceAccessor {
-        ServiceAccessor(id: id, injection: injection)
+    public var projectedValue: ServiceAccessor<S> {
+        ServiceAccessor(storage)
     }
 
     /// Declare a service.
@@ -67,9 +95,11 @@ public final class Service<S: BluetoothService> {
 
 
     @SpeziBluetooth
-    func inject(peripheral: BluetoothPeripheral, service: GATTService?) {
-        let injection = ServicePeripheralInjection(peripheral: peripheral, serviceId: id, service: service)
-        self.injection = injection
+    func inject(bluetooth: Bluetooth, peripheral: BluetoothPeripheral, service: GATTService?) {
+        let injection = storage.injection.storeIfNilThenLoad(
+            ServicePeripheralInjection(bluetooth: bluetooth, peripheral: peripheral, serviceId: id, service: service, state: storage.state)
+        )
+        assert(injection.peripheral === peripheral, "\(#function) cannot be called more than once in the lifetime of a \(Self.self) instance")
 
         injection.setup()
     }

@@ -10,14 +10,24 @@ import CoreBluetooth
 import Foundation
 
 
-struct CBCharacteristicCapture: Sendable {
+struct GATTCharacteristicCapture: Sendable {
     let isNotifying: Bool
     let value: Data?
+    let properties: CBCharacteristicProperties
     let descriptors: CBInstance<[CBDescriptor]>?
 
     init(from characteristic: CBCharacteristic) {
         self.isNotifying = characteristic.isNotifying
         self.value = characteristic.value
+        self.properties = characteristic.properties
+        self.descriptors = characteristic.descriptors.map { CBInstance(instantiatedOnDispatchQueue: $0) }
+    }
+
+    @SpeziBluetooth
+    fileprivate init(from characteristic: borrowing GATTCharacteristic) {
+        self.isNotifying = characteristic.isNotifying
+        self.value = characteristic.value
+        self.properties = characteristic.properties
         self.descriptors = characteristic.descriptors.map { CBInstance(instantiatedOnDispatchQueue: $0) }
     }
 }
@@ -58,6 +68,10 @@ public final class GATTCharacteristic {
         underlyingCharacteristic.properties
     }
 
+    @SpeziBluetooth var captured: GATTCharacteristicCapture {
+        GATTCharacteristicCapture(from: self)
+    }
+
     init(characteristic: CBCharacteristic, service: GATTService) {
         self.underlyingCharacteristic = characteristic
         self.service = service
@@ -68,7 +82,7 @@ public final class GATTCharacteristic {
 
 
     @SpeziBluetooth
-    func synchronizeModel(capture: CBCharacteristicCapture) {
+    func synchronizeModel(capture: GATTCharacteristicCapture) {
         if capture.isNotifying != isNotifying {
             isNotifying = capture.isNotifying
         }

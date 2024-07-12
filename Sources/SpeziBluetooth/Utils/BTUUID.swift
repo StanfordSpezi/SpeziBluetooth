@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
-@preconcurrency import CoreBluetooth
+import CoreBluetooth
 
 
 /// A universally unique identifier, as defined by Bluetooth standards.
@@ -18,7 +18,7 @@
 /// of `CBUUID`.
 public struct BTUUID {
     /// The CoreBluetooth UUID.
-    public let cbuuid: CBUUID
+    public nonisolated(unsafe) let cbuuid: CBUUID
 
     /// The UUID represented as a string.
     public var uuidString: String {

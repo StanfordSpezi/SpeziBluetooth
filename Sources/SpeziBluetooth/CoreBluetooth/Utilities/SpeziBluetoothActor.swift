@@ -6,12 +6,12 @@
 // SPDX-License-Identifier: MIT
 //
 
-@preconcurrency import Foundation
+import Foundation
 
 
 private struct SpeziBluetoothDispatchQueueKey: Sendable, Hashable {
     static let shared = SpeziBluetoothDispatchQueueKey()
-    static let key = DispatchSpecificKey<Self>()
+    static nonisolated(unsafe) let key = DispatchSpecificKey<Self>()
     private init() {}
 }
 

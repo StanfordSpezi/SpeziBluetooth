@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
+import Atomics
 import ByteCoding
 import CoreBluetooth
 import Foundation
@@ -158,41 +159,72 @@ import Foundation
 /// - ``projectedValue``
 /// - ``CharacteristicAccessor``
 @propertyWrapper
-public final class Characteristic<Value: Sendable>: Sendable {
-    class Configuration {
+public struct Characteristic<Value: Sendable>: Sendable {
+    /// Storage unit for the property wrapper.
+    final class Storage: Sendable {
         let description: CharacteristicDescription
-        var defaultNotify: Bool
+        let defaultNotify: ManagedAtomic<Bool>
+        let injection = ManagedAtomicLazyReference<CharacteristicPeripheralInjection<Value>>()
+        let testInjections = ManagedAtomicLazyReference<CharacteristicTestInjections<Value>>()
 
-        /// Memory address as an identifier for this Characteristic instance.
-        var objectId: ObjectIdentifier {
-            ObjectIdentifier(self)
-        }
+        let state: State
 
-        var id: BTUUID {
-            description.characteristicId
-        }
-
-        init(description: CharacteristicDescription, defaultNotify: Bool) {
+        init(description: CharacteristicDescription, defaultNotify: Bool, initialValue: Value?) {
             self.description = description
-            self.defaultNotify = defaultNotify
+            self.defaultNotify = ManagedAtomic(defaultNotify)
+            self.state = State(initialValue: initialValue)
         }
     }
 
-    let configuration: Configuration
-    private let _value: ObservableBox<Value?>
-    private nonisolated(unsafe) var injection: CharacteristicPeripheralInjection<Value>? // only mutate from SpeziBluetooth actor (and only once)
+    @Observable
+    final class State: Sendable {
+        private nonisolated(unsafe) var _value: Value?
+        private nonisolated(unsafe) var _capturedCharacteristic: GATTCharacteristicCapture? // TODO: actually update that value!
+        private let lock = NSLock()
 
-    private let _testInjections: Box<CharacteristicTestInjections<Value>?> = Box(nil)
+        var value: Value? {
+            get {
+                lock.withLock {
+                    _value
+                }
+            }
+            set {
+                lock.withLock {
+                    _value = newValue
+                }
+            }
+        }
 
+        var capturedCharacteristic: GATTCharacteristicCapture? {
+            get {
+                lock.withLock {
+                    _capturedCharacteristic
+                }
+            }
+            set {
+                lock.withLock {
+                    _capturedCharacteristic = newValue
+                }
+            }
+        }
+
+        init(initialValue: Value?) {
+            self._value = initialValue
+        }
+    }
+
+    private let storage: Storage
+
+    /// The characteristic description.
     var description: CharacteristicDescription {
-        configuration.description
+        storage.description
     }
 
     /// Access the current characteristic value.
     ///
     /// This is either the last read value or the latest notified value.
     public var wrappedValue: Value? {
-        _value.value
+        storage.state.value
     }
 
     /// Retrieve a temporary accessors instance.
@@ -204,33 +236,31 @@ public final class Characteristic<Value: Sendable>: Sendable {
     ///     However, if you project a new `CharacteristicAccessor` instance right after your access,
     ///     the view on the characteristic might have changed due to the asynchronous nature of SpeziBluetooth.
     public var projectedValue: CharacteristicAccessor<Value> {
-        CharacteristicAccessor(configuration: configuration, injection: injection, value: _value, testInjections: _testInjections)
+        CharacteristicAccessor(storage)
     }
 
     fileprivate init(wrappedValue: Value? = nil, characteristic: BTUUID, notify: Bool, autoRead: Bool = true, discoverDescriptors: Bool = false) {
         // swiftlint:disable:previous function_default_parameter_at_end
         let description = CharacteristicDescription(id: characteristic, discoverDescriptors: discoverDescriptors, autoRead: autoRead)
-        self.configuration = .init(description: description, defaultNotify: notify)
-        self._value = ObservableBox(wrappedValue)
+        self.storage = Storage(description: description, defaultNotify: notify, initialValue: wrappedValue)
     }
 
 
     @SpeziBluetooth
     func inject(bluetooth: Bluetooth, peripheral: BluetoothPeripheral, serviceId: BTUUID, service: GATTService?) {
-        let characteristic = service?.getCharacteristic(id: configuration.id)
+        let characteristic = service?.getCharacteristic(id: storage.description.characteristicId)
 
-        let injection = CharacteristicPeripheralInjection<Value>(
+        let injection = storage.injection.storeIfNilThenLoad(CharacteristicPeripheralInjection<Value>(
             bluetooth: bluetooth,
             peripheral: peripheral,
             serviceId: serviceId,
-            characteristicId: configuration.id,
-            value: _value,
-            characteristic: characteristic
-        )
+            characteristicId: storage.description.characteristicId,
+            characteristic: characteristic,
+            state: storage.state
+        ))
+        assert(injection.peripheral === peripheral, "\(#function) cannot be called more than once in the lifetime of a \(Self.self) instance")
 
-        // mutual access with `CharacteristicAccessor/enableNotifications`
-        self.injection = injection
-        injection.setup(defaultNotify: configuration.defaultNotify)
+        injection.setup(defaultNotify: storage.defaultNotify.load(ordering: .acquiring))
     }
 }
 
@@ -242,7 +272,7 @@ extension Characteristic where Value: ByteEncodable {
     ///   - id: The characteristic id.
     ///   - autoRead: Flag indicating if  the initial value should be automatically read from the peripheral.
     ///   - discoverDescriptors: Flag if characteristic descriptors should be discovered automatically.
-    public convenience init(wrappedValue: Value? = nil, id: BTUUID, autoRead: Bool = true, discoverDescriptors: Bool = false) {
+    public init(wrappedValue: Value? = nil, id: BTUUID, autoRead: Bool = true, discoverDescriptors: Bool = false) {
         // swiftlint:disable:previous function_default_parameter_at_end
         self.init(wrappedValue: wrappedValue, characteristic: id, notify: false, autoRead: autoRead, discoverDescriptors: discoverDescriptors)
     }
@@ -257,7 +287,7 @@ extension Characteristic where Value: ByteDecodable {
     ///   - notify: Automatically subscribe to characteristic notifications if supported.
     ///   - autoRead: Flag indicating if  the initial value should be automatically read from the peripheral.
     ///   - discoverDescriptors: Flag if characteristic descriptors should be discovered automatically.
-    public convenience init(wrappedValue: Value? = nil, id: BTUUID, notify: Bool = false, autoRead: Bool = true, discoverDescriptors: Bool = false) {
+    public init(wrappedValue: Value? = nil, id: BTUUID, notify: Bool = false, autoRead: Bool = true, discoverDescriptors: Bool = false) {
         // swiftlint:disable:previous function_default_parameter_at_end
         self.init(wrappedValue: wrappedValue, characteristic: id, notify: notify, autoRead: autoRead, discoverDescriptors: discoverDescriptors)
     }
@@ -272,7 +302,7 @@ extension Characteristic where Value: ByteCodable { // reduce ambiguity
     ///   - notify: Automatically subscribe to characteristic notifications if supported.
     ///   - autoRead: Flag indicating if  the initial value should be automatically read from the peripheral.
     ///   - discoverDescriptors: Flag if characteristic descriptors should be discovered automatically.
-    public convenience init(wrappedValue: Value? = nil, id: BTUUID, notify: Bool = false, autoRead: Bool = true, discoverDescriptors: Bool = false) {
+    public init(wrappedValue: Value? = nil, id: BTUUID, notify: Bool = false, autoRead: Bool = true, discoverDescriptors: Bool = false) {
         // swiftlint:disable:previous function_default_parameter_at_end
         self.init(wrappedValue: wrappedValue, characteristic: id, notify: notify, autoRead: autoRead, discoverDescriptors: discoverDescriptors)
     }

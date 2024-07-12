@@ -24,7 +24,6 @@ public struct AdvertisementData {
     /// An array of one or additional service UUIDs, representing CBService UUIDs that were found in the “overflow”
     /// area of the advertisement data.
     public let overflowServiceUUIDs: [BTUUID]? // swiftlint:disable:this discouraged_optional_collection
-    // TODO: handle those! (might go away?) => time, based cache!
 
     /// The transmit power of a peripheral.
     ///

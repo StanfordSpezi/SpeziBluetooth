@@ -37,6 +37,7 @@ let package = Package(
         .package(url: "https://github.com/StanfordSpezi/SpeziNetworking", from: "2.1.0"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.59.0"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.0.4"),
+        .package(url: "https://github.com/apple/swift-atomics.git", from: "1.2.0"),
         .package(url: "https://github.com/StanfordBDHG/XCTestExtensions.git", from: "0.4.11")
     ] + swiftLintPackage(),
     targets: [
@@ -47,7 +48,8 @@ let package = Package(
                 .product(name: "NIO", package: "swift-nio"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "SpeziFoundation", package: "SpeziFoundation"),
-                .product(name: "ByteCoding", package: "SpeziNetworking")
+                .product(name: "ByteCoding", package: "SpeziNetworking"),
+                .product(name: "Atomics", package: "swift-atomics")
             ],
             resources: [
                 .process("Resources")

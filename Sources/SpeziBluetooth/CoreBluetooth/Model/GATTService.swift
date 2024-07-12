@@ -14,6 +14,10 @@ struct ServiceChangeProtocol {
     let updatedCharacteristics: [GATTCharacteristic]
 }
 
+struct GATTServiceCapture: Sendable {
+    let isPrimary: Bool
+}
+
 
 /// A Bluetooth service of a device.
 ///
@@ -42,6 +46,10 @@ public final class GATTService {
     /// A list of characteristics that have been discovered in this service.
     public var characteristics: [GATTCharacteristic] {
         Array(_characteristics.values)
+    }
+
+    @SpeziBluetooth var captured: GATTServiceCapture {
+        GATTServiceCapture(isPrimary: isPrimary)
     }
 
 

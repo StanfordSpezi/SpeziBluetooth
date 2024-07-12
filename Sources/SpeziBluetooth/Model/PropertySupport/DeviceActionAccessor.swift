@@ -8,11 +8,11 @@
 
 
 /// Interact with a Device Action.
-public struct DeviceActionAccessor<ClosureType> {
-    private let _injectedClosure: Box<ClosureType?>
+public struct DeviceActionAccessor<Action: _BluetoothPeripheralAction> {
+    private let storage: DeviceAction<Action>.Storage
 
-    init(_ injectedClosure: Box<ClosureType?>) {
-        self._injectedClosure = injectedClosure
+    init(_ storage: DeviceAction<Action>.Storage) {
+        self.storage = storage
     }
 
 
@@ -23,8 +23,8 @@ public struct DeviceActionAccessor<ClosureType> {
     ///
     /// - Parameter action: The action to inject.
     @_spi(TestingSupport)
-    public func inject(_ action: ClosureType) {
-        _injectedClosure.value = action
+    public func inject(_ action: Action.ClosureType) {
+        storage.testInjections.storeIfNilThenLoad(.init()).injectedClosure = action
     }
 }
 

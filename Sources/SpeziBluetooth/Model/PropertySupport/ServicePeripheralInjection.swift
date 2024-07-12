@@ -6,36 +6,27 @@
 // SPDX-License-Identifier: MIT
 //
 
-import CoreBluetooth
-
 
 @SpeziBluetooth
-class ServicePeripheralInjection: Sendable {
-    private let peripheral: BluetoothPeripheral
+class ServicePeripheralInjection<S: BluetoothService>: Sendable {
+    private let bluetooth: Bluetooth
+    let peripheral: BluetoothPeripheral
     private let serviceId: BTUUID
+    private let state: Service<S>.State
 
-    /// Do not access directly.
-    private let _service: WeakObservableBox<GATTService>
-
-
-    private(set) var service: GATTService? {
-        get {
-            _service.value
-        }
-        set {
-            _service.value = newValue
+    private weak var service: GATTService? {
+        didSet {
+            state.capturedService = service?.captured
         }
     }
 
-    nonisolated var unsafeService: GATTService? {
-        _service.value
-    }
 
-
-    init(peripheral: BluetoothPeripheral, serviceId: BTUUID, service: GATTService?) {
+    init(bluetooth: Bluetooth, peripheral: BluetoothPeripheral, serviceId: BTUUID, service: GATTService?, state: Service<S>.State) {
+        self.bluetooth = bluetooth
         self.peripheral = peripheral
         self.serviceId = serviceId
-        self._service = WeakObservableBox(service)
+        self.state = state
+        self.service = service
     }
 
     func setup() {
@@ -52,5 +43,9 @@ class ServicePeripheralInjection: Sendable {
             self.trackServicesUpdate()
             self.service = service
         }
+    }
+
+    deinit {
+        bluetooth.notifyDeviceDeinit(for: peripheral.id)
     }
 }

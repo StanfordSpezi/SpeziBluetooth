@@ -12,7 +12,7 @@ import Foundation
 @SpeziBluetooth
 class DeviceStatePeripheralInjection<Value: Sendable>: Sendable {
     private let bluetooth: Bluetooth
-    private let peripheral: BluetoothPeripheral
+    let peripheral: BluetoothPeripheral
     private let accessKeyPath: KeyPath<BluetoothPeripheral, Value> & Sendable
     private let observationKeyPath: KeyPath<PeripheralStorage, Value>?
     private let subscriptions: ChangeSubscriptions<Value>
@@ -72,9 +72,8 @@ class DeviceStatePeripheralInjection<Value: Sendable>: Sendable {
 
 
 extension KeyPath where Root == BluetoothPeripheral {
-    // swiftlint:disable:next cyclomatic_complexity
     @SpeziBluetooth
-    func storageEquivalent() -> KeyPath<PeripheralStorage, Value>? {
+    func storageEquivalent() -> KeyPath<PeripheralStorage, Value>? { // swiftlint:disable:this cyclomatic_complexity
         let anyKeyPath: AnyKeyPath? = switch self {
         case \.name:
             \PeripheralStorage.name

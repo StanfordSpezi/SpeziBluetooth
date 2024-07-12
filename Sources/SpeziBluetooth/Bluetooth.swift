@@ -258,26 +258,13 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
 
 
     /// Represents the current state of Bluetooth.
-    @SpeziBluetooth public var state: BluetoothState { // TODO: make all state @MainActor
+    public var state: BluetoothState { // TODO: make all state @MainActor
         bluetoothManager.state
     }
 
-    /// Subscribe to changes of the `state` property.
-    ///
-    /// Creates an `AsyncStream` that yields all **future** changes to the ``state`` property.
-    public var stateSubscription: AsyncStream<BluetoothState> {
-        bluetoothManager.stateSubscription
-    }
-
     /// Whether or not we are currently scanning for nearby devices.
-    @SpeziBluetooth public var isScanning: Bool {
+    public var isScanning: Bool { // TODO: make all state @MainActor
         bluetoothManager.isScanning
-    }
-
-    /// Support for the auto connect modifier.
-    @_documentation(visibility: internal)
-    nonisolated public var hasConnectedDevices: Bool {
-        bluetoothManager.hasConnectedDevices
     }
 
 
@@ -288,6 +275,19 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
         set {
             _storage.nearbyDevices = newValue
         }
+    }
+
+    /// Subscribe to changes of the `state` property.
+    ///
+    /// Creates an `AsyncStream` that yields all **future** changes to the ``state`` property.
+    public var stateSubscription: AsyncStream<BluetoothState> {
+        bluetoothManager.stateSubscription
+    }
+
+    /// Support for the auto connect modifier.
+    @_documentation(visibility: internal)
+    nonisolated public var hasConnectedDevices: Bool {
+        bluetoothManager.hasConnectedDevices
     }
 
     /// Dictionary of all initialized devices.

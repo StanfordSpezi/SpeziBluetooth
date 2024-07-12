@@ -547,7 +547,7 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
         }
     }
 
-    private func synchronizeModel(for characteristic: CBCharacteristic, capture: CBCharacteristicCapture) {
+    private func synchronizeModel(for characteristic: CBCharacteristic, capture: GATTCharacteristicCapture) {
         guard let service = characteristic.service,
               let gattCharacteristic = getCharacteristic(id: BTUUID(from: characteristic.uuid), on: BTUUID(from: service.uuid)) else {
             logger.error("Failed to locate GATTCharacteristic for provided one \(characteristic.uuid)")
@@ -907,7 +907,7 @@ extension BluetoothPeripheral {
 
             logger.debug("Discovered descriptors for characteristic \(characteristic.debugIdentifier): \(descriptors)")
 
-            let capture = CBCharacteristicCapture(from: characteristic)
+            let capture = GATTCharacteristicCapture(from: characteristic)
             let characteristic = CBInstance(instantiatedOnDispatchQueue: characteristic)
 
             Task { @SpeziBluetooth in
@@ -920,7 +920,7 @@ extension BluetoothPeripheral {
                 return
             }
 
-            let capture = CBCharacteristicCapture(from: characteristic)
+            let capture = GATTCharacteristicCapture(from: characteristic)
             let characteristic = CBInstance(instantiatedOnDispatchQueue: characteristic)
 
             Task { @SpeziBluetooth in
@@ -940,7 +940,7 @@ extension BluetoothPeripheral {
                 return
             }
 
-            let capture = CBCharacteristicCapture(from: characteristic)
+            let capture = GATTCharacteristicCapture(from: characteristic)
             let characteristic = CBInstance(instantiatedOnDispatchQueue: characteristic)
 
             Task { @SpeziBluetooth in
@@ -977,7 +977,7 @@ extension BluetoothPeripheral {
                 return
             }
 
-            let capture = CBCharacteristicCapture(from: characteristic)
+            let capture = GATTCharacteristicCapture(from: characteristic)
             let characteristic = CBInstance(instantiatedOnDispatchQueue: characteristic)
 
             Task { @SpeziBluetooth [logger] in

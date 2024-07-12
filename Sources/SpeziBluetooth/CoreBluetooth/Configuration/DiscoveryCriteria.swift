@@ -35,7 +35,7 @@ public enum DiscoveryCriteria: Sendable {
     func matches(_ advertisementData: AdvertisementData) -> Bool {
         switch self {
         case let .advertisedService(uuid):
-            return advertisementData.serviceUUIDs?.contains(uuid) ?? false
+            return advertisementData.serviceUUIDs?.contains(uuid) ?? advertisementData.overflowServiceUUIDs?.contains(uuid) ?? false
         case let .accessory(manufacturer, service):
             guard let manufacturerData = advertisementData.manufacturerData,
                   let identifier = ManufacturerIdentifier(data: manufacturerData) else {

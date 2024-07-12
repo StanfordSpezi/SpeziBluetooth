@@ -7,7 +7,7 @@
 //
 
 
-class DeviceActionPeripheralInjection {
+final class DeviceActionPeripheralInjection: Sendable {
     private let bluetooth: Bluetooth
     let peripheral: BluetoothPeripheral
 

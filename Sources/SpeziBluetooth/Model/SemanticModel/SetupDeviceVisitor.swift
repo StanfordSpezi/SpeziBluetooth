@@ -59,7 +59,8 @@ private struct SetupDeviceVisitor: DeviceVisitor {
 
     func visit<S: BluetoothService>(_ service: Service<S>) {
         let blService = peripheral.getService(id: service.id)
-        service.inject(peripheral: peripheral, service: blService)
+        service.inject(bluetooth: bluetooth, peripheral: peripheral, service: blService)
+        didInjectAnything.value = true
 
         var visitor = SetupServiceVisitor(
             bluetooth: bluetooth,

@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
-@preconcurrency import CoreBluetooth
+import CoreBluetooth
 import OSLog
 import SpeziBluetooth
 @_spi(TestingSupport)
@@ -22,6 +22,7 @@ struct ATTErrorCode: Error, Sendable {
 }
 
 
+@MainActor
 final class TestService: Sendable {
     private var logger: Logger {
         Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "TestService")
@@ -40,16 +41,16 @@ final class TestService: Sendable {
     /// Reset peripheral state to default settings
     let reset: CBMutableCharacteristic
 
-    @MainActor private var readStringCount: UInt = 1
-    @MainActor private var readStringValue: String {
+    private var readStringCount: UInt = 1
+    private var readStringValue: String {
         defer {
             readStringCount += 1
         }
         return "Hello World (\(readStringCount))"
     }
 
-    @MainActor private var lastEvent: EventLog = .none
-    @MainActor private var readWriteStringValue: String = "Hello Spezi"
+    private var lastEvent: EventLog = .none
+    private var readWriteStringValue: String = "Hello Spezi"
 
     init(peripheral: TestPeripheral) {
         self.peripheral = peripheral

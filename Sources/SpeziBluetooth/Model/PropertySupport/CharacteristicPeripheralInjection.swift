@@ -25,14 +25,17 @@ private protocol PrimitiveDecodableCharacteristic {
 @SpeziBluetooth
 class CharacteristicPeripheralInjection<Value: Sendable>: Sendable {
     private let bluetooth: Bluetooth
-    fileprivate let peripheral: BluetoothPeripheral
-    let serviceId: BTUUID
-    let characteristicId: BTUUID
+    let peripheral: BluetoothPeripheral
+    private let serviceId: BTUUID
+    private let characteristicId: BTUUID
 
-    /// Observable value. Don't access directly.
-    private let _value: ObservableBox<Value?>
-    /// Don't access directly. Observable for the properties of ``CharacteristicAccessor``.
-    private let _characteristic: WeakObservableBox<GATTCharacteristic>
+    private var characteristic: GATTCharacteristic? {
+        didSet {
+            state.capturedCharacteristic = characteristic?.captured
+        }
+    }
+
+    private let state: Characteristic<Value>.State
 
     /// State support for control point characteristics.
     ///
@@ -53,43 +56,20 @@ class CharacteristicPeripheralInjection<Value: Sendable>: Sendable {
     private var valueRegistration: OnChangeRegistration?
 
 
-    private(set) var value: Value? {
-        get {
-            _value.value
-        }
-        set {
-            _value.value = newValue
-        }
-    }
-
-    private var characteristic: GATTCharacteristic? {
-        get {
-            _characteristic.value
-        }
-        set {
-            _characteristic.value = newValue
-        }
-    }
-
-    nonisolated var unsafeCharacteristic: GATTCharacteristic? {
-        _characteristic.value
-    }
-
-
     init(
         bluetooth: Bluetooth,
         peripheral: BluetoothPeripheral,
         serviceId: BTUUID,
         characteristicId: BTUUID,
-        value: ObservableBox<Value?>,
-        characteristic: GATTCharacteristic?
+        characteristic: GATTCharacteristic?,
+        state: Characteristic<Value>.State
     ) {
         self.bluetooth = bluetooth
         self.peripheral = peripheral
         self.serviceId = serviceId
         self.characteristicId = characteristicId
-        self._value = value
-        self._characteristic = .init(characteristic)
+        self.characteristic = characteristic
+        self.state = state
         self.subscriptions = ChangeSubscriptions()
     }
 
@@ -138,7 +118,7 @@ class CharacteristicPeripheralInjection<Value: Sendable>: Sendable {
             if !initial {
                 nonInitialChangeHandlers?.insert(id)
             }
-        } else if initial, let value {
+        } else if initial, let value = state.value {
             // nonInitialChangeHandlers is nil, meaning the initial value already arrived and we can call the action instantly if they wanted that
             subscriptions.notifySubscriber(id: id, with: value)
         }
@@ -189,7 +169,7 @@ class CharacteristicPeripheralInjection<Value: Sendable>: Sendable {
                 }
             } else {
                 // we must make sure to not override the default value if one is present
-                self.value = nil
+                state.value = nil
             }
         }
     }
@@ -217,13 +197,13 @@ extension CharacteristicPeripheralInjection: DecodableCharacteristic where Value
                 return
             }
 
-            self.value = value
+            state.value = value
             self.fullFillControlPointRequest(value)
 
             self.subscriptions.notifySubscribers(with: value, ignoring: nonInitialChangeHandlers ?? [])
             nonInitialChangeHandlers = nil
         } else {
-            self.value = nil
+            state.value = nil
         }
     }
 }
@@ -285,7 +265,7 @@ extension CharacteristicPeripheralInjection where Value: ByteEncodable {
 
         let data = encodeValue(value)
         try await peripheral.write(data: data, for: characteristic)
-        self.value = value
+        state.value = value
     }
 
     func writeWithoutResponse(_ value: Value) async throws {
@@ -295,7 +275,7 @@ extension CharacteristicPeripheralInjection where Value: ByteEncodable {
 
         let data = encodeValue(value)
         await peripheral.writeWithoutResponse(data: data, for: characteristic)
-        self.value = value
+        state.value = value
     }
 }
 
