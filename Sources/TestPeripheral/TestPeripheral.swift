@@ -7,7 +7,7 @@
 //
 
 import ByteCoding
-@preconcurrency import CoreBluetooth
+import CoreBluetooth
 import OSLog
 import SpeziBluetooth
 @_spi(TestingSupport)
@@ -139,8 +139,9 @@ final class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
             return
         }
 
+        let id = BTUUID(from: characteristic.uuid)
         Task { @MainActor in
-            await testService.logEvent(.subscribedToNotification(characteristic.uuid))
+            await testService.logEvent(.subscribedToNotification(id))
         }
     }
 
@@ -150,8 +151,9 @@ final class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
             return
         }
 
+        let id = BTUUID(from: characteristic.uuid)
         Task { @MainActor in
-            await testService.logEvent(.unsubscribedToNotification(characteristic.uuid))
+            await testService.logEvent(.unsubscribedToNotification(id))
         }
     }
 
@@ -175,8 +177,9 @@ final class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
             return
         }
 
+        let id = BTUUID(from: request.characteristic.uuid)
         Task { @MainActor in
-            await testService.logEvent(.receivedRead(request.characteristic.uuid))
+            await testService.logEvent(.receivedRead(id))
         }
 
         guard request.offset == 0 else {
@@ -186,10 +189,21 @@ final class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
             return
         }
 
-        Task { @MainActor in
-            let result = testService.handleRead(for: request)
-            peripheral.respond(to: request, withResult: result)
+        let result: CBATTError.Code
+
+        let readResult = MainActor.assumeIsolated {
+            testService.handleRead(for: id)
         }
+
+        switch readResult {
+        case let .success(value):
+            request.value = value
+            result = .success
+        case let .failure(code):
+            result = code.code
+        }
+
+        peripheral.respond(to: request, withResult: result)
     }
 
     func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]) {
@@ -217,8 +231,9 @@ final class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
                 continue
             }
 
+            let id = BTUUID(from: request.characteristic.uuid)
             Task { @MainActor in
-                await testService.logEvent(.receivedWrite(request.characteristic.uuid, value: value))
+                await testService.logEvent(.receivedWrite(id, value: value))
             }
         }
 
@@ -229,22 +244,22 @@ final class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
             return
         }
 
-
-        Task { @MainActor [testService] in
-            // The following is mentioned in the docs:
-            // Always respond with the first request.
-            // Treat it as a multi request otherwise.
-            // If you can't fulfill a single one, don't fulfill any of them (we are not exactly supporting the transactions part of that).
-            for request in requests {
-                let result = testService.handleWrite(for: request)
-
-                if result != .success {
-                    peripheral.respond(to: first, withResult: result)
-                    return
-                }
+        // The following is mentioned in the docs:
+        // Always respond with the first request.
+        // Treat it as a multi request otherwise.
+        // If you can't fulfill a single one, don't fulfill any of them (we are not exactly supporting the transactions part of that).
+        for request in requests {
+            let value = request.value
+            let id = BTUUID(from: request.characteristic.uuid)
+            let result = MainActor.assumeIsolated {
+                testService.handleWrite(value: value, characteristicId: id)
             }
 
-            peripheral.respond(to: first, withResult: .success)
+            if result != .success {
+                peripheral.respond(to: first, withResult: result)
+                return
+            }
         }
+        peripheral.respond(to: first, withResult: .success)
     }
 }

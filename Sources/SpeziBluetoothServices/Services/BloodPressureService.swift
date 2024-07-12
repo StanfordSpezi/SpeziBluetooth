@@ -19,8 +19,7 @@ public struct BloodPressureService: BluetoothService, Sendable {
     /// Receive blood pressure measurements
     ///
     /// - Note: This characteristic is required and indicate-only.
-    @Characteristic(id: "2A35", notify: true)
-    public var bloodPressureMeasurement: BloodPressureMeasurement?
+    @Characteristic public var bloodPressureMeasurement: BloodPressureMeasurement?
 
     /// Describe supported features of the blood pressure cuff.
     ///
@@ -35,5 +34,9 @@ public struct BloodPressureService: BluetoothService, Sendable {
     public var intermediateCuffPressure: IntermediateCuffPressure?
 
 
-    public init() {}
+    /// Initialize a new Blood Pressure Service.
+    /// - Parameter autoRead: Automatically read the initial value of the measurement characteristic.
+    public init(autoRead: Bool = false) {
+        _bloodPressureMeasurement = Characteristic(id: "2A35", notify: true, autoRead: autoRead)
+    }
 }

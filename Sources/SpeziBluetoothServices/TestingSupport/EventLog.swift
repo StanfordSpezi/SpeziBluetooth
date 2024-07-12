@@ -8,7 +8,7 @@
 
 @_spi(TestingSupport)
 import ByteCoding
-@preconcurrency import CoreBluetooth
+import CoreBluetooth
 import NIO
 @_spi(TestingSupport)
 import SpeziBluetooth
@@ -22,13 +22,13 @@ public enum EventLog {
     /// No event happened yet.
     case none
     /// Central subscribed to the notifications of the given characteristic.
-    case subscribedToNotification(_ characteristic: CBUUID)
+    case subscribedToNotification(_ characteristic: BTUUID)
     /// Central unsubscribed to the notifications of the given characteristic.
-    case unsubscribedToNotification(_ characteristic: CBUUID)
+    case unsubscribedToNotification(_ characteristic: BTUUID)
     /// The peripheral received a read request for the given characteristic.
-    case receivedRead(_ characteristic: CBUUID)
+    case receivedRead(_ characteristic: BTUUID)
     /// The peripheral received a write request for the given characteristic and data.
-    case receivedWrite(_ characteristic: CBUUID, value: Data)
+    case receivedWrite(_ characteristic: BTUUID, value: Data)
 }
 
 
@@ -96,7 +96,7 @@ extension EventLog: ByteCodable {
             return nil
         }
 
-        let characteristic = CBUUID(data: data)
+        let characteristic = BTUUID(data: data)
 
 
         switch type {

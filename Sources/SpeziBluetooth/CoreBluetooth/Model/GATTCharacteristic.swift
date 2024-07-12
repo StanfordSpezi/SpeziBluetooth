@@ -13,13 +13,12 @@ import Foundation
 struct CBCharacteristicCapture: Sendable {
     let isNotifying: Bool
     let value: Data?
-    nonisolated(unsafe) let descriptors: [CBDescriptor]? // swiftlint:disable:this discouraged_optional_collection
-    // TODO: review above!
+    let descriptors: CBInstance<[CBDescriptor]>?
 
     init(from characteristic: CBCharacteristic) {
         self.isNotifying = characteristic.isNotifying
         self.value = characteristic.value
-        self.descriptors = characteristic.descriptors
+        self.descriptors = characteristic.descriptors.map { CBInstance(instantiatedOnDispatchQueue: $0) }
     }
 }
 
@@ -37,11 +36,10 @@ struct CBCharacteristicCapture: Sendable {
 /// - ``service``
 @Observable
 public final class GATTCharacteristic {
-    // fine to be non-isolated. CBCharacteristic is non-Sendable as it is an open class.
-    nonisolated(unsafe) let underlyingCharacteristic: CBCharacteristic
+    let underlyingCharacteristic: CBCharacteristic
 
     /// The associated service if still available.
-    public private(set) nonisolated(unsafe) weak var service: GATTService? // never mutated, var required for weak reference
+    public private(set) weak var service: GATTService?
 
     /// Whether the characteristic is currently notifying or not.
     public private(set) var isNotifying: Bool
@@ -77,14 +75,14 @@ public final class GATTCharacteristic {
         if capture.value != value {
             value = capture.value
         }
-        if capture.descriptors != descriptors {
-            descriptors = capture.descriptors
+        if capture.descriptors?.cbObject != descriptors {
+            descriptors = capture.descriptors?.cbObject
         }
     }
 }
 
 
-extension GATTCharacteristic: Sendable {}
+extension GATTCharacteristic {}
 
 
 extension GATTCharacteristic: CustomDebugStringConvertible {

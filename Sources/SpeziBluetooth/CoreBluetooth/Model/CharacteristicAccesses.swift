@@ -11,19 +11,20 @@ import Foundation
 import SpeziFoundation
 
 
-class CharacteristicAccess {
+@SpeziBluetooth
+class CharacteristicAccess: Sendable {
     enum Access {
         case read(CheckedContinuation<Data, Error>)
         case write(CheckedContinuation<Void, Error>)
     }
 
 
-    private let id: CBUUID
+    private let id: BTUUID
     private let semaphore = AsyncSemaphore()
     private(set) var value: Access?
 
 
-    fileprivate init(id: CBUUID) {
+    fileprivate init(id: BTUUID) {
         self.id = id
     }
 
@@ -59,7 +60,8 @@ class CharacteristicAccess {
 }
 
 
-struct CharacteristicAccesses {
+@SpeziBluetooth
+struct CharacteristicAccesses: Sendable {
     private var ongoingAccesses: [CBCharacteristic: CharacteristicAccess] = [:]
 
     mutating func makeAccess(for characteristic: CBCharacteristic) -> CharacteristicAccess {
@@ -67,7 +69,7 @@ struct CharacteristicAccesses {
         if let existing = ongoingAccesses[characteristic] {
             access = existing
         } else {
-            access = CharacteristicAccess(id: characteristic.uuid)
+            access = CharacteristicAccess(id: BTUUID(from: characteristic.uuid))
             self.ongoingAccesses[characteristic] = access
         }
         return access

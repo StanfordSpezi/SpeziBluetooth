@@ -73,24 +73,25 @@ class DeviceStatePeripheralInjection<Value: Sendable>: Sendable {
 
 extension KeyPath where Root == BluetoothPeripheral {
     // swiftlint:disable:next cyclomatic_complexity
+    @SpeziBluetooth
     func storageEquivalent() -> KeyPath<PeripheralStorage, Value>? {
         let anyKeyPath: AnyKeyPath? = switch self {
         case \.name:
             \PeripheralStorage.name
         case \.localName:
-            \PeripheralStorage._localName
+            \PeripheralStorage.localName
         case \.rssi:
-            \PeripheralStorage._rssi
+            \PeripheralStorage.rssi
         case \.advertisementData:
-            \PeripheralStorage._advertisementData
+            \PeripheralStorage.advertisementData
         case \.state:
-            \PeripheralStorage._state
+            \PeripheralStorage.state
         case \.services:
-            \PeripheralStorage._services
+            \PeripheralStorage.services
         case \.nearby:
-            \PeripheralStorage._nearby
+            \PeripheralStorage.nearby
         case \.lastActivity:
-            \PeripheralStorage._lastActivity
+            \PeripheralStorage.lastActivity
         case \.id:
             nil
         default:

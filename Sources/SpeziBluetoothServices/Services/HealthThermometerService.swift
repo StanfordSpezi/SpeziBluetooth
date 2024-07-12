@@ -18,8 +18,7 @@ public struct HealthThermometerService: BluetoothService, Sendable {
     /// Receive temperature measurements.
     ///
     /// - Note: This characteristic is required and indicate-only.
-    @Characteristic(id: "2A1C", notify: true)
-    public var temperatureMeasurement: TemperatureMeasurement?
+    @Characteristic public var temperatureMeasurement: TemperatureMeasurement?
     /// The body location of the temperature measurement.
     ///
     /// Either use this static property or dynamically set it within ``TemperatureMeasurement/temperatureType``.
@@ -43,5 +42,9 @@ public struct HealthThermometerService: BluetoothService, Sendable {
     public var measurementInterval: MeasurementInterval?
 
 
-    public init() {}
+    /// Initialize a new Health Thermometer Service.
+    /// - Parameter autoRead: Automatically read the initial value of the measurement characteristic.
+    public init(autoRead: Bool = false) {
+        _temperatureMeasurement = Characteristic(id: "2A1C", notify: true, autoRead: autoRead)
+    }
 }

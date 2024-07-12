@@ -36,7 +36,7 @@ final class Lazy<Value>: Sendable {
     }
 
     /// Support lazy initialization of lazy property.
-    init() {}
+    nonisolated init() {}
 
 
     init(initializer: @escaping () -> Value, onCleanup: @escaping () -> Void = {}) {

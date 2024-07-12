@@ -25,10 +25,9 @@ struct ServiceChangeProtocol {
 /// - ``characteristics``
 @Observable
 public final class GATTService {
-    // fine to be non-isolated. CBService is non-Sendable as it is an open class.
-    nonisolated(unsafe) let underlyingService: CBService
+    let underlyingService: CBService
     /// The stored characteristics, indexed by their uuid.
-    private nonisolated(unsafe) var _characteristics: [BTUUID: GATTCharacteristic]
+    private var _characteristics: [BTUUID: GATTCharacteristic]
 
     /// The Bluetooth UUID of the service.
     public var uuid: BTUUID {
@@ -95,9 +94,6 @@ public final class GATTService {
         return ServiceChangeProtocol(removedCharacteristics: removedCharacteristics, updatedCharacteristics: updatedCharacteristics)
     }
 }
-
-
-extension GATTService: Sendable {}
 
 
 extension GATTService: Hashable {

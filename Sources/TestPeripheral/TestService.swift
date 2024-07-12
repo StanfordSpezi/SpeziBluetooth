@@ -13,6 +13,15 @@ import SpeziBluetooth
 import SpeziBluetoothServices
 
 
+struct ATTErrorCode: Error, Sendable {
+    let code: CBATTError.Code
+
+    init(_ code: CBATTError.Code) {
+        self.code = code
+    }
+}
+
+
 final class TestService: Sendable {
     private var logger: Logger {
         Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "TestService")
@@ -31,22 +40,20 @@ final class TestService: Sendable {
     /// Reset peripheral state to default settings
     let reset: CBMutableCharacteristic
 
-    private var readStringCount: UInt = 1
-    private var readStringValue: String {
+    @MainActor private var readStringCount: UInt = 1
+    @MainActor private var readStringValue: String {
         defer {
             readStringCount += 1
         }
         return "Hello World (\(readStringCount))"
     }
 
-    private var lastEvent: EventLog = .none
-    private var readWriteStringValue: String
+    @MainActor private var lastEvent: EventLog = .none
+    @MainActor private var readWriteStringValue: String = "Hello Spezi"
 
     init(peripheral: TestPeripheral) {
         self.peripheral = peripheral
         self.service = CBMutableService(type: BTUUID.testService.cbuuid, primary: true)
-
-        self.readWriteStringValue = ""
 
         self.eventLog = CBMutableCharacteristic(
             type: BTUUID.eventLogCharacteristic.cbuuid,
@@ -75,10 +82,9 @@ final class TestService: Sendable {
         self.reset = CBMutableCharacteristic(type: BTUUID.resetCharacteristic.cbuuid, properties: [.write], value: nil, permissions: [.writeable])
 
         service.characteristics = [eventLog, readString, writeString, readWriteString, reset]
-
-        resetState()
     }
 
+    @MainActor
     private func resetState() {
         self.readStringCount = 1
         self.readWriteStringValue = "Hello Spezi"
@@ -98,31 +104,28 @@ final class TestService: Sendable {
     }
 
     @MainActor
-    func handleRead(for request: CBATTRequest) -> CBATTError.Code {
-        switch request.characteristic.uuid {
+    func handleRead(for uuid: BTUUID) -> Result<Data, ATTErrorCode> {
+        switch uuid.cbuuid {
         case eventLog.uuid:
-            request.value = self.lastEvent.encode()
+            .success(self.lastEvent.encode())
         case writeString.uuid, reset.uuid:
-            return .readNotPermitted
+            .failure(.init(.readNotPermitted))
         case readString.uuid:
-            let value = readStringValue
-            request.value = value.encode()
+            .success(readStringValue.encode())
         case readWriteString.uuid:
-            request.value = readWriteStringValue.encode()
+            .success(readWriteStringValue.encode())
         default:
-            return .attributeNotFound
+            .failure(.init(.attributeNotFound))
         }
-
-        return .success
     }
 
     @MainActor
-    func handleWrite(for request: CBATTRequest) -> CBATTError.Code {
-        guard let value = request.value else {
+    func handleWrite(value: Data?, characteristicId: BTUUID) -> CBATTError.Code {
+        guard let value = value else {
             return .attributeNotFound
         }
 
-        switch request.characteristic.uuid {
+        switch characteristicId.cbuuid {
         case eventLog.uuid, readString.uuid:
             return .writeNotPermitted
         case writeString.uuid:

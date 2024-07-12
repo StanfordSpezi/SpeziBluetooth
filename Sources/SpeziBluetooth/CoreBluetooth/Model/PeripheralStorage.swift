@@ -129,7 +129,6 @@ final class PeripheralStorage: ValueObservable, Sendable {
     // swiftlint:disable:next identifier_name
     @ObservationIgnored let _$simpleRegistrar = ValueObservationRegistrar<PeripheralStorage>()
 
-    @SpeziBluetooth
     init(peripheralName: String?, rssi: Int, advertisementData: AdvertisementData, state: CBPeripheralState, lastActivity: Date = .now) {
         self._peripheralName = peripheralName
         self._localName = advertisementData.localName

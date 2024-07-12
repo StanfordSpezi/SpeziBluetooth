@@ -16,6 +16,31 @@ private struct SpeziBluetoothDispatchQueueKey: Sendable, Hashable {
 }
 
 
+/// A lot of the CB objects are not sendable. This is fine.
+/// However, Swift is not smart enough to know that CB delegate methods (e.g., CBCentralManagerDelete or the CBPeripheralDelegate) are called
+/// on the SpeziBluetooth actor's dispatch queue and therefore are never sent over actor boundaries.
+/// This type helps us to assume the sendable property to bypass Swift concurrency checking
+@dynamicMemberLookup
+struct CBInstance<Value>: Sendable {
+    private nonisolated(unsafe) let object: Value
+    @SpeziBluetooth var cbObject: Value {
+        object
+    }
+
+    init(instantiatedOnDispatchQueue object: Value, file: StaticString = #fileID, line: UInt = #line) {
+        guard DispatchQueue.getSpecific(key: SpeziBluetoothDispatchQueueKey.key) == SpeziBluetoothDispatchQueueKey.shared else {
+            fatalError("Incorrect actor executor assumption; Expected same executor as \(SpeziBluetooth.shared).", file: file, line: line)
+        }
+
+        self.object = object
+    }
+
+    @SpeziBluetooth subscript<T>(dynamicMember keyPath: KeyPath<Value, T>) -> T {
+        cbObject[keyPath: keyPath]
+    }
+}
+
+
 /// Global actor to schedule Bluetooth-related work that is executed serially.
 ///
 /// The SpeziBluetooth global actor is used to schedule all Bluetooth related tasks and synchronize all Bluetooth related state.
@@ -54,39 +79,5 @@ extension SpeziBluetooth {
     /// - Throws: Re-throws the error from the closure.
     public static func run<T: Sendable>(resultType: T.Type = T.self, body: @SpeziBluetooth @Sendable () async throws -> T) async rethrows -> T {
         try await body()
-    }
-}
-
-
-extension SpeziBluetooth {
-    /// Assume that the current task is executing on the SpeziBluetooth actor's
-    /// serial executor, or stop program execution.
-    ///
-    /// Refer to the documentation of [assumeIsolated(_:file:line:)](https://developer.apple.com/documentation/swift/mainactor/assumeisolated(_:file:line:)-swift.method).
-    ///
-    /// - Parameters:
-    ///   - operation: the operation that will be executed if the current context is executing on the SpeziBluetooth's serial executor.
-    ///   - file: The file name to print if the assertion fails. The default is where this method was called.
-    ///   - line: The line number to print if the assertion fails The default is where this method was called.
-    /// - Returns: The return value of the `operation`.
-    /// - Throws: Re-throws the `Error` thrown by the operation if it threw.
-    @_unavailableFromAsync(message: "await the call to the @SpeziBluetooth closure directly")
-    public static func assumeIsolated<T: Sendable>(
-        _ operation: @SpeziBluetooth () throws -> T,
-        file: StaticString = #fileID,
-        line: UInt = #line
-    ) rethrows -> T {
-        typealias YesActor = @SpeziBluetooth () throws -> T
-        typealias NoActor = () throws -> T
-
-        guard DispatchQueue.getSpecific(key: SpeziBluetoothDispatchQueueKey.key) == SpeziBluetoothDispatchQueueKey.shared else {
-            fatalError("Incorrect actor executor assumption; Expected same executor as \(self).", file: file, line: line)
-        }
-
-        // To do the unsafe cast, we have to pretend it's @escaping.
-        return try withoutActuallyEscaping(operation) { (_ function: @escaping YesActor) throws -> T in
-            let rawFn = unsafeBitCast(function, to: NoActor.self)
-            return try rawFn()
-        }
     }
 }

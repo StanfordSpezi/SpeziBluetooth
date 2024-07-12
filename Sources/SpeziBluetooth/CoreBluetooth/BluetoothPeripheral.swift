@@ -6,16 +6,10 @@
 // SPDX-License-Identifier: MIT
 //
 
-@preconcurrency import CoreBluetooth // TODO: revisit!
+import CoreBluetooth
 import Foundation
 import OSLog
 import SpeziFoundation
-
-
-enum CharacteristicOnChangeHandler {
-    case value(_ closure: (Data) -> Void)
-    case instance(_ closure: (GATTCharacteristic?) -> Void)
-}
 
 
 /// A nearby Bluetooth peripheral.
@@ -815,12 +809,13 @@ extension BluetoothPeripheral {
             let serviceIds = invalidatedServices.map { BTUUID(from: $0.uuid) }
             logger.debug("Services modified, invalidating \(serviceIds)")
 
+            let peripheral = CBInstance(instantiatedOnDispatchQueue: peripheral)
             Task { @SpeziBluetooth in
                 // update our local model!
                 device.invalidateServices(Set(serviceIds))
 
                 // make sure we try to rediscover those services though
-                peripheral.discoverServices(serviceIds.map { $0.cbuuid })
+                peripheral.cbObject.discoverServices(serviceIds.map { $0.cbuuid })
             }
         }
 
@@ -839,12 +834,15 @@ extension BluetoothPeripheral {
                 return
             }
 
+            let peripheral = CBInstance(instantiatedOnDispatchQueue: peripheral)
+            let cbServices = CBInstance(instantiatedOnDispatchQueue: services)
+
             Task { @SpeziBluetooth [logger] in
-                device.discovered(services: services)
+                device.discovered(services: cbServices.cbObject)
 
-                logger.debug("Discovered \(services) services for peripheral \(device.debugDescription)")
+                logger.debug("Discovered \(cbServices.cbObject) services for peripheral \(device.debugDescription)")
 
-                for service in services {
+                for service in cbServices.cbObject {
                     let serviceId = BTUUID(from: service.uuid)
 
                     guard let serviceDescription = device.configuration.description(for: serviceId) else {
@@ -860,7 +858,7 @@ extension BluetoothPeripheral {
                     }
 
                     device.servicesAwaitingCharacteristicsDiscovery.insert(serviceId)
-                    peripheral.discoverCharacteristics(characteristicIds.map { Array($0.map { $0.cbuuid }) }, for: service)
+                    peripheral.cbObject.discoverCharacteristics(characteristicIds.map { Array($0.map { $0.cbuuid }) }, for: service)
                 }
 
                 if device.servicesAwaitingCharacteristicsDiscovery.isEmpty {
@@ -874,10 +872,10 @@ extension BluetoothPeripheral {
                 return
             }
 
-            let errorLocalizedDescription = error?.localizedDescription // apparently error is not sendable
-            Task { @SpeziBluetooth [logger, errorLocalizedDescription] in
+            let service = CBInstance(instantiatedOnDispatchQueue: service)
+            Task { @SpeziBluetooth [logger] in
                 // update our model with latest characteristics!
-                device.synchronizeModel(for: service)
+                device.synchronizeModel(for: service.cbObject)
 
                 // ensure we keep track of all discoveries, set .connected state
                 device.servicesAwaitingCharacteristicsDiscovery.remove(BTUUID(from: service.uuid))
@@ -885,13 +883,13 @@ extension BluetoothPeripheral {
                     device.storage.signalFullyDiscovered()
                 }
 
-                if let errorLocalizedDescription {
-                    logger.error("Error discovering characteristics: \(errorLocalizedDescription)")
+                if let error {
+                    logger.error("Error discovering characteristics: \(error.localizedDescription)")
                     return
                 }
 
                 // handle auto-subscribe and discover descriptors
-                device.discovered(service: service)
+                device.discovered(service: service.cbObject)
             }
         }
 
@@ -907,9 +905,10 @@ extension BluetoothPeripheral {
             logger.debug("Discovered descriptors for characteristic \(characteristic.debugIdentifier): \(descriptors)")
 
             let capture = CBCharacteristicCapture(from: characteristic)
+            let characteristic = CBInstance(instantiatedOnDispatchQueue: characteristic)
 
             Task { @SpeziBluetooth in
-                device.synchronizeModel(for: characteristic, capture: capture)
+                device.synchronizeModel(for: characteristic.cbObject, capture: capture)
             }
         }
 
@@ -919,15 +918,16 @@ extension BluetoothPeripheral {
             }
 
             let capture = CBCharacteristicCapture(from: characteristic)
+            let characteristic = CBInstance(instantiatedOnDispatchQueue: characteristic)
 
             Task { @SpeziBluetooth in
                 // make sure value is propagated beforehand
-                device.synchronizeModel(for: characteristic, capture: capture)
+                device.synchronizeModel(for: characteristic.cbObject, capture: capture)
 
                 if let error {
-                    device.receivedUpdatedValue(for: characteristic, result: .failure(error))
+                    device.receivedUpdatedValue(for: characteristic.cbObject, result: .failure(error))
                 } else if let value = capture.value {
-                    device.receivedUpdatedValue(for: characteristic, result: .success(value))
+                    device.receivedUpdatedValue(for: characteristic.cbObject, result: .success(value))
                 }
             }
         }
@@ -938,12 +938,13 @@ extension BluetoothPeripheral {
             }
 
             let capture = CBCharacteristicCapture(from: characteristic)
+            let characteristic = CBInstance(instantiatedOnDispatchQueue: characteristic)
 
             Task { @SpeziBluetooth in
-                device.synchronizeModel(for: characteristic, capture: capture)
+                device.synchronizeModel(for: characteristic.cbObject, capture: capture)
 
                 let result: Result<Void, Error> = error.map { .failure($0) } ?? .success(())
-                device.receivedWriteResponse(for: characteristic, result: result)
+                device.receivedWriteResponse(for: characteristic.cbObject, result: result)
             }
         }
 
@@ -974,9 +975,10 @@ extension BluetoothPeripheral {
             }
 
             let capture = CBCharacteristicCapture(from: characteristic)
+            let characteristic = CBInstance(instantiatedOnDispatchQueue: characteristic)
 
             Task { @SpeziBluetooth [logger] in
-                device.synchronizeModel(for: characteristic, capture: capture)
+                device.synchronizeModel(for: characteristic.cbObject, capture: capture)
 
                 if capture.isNotifying {
                     logger.log("Notification began on \(characteristic.debugIdentifier)")

@@ -34,11 +34,14 @@ public struct CurrentTimeService: BluetoothService, Sendable {
     ///
     /// - Note: The peripheral may choose to ignore fields of the current time during writes. In this case
     ///     it may return the error code 0x80 _Data field ignored_.
-    @Characteristic(id: "2A2B", notify: true)
-    public var currentTime: CurrentTime? // TODO: make auto-read configurable
+    @Characteristic public var currentTime: CurrentTime?
 
 
-    public init() {}
+    /// Initialize a new Current Time Service.
+    /// - Parameter autoRead: Automatically read the initial value of the current time characteristic.
+    public init(autoRead: Bool = true) {
+        _currentTime = Characteristic(id: "2A2B", notify: true, autoRead: autoRead)
+    }
 }
 
 
