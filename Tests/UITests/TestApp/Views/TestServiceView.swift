@@ -8,7 +8,6 @@
 
 @_spi(TestingSupport)
 import ByteCoding
-import CoreBluetooth
 @_spi(TestingSupport)
 import SpeziBluetooth
 @_spi(TestingSupport)
@@ -37,7 +36,7 @@ struct EventLogView: View {
     }
 
     private var characteristic: String? {
-        let characteristic: CBUUID? = switch log {
+        let characteristic: BTUUID? = switch log {
         case .none:
             nil
         case let .subscribedToNotification(characteristic):
@@ -53,7 +52,7 @@ struct EventLogView: View {
         guard let characteristic else {
             return nil
         }
-        return CBUUID.toCustomShort(characteristic)
+        return BTUUID.toCustomShort(characteristic)
     }
 
     private var value: String? {

@@ -240,7 +240,7 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
     /// The Bluetooth device configuration.
     ///
     /// Set of configured ``BluetoothDevice`` with their corresponding ``DiscoveryCriteria``.
-    public let configuration: Set<DeviceDiscoveryDescriptor>
+    public nonisolated let configuration: Set<DeviceDiscoveryDescriptor>
 
     // sadly Swifts "lazy var" won't work here with strict concurrency as it doesn't isolate the underlying lazy storage
     @SpeziBluetooth private var _lazy_discoveryConfiguration: Set<DiscoveryDescription>?

@@ -88,7 +88,7 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     private var servicesAwaitingCharacteristicsDiscovery: Set<BTUUID> = []
 
     /// The internally managed identifier for the peripheral.
-    public let id: UUID
+    public nonisolated let id: UUID
 
     /// The name of the peripheral.
     ///
@@ -720,7 +720,7 @@ extension BluetoothPeripheral {
 }
 
 
-extension BluetoothPeripheral: Identifiable {}
+extension BluetoothPeripheral: Identifiable, Sendable {}
 
 
 extension BluetoothPeripheral: CustomDebugStringConvertible {
