@@ -35,6 +35,10 @@ struct CBInstance<Value>: Sendable {
         self.object = object
     }
 
+    init(unsafe object: Value) {
+        self.object = object
+    }
+
     @SpeziBluetooth subscript<T>(dynamicMember keyPath: KeyPath<Value, T>) -> T {
         cbObject[keyPath: keyPath]
     }

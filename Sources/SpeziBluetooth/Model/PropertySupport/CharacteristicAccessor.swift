@@ -117,7 +117,7 @@ extension CharacteristicAccessor where Value: ByteDecodable {
     /// all your handlers.
     /// - Important: You must capture `self` weakly only. Capturing `self` strongly causes a memory leak.
     ///
-    /// - Note: This closure is called from the Bluetooth Serial Executor, if you don't pass in an async method
+    /// - Note: This closure is called from the ``SpeziBluetooth/SpeziBluetooth`` global actor, if you don't pass in an async method
     ///     that has an annotated actor isolation (e.g., `@MainActor` or actor isolated methods).
     ///
     /// - Parameters:
@@ -141,7 +141,7 @@ extension CharacteristicAccessor where Value: ByteDecodable {
     /// all your handlers.
     /// - Important: You must capture `self` weakly only. Capturing `self` strongly causes a memory leak.
     ///
-    /// - Note: This closure is called from the Bluetooth Serial Executor, if you don't pass in an async method
+    /// - Note: This closure is called from the ``SpeziBluetooth/SpeziBluetooth`` global actor, if you don't pass in an async method
     ///     that has an annotated actor isolation (e.g., `@MainActor` or actor isolated methods).
     ///
     /// - Parameters:

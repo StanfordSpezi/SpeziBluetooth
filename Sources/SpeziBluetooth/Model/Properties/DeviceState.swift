@@ -51,8 +51,12 @@ import Observation
 ///     @DeviceState(\.state)
 ///     var state: PeripheralState
 ///
-///     init() {
-///         $state.onChange(perform: handleStateChange)
+///     required init() {}
+///
+///     func configure() {
+///         $state.onChange { [weak self] value in
+///             self?.handleStateChange(value)
+///         }
 ///     }
 ///
 ///     handleStateChange(_ state: PeripheralState) {

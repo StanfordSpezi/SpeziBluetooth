@@ -32,8 +32,8 @@ import Spezi
 /// [`ByteCodable`](https://swiftpackageindex.com/stanfordspezi/spezifileformats/documentation/bytecoding/bytecodable) respectively.
 ///
 /// ```swift
-/// class DeviceInformationService: BluetoothService {
-///    static let id = CBUUID(string: "180A")
+/// struct DeviceInformationService: BluetoothService {
+///    static let id: BTUUID = "180A"
 ///
 ///     @Characteristic(id: "2A29")
 ///     var manufacturer: String?
@@ -194,8 +194,12 @@ import Spezi
 ///     // declare dependency to a configured Spezi Module
 ///     @Dependency var measurements: Measurements
 ///
-///     required init() {
-///         weightScale.$weightMeasurement.onChange(perform: handleNewMeasurement)
+///     required init() {}
+///
+///     func configure() {
+///         weightScale.$weightMeasurement.onChange { [weak self] value in
+///             self?.handleNewMeasurement(value)
+///         }
 ///     }
 ///
 ///     private func handleNewMeasurement(_ measurement: WeightMeasurement) {

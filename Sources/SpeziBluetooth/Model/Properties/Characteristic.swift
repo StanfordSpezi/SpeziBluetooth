@@ -29,8 +29,8 @@ import Foundation
 /// The below code example demonstrates declaring the Firmware Revision characteristic of the Device Information service.
 ///
 /// ```swift
-/// class DeviceInformationService: BluetoothService {
-///    static let id = CBUUID(string: "180A")
+/// struct DeviceInformationService: BluetoothService {
+///    static let id: BTUUID = "180A"
 ///
 ///     @Characteristic(id: "2A26")
 ///     var firmwareRevision: String?
@@ -49,18 +49,22 @@ import Foundation
 /// The below code example uses the [Bluetooth Heart Rate Service](https://www.bluetooth.com/specifications/specs/heart-rate-service-1-0)
 /// to demonstrate the automatic notifications feature for the Heart Rate Measurement characteristic.
 ///
-/// - Important: This closure is called from the Bluetooth Serial Executor, if you don't pass in an async method
+/// - Important: This closure is called from the ``SpeziBluetooth/SpeziBluetooth`` global actor, if you don't pass in an async method
 ///     that has an annotated actor isolation (e.g., `@MainActor` or actor isolated methods).
 ///
 /// ```swift
-/// class HeartRateService: BluetoothService {
-///    static let id = CBUUID(string: "180D")
+/// struct HeartRateService: BluetoothService {
+///     static let id: BTUUID = "180D"
 ///
 ///     @Characteristic(id: "2A37", notify: true)
 ///     var heartRateMeasurement: HeartRateMeasurement?
 ///
-///     init() {
-///         $heartRateMeasurement.onChange(perform: processMeasurement)
+///     init() {}
+///
+///     configure() {
+///         $heartRateMeasurement.onChange { [weak self] value in
+///             self?.processMeasurement(measurement)
+///         }
 ///     }
 ///
 ///     func processMeasurement(_ measurement: HeartRateMeasurement) {
@@ -80,8 +84,8 @@ import Foundation
 /// and inspecting other properties like `isPresent`.
 ///
 /// ```swift
-/// class HeartRateService: BluetoothService {
-///    static let id = CBUUID(string: "180D")
+/// struct HeartRateService: BluetoothService {
+///    static let id: BTUUID = "180D"
 ///
 ///     @Characteristic(id: "2A37", notify: true)
 ///     var heartRateMeasurement: HeartRateMeasurement?

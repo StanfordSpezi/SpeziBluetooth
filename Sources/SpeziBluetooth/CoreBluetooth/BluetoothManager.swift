@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
-
+@preconcurrency import class CoreBluetooth.CBCentralManager // swiftlint:disable:this duplicate_imports
 import CoreBluetooth
 import NIO
 import Observation
@@ -84,7 +84,17 @@ import OSLog
 public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint:disable:this type_body_length
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothManager")
 
-    @Lazy private var centralManager: CBCentralManager
+    private var _centralManager: CBCentralManager?
+
+    private var centralManager: CBCentralManager {
+        guard let centralManager = _centralManager else {
+            let centralManager = supplyCBCentral()
+            self._centralManager = centralManager
+            return centralManager
+        }
+        return centralManager
+    }
+
     private lazy var centralDelegate: Delegate = { // swiftlint:disable:this weak_delegate
         let delegate = Delegate()
         delegate.initManager(self)
@@ -156,40 +166,39 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
 
     
     /// Initialize a new Bluetooth Manager with provided device description and optional configuration options.
-    public nonisolated init() {
-        Task { @SpeziBluetooth in
-            // The Bluetooth permission alert shows every time when a CBCentralManager is initialized.
-            // If we already have permissions the a power alert will be shown if the user has Bluetooth disabled.
-            // To have those alerts shown at the right time (and repeatedly), we lazily initialize the CBCentralManager and also deinit it
-            // once we don't use it anymore (we are not scanning and no device is currently connected).
-            // All this state handling happens here within the closures passed to the `Lazy` property wrapper.
-            _centralManager.supply { [weak self] in
-                // As `centralManager` is actor isolated, the initializer closure and the onCleanup closure
-                // can both be assumed to be isolated to the BluetoothManager.
-                let centralDelegate = self?.centralDelegate
-                let central = CBCentralManager(
-                    delegate: centralDelegate,
-                    queue: SpeziBluetooth.shared.dispatchQueue,
-                    options: [CBCentralManagerOptionShowPowerAlertKey: true]
-                )
+    public nonisolated init() {}
 
-                self?.isScanningObserver = KVOStateDidChangeObserver(entity: central, property: \.isScanning) { [weak self] value in
-                    guard let self else {
-                        return
-                    }
-                    storage.isScanning = value
-                    if !isScanning {
-                        handleStoppedScanning()
-                    }
-                }
+    func supplyCBCentral() -> CBCentralManager {
+        // The Bluetooth permission alert shows every time when a CBCentralManager is initialized.
+        // If we already have permissions the a power alert will be shown if the user has Bluetooth disabled.
+        // To have those alerts shown at the right time (and repeatedly), we lazily initialize the CBCentralManager and also deinit it
+        // once we don't use it anymore (we are not scanning and no device is currently connected).
+        // All this state handling happens here within the closures passed to the `Lazy` property wrapper.
 
-                self?.logger.debug("Initialized the underlying CBCentralManager.")
-                return central
-            } onCleanup: { [weak self] in
-                self?.logger.debug("Destroyed the underlying CBCentralManager.")
-                self?.isScanningObserver = nil
+        let central = CBCentralManager(
+            delegate: centralDelegate,
+            queue: SpeziBluetooth.shared.dispatchQueue,
+            options: [CBCentralManagerOptionShowPowerAlertKey: true]
+        )
+
+        isScanningObserver = KVOStateDidChangeObserver(entity: central, property: \.isScanning) { [weak self] value in
+            guard let self else {
+                return
+            }
+            storage.isScanning = value
+            if !isScanning {
+                handleStoppedScanning()
             }
         }
+
+        logger.debug("Initialized the underlying CBCentralManager.")
+        return centralManager
+    }
+
+    func cleanupCBCentral() {
+        _centralManager = nil
+        isScanningObserver = nil
+        logger.debug("Destroyed the underlying CBCentralManager.")
     }
 
     /// Request to power up the Bluetooth Central.
@@ -343,7 +352,7 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
     ///   - description: The expected device configuration of the peripheral. This is used to discover service and characteristics if you connect to the peripheral-
     /// - Returns: The retrieved Peripheral. Returns nil if the Bluetooth Central could not be powered on (e.g., not authorized) or if no peripheral with the requested identifier was found.
     public func retrievePeripheral(for uuid: UUID, with description: DeviceDescription) async -> BluetoothPeripheral? {
-        if !_centralManager.isInitialized {
+        if _centralManager != nil {
             _ = centralManager // make sure central is initialized!
 
             // we are waiting for the next state transition, ideally to poweredOn state!
@@ -458,7 +467,7 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
             return // there are still associated devices
         }
 
-        _centralManager.destroy()
+        cleanupCBCentral()
         storage.update(state: .unknown)
     }
 
@@ -513,7 +522,7 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
         Task { @SpeziBluetooth [storage, _centralManager, isScanning, logger] in
             if isScanning {
                 storage.isScanning = false
-                _centralManager.wrappedValue.stopScan()
+                _centralManager?.stopScan()
                 logger.debug("Scanning stopped")
             }
 
