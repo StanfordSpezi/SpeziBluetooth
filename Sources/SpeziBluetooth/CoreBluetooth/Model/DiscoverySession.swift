@@ -196,7 +196,7 @@ extension DiscoverySession {
             return nil // auto-connect is disabled
         }
 
-        guard lastManuallyDisconnectedDevice == nil && !manager.hasConnectedDevices else {
+        guard lastManuallyDisconnectedDevice == nil && !manager.sbHasConnectedDevices else {
             return nil
         }
 

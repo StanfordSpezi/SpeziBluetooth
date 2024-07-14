@@ -6,28 +6,57 @@
 // SPDX-License-Identifier: MIT
 //
 
+import Atomics
 import Foundation
 import OrderedCollections
 
 
 @Observable
 final class BluetoothManagerStorage: ValueObservable, Sendable {
-    // swiftlint:disable identifier_name
-    private(set) nonisolated(unsafe) var _isScanning = false
-    private(set) nonisolated(unsafe) var _state: BluetoothState = .unknown
+    private let _isScanning = ManagedAtomic<Bool>(false)
+    private let _state = ManagedAtomic<BluetoothState>(.unknown)
+    private nonisolated(unsafe) var _discoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> = [:]
+    private let rwLock = RWLock()
 
-    private(set) nonisolated(unsafe) var _discoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> = [:]
-    private(set) nonisolated(unsafe) var _retrievedPeripherals: OrderedDictionary<UUID, WeakReference<BluetoothPeripheral>> = [:]
-    // swiftlint:enable identifier_name
+    @SpeziBluetooth var retrievedPeripherals: OrderedDictionary<UUID, WeakReference<BluetoothPeripheral>> = [:] {
+        didSet {
+            _$simpleRegistrar.triggerDidChange(for: \.retrievedPeripherals, on: self)
+        }
+    }
+    @SpeziBluetooth @ObservationIgnored private var subscribedContinuations: [UUID: AsyncStream<BluetoothState>.Continuation] = [:]
 
-    @SpeziBluetooth private var subscribedContinuations: [UUID: AsyncStream<BluetoothState>.Continuation] = [:]
+    /// Note: we track, based on the CoreBluetooth reported connected state.
+    @SpeziBluetooth var connectedDevices: Set<UUID> = []
+    @MainActor private(set) var maHasConnectedDevices: Bool = false // we need a main actor isolated one for efficient SwiftUI support.
+
+    @SpeziBluetooth var hasConnectedDevices: Bool {
+        !connectedDevices.isEmpty
+    }
+
+    @inlinable var readOnlyState: BluetoothState {
+        access(keyPath: \._state)
+        return _state.load(ordering: .relaxed)
+    }
+
+    @inlinable var readOnlyIsScanning: Bool {
+        access(keyPath: \._isScanning)
+        return _isScanning.load(ordering: .relaxed)
+    }
+
+    @inlinable var readOnlyDiscoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> {
+        rwLock.withReadLock {
+            _discoveredPeripherals
+        }
+    }
 
     @SpeziBluetooth var state: BluetoothState {
         get {
-            _state
+            readOnlyState
         }
         set {
-            _state = newValue
+            withMutation(keyPath: \._state) {
+                _state.store(newValue, ordering: .relaxed)
+            }
             _$simpleRegistrar.triggerDidChange(for: \.state, on: self)
 
             for continuation in subscribedContinuations.values {
@@ -38,39 +67,27 @@ final class BluetoothManagerStorage: ValueObservable, Sendable {
 
     @SpeziBluetooth var isScanning: Bool {
         get {
-            _isScanning
+            readOnlyIsScanning
         }
         set {
-            _isScanning = newValue
+            withMutation(keyPath: \._isScanning) {
+                _isScanning.store(newValue, ordering: .relaxed)
+            }
             _$simpleRegistrar.triggerDidChange(for: \.isScanning, on: self) // didSet
         }
     }
 
     @SpeziBluetooth var discoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> {
         get {
-            _discoveredPeripherals
-        }
-        _modify {
-            yield &_discoveredPeripherals
-            _$simpleRegistrar.triggerDidChange(for: \.discoveredPeripherals, on: self) // didSet
+            rwLock.withReadLock {
+                _discoveredPeripherals
+            }
         }
         set {
-            _discoveredPeripherals = newValue
+            rwLock.withReadLock {
+                _discoveredPeripherals = newValue
+            }
             _$simpleRegistrar.triggerDidChange(for: \.discoveredPeripherals, on: self) // didSet
-        }
-    }
-
-    @SpeziBluetooth var retrievedPeripherals: OrderedDictionary<UUID, WeakReference<BluetoothPeripheral>> {
-        get {
-            _retrievedPeripherals
-        }
-        _modify {
-            yield &_retrievedPeripherals
-            _$simpleRegistrar.triggerDidChange(for: \.retrievedPeripherals, on: self)
-        }
-        set {
-            _retrievedPeripherals = newValue
-            _$simpleRegistrar.triggerDidChange(for: \.retrievedPeripherals, on: self)
         }
     }
 
@@ -97,11 +114,45 @@ final class BluetoothManagerStorage: ValueObservable, Sendable {
         subscribedContinuations[id] = nil
     }
 
+    @SpeziBluetooth
+    func cbDelegateSignal(connected: Bool, for id: UUID) async {
+        if connected {
+            connectedDevices.insert(id)
+        } else {
+            connectedDevices.remove(id)
+        }
+        await updateMainActorConnectedDevices(hasConnectedDevices: !connectedDevices.isEmpty)
+    }
+
+    @MainActor
+    private func updateMainActorConnectedDevices(hasConnectedDevices: Bool) {
+        maHasConnectedDevices = hasConnectedDevices
+    }
+
 
     deinit {
-        Task { @SpeziBluetooth [_subscribedContinuations] in
-            for continuation in _subscribedContinuations.values {
+        Task { @SpeziBluetooth [subscribedContinuations] in
+            for continuation in subscribedContinuations.values {
                 continuation.finish()
+            }
+        }
+    }
+}
+
+
+extension BluetoothManagerStorage {
+    var stateSubscription: AsyncStream<BluetoothState> {
+        AsyncStream(BluetoothState.self) { continuation in
+            Task { @SpeziBluetooth in
+                let id = subscribe(continuation)
+                continuation.onTermination = { @Sendable [weak self] _ in
+                    guard let self = self else {
+                        return
+                    }
+                    Task.detached { @SpeziBluetooth in
+                        self.unsubscribe(for: id)
+                    }
+                }
             }
         }
     }

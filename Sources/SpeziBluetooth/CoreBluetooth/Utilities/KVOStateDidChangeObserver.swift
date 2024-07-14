@@ -11,8 +11,7 @@ import Foundation
 
 @SpeziBluetooth
 final class KVOStateDidChangeObserver<Entity: NSObject, Value>: NSObject, Sendable {
-    // we never mutate, but has to be var, as we weakly capture self in this property
-    private nonisolated(unsafe) var observation: NSKeyValueObservation?
+    private var observation: NSKeyValueObservation?
 
     private let entity: Entity
     private let keyPath: KeyPath<Entity, Value>

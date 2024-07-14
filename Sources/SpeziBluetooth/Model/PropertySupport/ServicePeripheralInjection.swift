@@ -16,7 +16,7 @@ class ServicePeripheralInjection<S: BluetoothService>: Sendable {
 
     private weak var service: GATTService? {
         didSet {
-            state.capturedService = service?.captured
+            state.serviceState = .init(from: service)
         }
     }
 

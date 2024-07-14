@@ -105,36 +105,24 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
     ///
     /// This array contains all discovered bluetooth peripherals and those with which we are currently connected.
     public nonisolated var nearbyPeripherals: [BluetoothPeripheral] {
-        Array(storage._discoveredPeripherals.values)
+        Array(storage.readOnlyDiscoveredPeripherals.values)
     }
 
     /// Represents the current state of the Bluetooth Manager.
     public nonisolated var state: BluetoothState {
-        storage._state
+        storage.readOnlyState
     }
 
     /// Subscribe to changes of the `state` property.
     ///
     /// Creates an `AsyncStream` that yields all **future** changes to the ``state`` property.
     public nonisolated var stateSubscription: AsyncStream<BluetoothState> {
-        AsyncStream(BluetoothState.self) { continuation in
-            Task { @SpeziBluetooth in
-                let id = storage.subscribe(continuation)
-                continuation.onTermination = { @Sendable [weak self] _ in
-                    guard let self = self else {
-                        return
-                    }
-                    Task.detached { @SpeziBluetooth in
-                        self.storage.unsubscribe(for: id)
-                    }
-                }
-            }
-        }
+        storage.stateSubscription
     }
 
     /// Whether or not we are currently scanning for nearby devices.
     public nonisolated var isScanning: Bool {
-        storage._isScanning
+        storage.readOnlyIsScanning
     }
 
     /// The list of discovered and connected bluetooth devices indexed by their identifier UUID.
@@ -462,9 +450,11 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
         }
 
         guard discoveredPeripherals.isEmpty && retrievedPeripherals.isEmpty else {
-            let discoveredCount = discoveredPeripherals.count
-            let retrievedCount = retrievedPeripherals.count
-            logger.debug("Not deallocating central. Devices are still associated: discovered: \(discoveredCount), retrieved: \(retrievedCount)")
+            logger.debug("""
+                         Not deallocating central. Devices are still associated: \
+                         discovered: \(self.discoveredPeripherals.count), \
+                         retrieved: \(self.retrievedPeripherals.count)
+                         """)
             return // there are still associated devices
         }
 
@@ -544,17 +534,12 @@ extension BluetoothManager: BluetoothScanner {
 
     /// Support for the auto connect modifier.
     @_documentation(visibility: internal)
-    public nonisolated var hasConnectedDevices: Bool {
-        // We make sure to loop over all peripherals here. This ensures observability subscribes to all changing states.
-        // swiftlint:disable:next reduce_boolean
-        storage._discoveredPeripherals.values.reduce(into: false) { partialResult, peripheral in
-            partialResult = partialResult || (peripheral.state != .disconnected)
-        } || storage._retrievedPeripherals.values.reduce(into: false, { partialResult, reference in
-            // swiftlint:disable:previous reduce_boolean
-            if let peripheral = reference.value {
-                partialResult = partialResult || (peripheral.state != .disconnected)
-            }
-        })
+    public var hasConnectedDevices: Bool {
+        storage.maHasConnectedDevices
+    }
+
+    @SpeziBluetooth var sbHasConnectedDevices: Bool {
+        storage.hasConnectedDevices // support for DiscoverySession
     }
 
     func updateScanningState(_ state: BluetoothManagerDiscoveryState) {
@@ -713,6 +698,8 @@ extension BluetoothManager {
 
                 logger.debug("Peripheral \(peripheral.debugIdentifier) connected.")
                 manager.handledConnected(device: device)
+
+                await manager.storage.cbDelegateSignal(connected: true, for: peripheral.identifier)
             }
         }
 
@@ -766,6 +753,7 @@ extension BluetoothManager {
                 }
 
                 manager.discardDevice(device: device)
+                await manager.storage.cbDelegateSignal(connected: false, for: peripheral.identifier)
             }
         }
     }

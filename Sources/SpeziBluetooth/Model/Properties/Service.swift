@@ -47,18 +47,35 @@ public struct Service<S: BluetoothService> {
 
     @Observable
     final class State: Sendable {
-        private nonisolated(unsafe) var _capturedService: GATTServiceCapture?
-        private let lock = NSLock()
+        // Type safe capture of the current GATTService state.
+        // To make this lock-free and non-blocking, we collapse the information we need in `ServiceAccessor` into a single
+        // RawRepresentable atomic value.
+        enum ServiceState: UInt8, RawRepresentable, AtomicValue {
+            case notPresent
+            case presentNotPrimary
+            case presentPrimary
 
-        var capturedService: GATTServiceCapture? {
-            get {
-                lock.withLock {
-                    _capturedService
+            @SpeziBluetooth
+            init(from value: GATTService?) {
+                switch value {
+                case .none:
+                    self = .notPresent
+                case let .some(service):
+                    self = service.isPrimary ? .presentPrimary : .presentNotPrimary
                 }
             }
+        }
+
+        private let _serviceState = ManagedAtomic<ServiceState>(.notPresent)
+
+        var serviceState: ServiceState {
+            get {
+                access(keyPath: \.serviceState)
+                return _serviceState.load(ordering: .relaxed)
+            }
             set {
-                lock.withLock {
-                    _capturedService = newValue
+                withMutation(keyPath: \.serviceState) {
+                    _serviceState.store(newValue, ordering: .relaxed)
                 }
             }
         }

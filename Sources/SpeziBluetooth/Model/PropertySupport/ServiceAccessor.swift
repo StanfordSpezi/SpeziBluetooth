@@ -21,24 +21,24 @@
 /// - ``isPresent``
 /// - ``isPrimary``
 public struct ServiceAccessor<S: BluetoothService> {
-    private let storage: Service<S>.Storage
+    private let serviceState: Service<S>.State.ServiceState
 
     /// Determine if the service is available.
     ///
     /// Returns `true` if the device is connected and the service is available and discovered.
     public var isPresent: Bool {
-        storage.state.capturedService != nil
+        serviceState != .notPresent
     }
 
     /// The type of the service (primary or secondary).
     ///
     /// Returns `false` if service is not available.
     public var isPrimary: Bool {
-        storage.state.capturedService?.isPrimary == true
+        serviceState == .presentPrimary
     }
 
     init(_ storage: Service<S>.Storage) {
-        self.storage = storage
+        self.serviceState = storage.state.serviceState
     }
 }
 

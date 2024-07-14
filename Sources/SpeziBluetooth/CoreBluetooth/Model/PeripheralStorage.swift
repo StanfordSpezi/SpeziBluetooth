@@ -17,7 +17,7 @@ import Foundation
 @Observable
 final class PeripheralStorage: ValueObservable, Sendable {
     nonisolated var name: String? {
-        _peripheralName ?? _localName
+        _peripheralName ?? _localName // TODO: don't make having two locks acquired for that!
     }
 
     // swiftlint:disable identifier_name

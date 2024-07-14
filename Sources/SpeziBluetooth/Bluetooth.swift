@@ -284,12 +284,6 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
         bluetoothManager.stateSubscription
     }
 
-    /// Support for the auto connect modifier.
-    @_documentation(visibility: internal)
-    nonisolated public var hasConnectedDevices: Bool {
-        bluetoothManager.hasConnectedDevices
-    }
-
     /// Dictionary of all initialized devices.
     ///
     /// Devices might be part of `nearbyDevices` as well or just retrieved devices that are eventually connected.
@@ -601,6 +595,12 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
 
 
 extension Bluetooth: BluetoothScanner {
+    /// Support for the auto connect modifier.
+    @_documentation(visibility: internal)
+    public var hasConnectedDevices: Bool {
+        bluetoothManager.hasConnectedDevices
+    }
+
     @SpeziBluetooth
     func scanNearbyDevices(_ state: BluetoothModuleDiscoveryState) {
         scanNearbyDevices(

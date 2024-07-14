@@ -61,7 +61,9 @@ class DeviceStatePeripheralInjection<Value: Sendable>: Sendable {
 
         if initial {
             let value = peripheral[keyPath: accessKeyPath]
-            subscriptions.notifySubscriber(id: id, with: value)
+            Task { @SpeziBluetooth in
+                subscriptions.notifySubscriber(id: id, with: value)
+            }
         }
     }
 

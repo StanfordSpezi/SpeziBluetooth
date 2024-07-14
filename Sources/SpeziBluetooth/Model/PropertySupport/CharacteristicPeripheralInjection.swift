@@ -288,8 +288,8 @@ extension CharacteristicPeripheralInjection where Value: ControlPointCharacteris
         }
 
         if !characteristic.isNotifying { // shortcut that doesn't require actor isolation.
-            // It takes some time for the characteristic to acknowledge notification registration. Assuming the characteristic was injected,
-            // and notifications were requests is good enough for us to assume we will receive the notification. Allows to send request much earlier.
+            // It takes some time for the characteristic to acknowledge notification registration. Assuming the characteristic was injected
+            // and notifications were requested, is good enough for us to assume we will receive the notification. Allows to send request much earlier.
             guard peripheral.didRequestNotifications(serviceId: serviceId, characteristicId: characteristicId) else {
                 throw BluetoothError.controlPointRequiresNotifying(service: serviceId, characteristic: characteristicId)
             }
@@ -320,7 +320,7 @@ extension CharacteristicPeripheralInjection where Value: ControlPointCharacteris
             throw error
         }
 
-        async let _ = withTimeout(of: timeout) {
+        async let _ = withTimeout(of: timeout) { @SpeziBluetooth in
             transaction.signalTimeout()
         }
 
@@ -333,7 +333,9 @@ extension CharacteristicPeripheralInjection where Value: ControlPointCharacteris
                 transaction.assignContinuation(continuation)
             }
         } onCancel: {
-            transaction.signalCancellation()
+            Task { @SpeziBluetooth in
+                transaction.signalCancellation()
+            }
         }
     }
 }

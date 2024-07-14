@@ -149,9 +149,13 @@ extension CharacteristicAccessor where Value: ByteDecodable {
         if let subscriptions = storage.testInjections.load()?.subscriptions {
             let id = subscriptions.newOnChangeSubscription(perform: action)
 
-            if initial, let value = storage.state.value {
-                // if there isn't a value already, initial won't work properly with injections
-                subscriptions.notifySubscriber(id: id, with: value)
+            if initial {
+                Task { @SpeziBluetooth in
+                    if let value = storage.state.value {
+                        // if there isn't a value already, initial won't work properly with injections
+                        subscriptions.notifySubscriber(id: id, with: value)
+                    }
+                }
             }
             return
         }
@@ -200,7 +204,7 @@ extension CharacteristicAccessor where Value: ByteDecodable {
             }
 
             if testInjection.simulatePeripheral {
-                guard let value = storage.state.value else {
+                guard let value = await storage.state.value else {
                     throw BluetoothError.notPresent(characteristic: storage.description.characteristicId)
                 }
                 return value
@@ -339,10 +343,15 @@ extension CharacteristicAccessor {
     ///
     /// - Parameter value: The value to inject.
     public func inject(_ value: Value) {
-        storage.state.value = value
+        // we set the value blocking, which is okay for a testing operation.
+        SpeziBluetooth.unsafeDQSync {
+            storage.state.value = value
+        }
 
         if let subscriptions = storage.testInjections.load()?.subscriptions {
-            subscriptions.notifySubscribers(with: value)
+            Task { @SpeziBluetooth in
+                subscriptions.notifySubscribers(with: value)
+            }
         }
     }
 

@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
+import Atomics
 import CoreBluetooth
 
 
@@ -26,7 +27,13 @@ public enum BluetoothState: UInt8 {
 }
 
 
-extension BluetoothState: CustomStringConvertible, Sendable {
+extension BluetoothState: RawRepresentable, AtomicValue {}
+
+
+extension BluetoothState: Hashable, Sendable {}
+
+
+extension BluetoothState: CustomStringConvertible {
     public var description: String {
         switch self {
         case .unknown:

@@ -28,7 +28,7 @@ struct CBInstance<Value>: Sendable {
     }
 
     init(instantiatedOnDispatchQueue object: Value, file: StaticString = #fileID, line: UInt = #line) {
-        guard DispatchQueue.getSpecific(key: SpeziBluetoothDispatchQueueKey.key) == SpeziBluetoothDispatchQueueKey.shared else {
+        guard SpeziBluetooth.shared.isSync else {
             fatalError("Incorrect actor executor assumption; Expected same executor as \(SpeziBluetooth.shared).", file: file, line: line)
         }
 
@@ -43,8 +43,22 @@ struct CBInstance<Value>: Sendable {
 
 /// Global actor to schedule Bluetooth-related work that is executed serially.
 ///
-/// The SpeziBluetooth global actor is used to schedule all Bluetooth related tasks and synchronize all Bluetooth related state.
-@globalActor
+/// SpeziBluetooth synchronizes all its state to the `SpeziBluetooth` global actor.
+/// The `SpeziBluetooth` global actor is used to schedule all Bluetooth related tasks and synchronize all Bluetooth related state.
+/// It is backed by a [`userInitiated`](https://developer.apple.com/documentation/dispatch/dispatchqos/1780759-userinitiated) serial DispatchQueue
+/// shared with the `CoreBluetooth` framework.
+///
+/// ### Data Safety
+///
+/// Some read-only state of `SpeziBluetooth` is deliberately made non-isolated and can be accessed from any thread (e.g., ``Bluetooth/state`` or ``Bluetooth/isScanning`` properties).
+/// Similar, values from ``Characteristic`` or ``DeviceState`` property wrappers are also non-isolated.
+/// These values can be, on its own, safely accessed from any thread. However, due to their highly async nature you might need to consider them out of date just after your access.
+/// For example, two accesses to ``Bluetooth/state`` just shortly after each other might deliver two completely different results. Or, accessing two different properties like
+/// ``Bluetooth/state`` or ``Bluetooth/isScanning`` might deliver inconsistent results, like `isScanning=true` and `state=.poweredOff`.
+/// - Tip: If you access a property multiple times within a section, consider making one access and saving it to a temporary variable to ensure a consistent view on the property.
+///
+/// If you need a consistent view of your Bluetooth peripheral's state, especially if you access multiple properties at the same time, consider isolating to the `@SpeziBluetooth` global actor.
+@globalActor // TODO: $accessor bindings are always consistent???
 public actor SpeziBluetooth {
     /// The shared actor instance.
     public static let shared = SpeziBluetooth()
@@ -55,6 +69,10 @@ public actor SpeziBluetooth {
     /// The underlying unowned serial executor.
     public nonisolated var unownedExecutor: UnownedSerialExecutor {
         dispatchQueue.asUnownedSerialExecutor()
+    }
+
+    nonisolated var isSync: Bool {
+        DispatchQueue.getSpecific(key: SpeziBluetoothDispatchQueueKey.key) == SpeziBluetoothDispatchQueueKey.shared
     }
 
     private init() {
@@ -71,13 +89,27 @@ public actor SpeziBluetooth {
 
 
 extension SpeziBluetooth {
-    /// Execute a closure on the SpeziBluetooth actor.
-    /// - Parameters:
-    ///   - resultType: The result returned from the closure.
-    ///   - body: The closure that is executed on the Bluetooth global actor.
-    /// - Returns: Returns the value from the closure. Might be void.
-    /// - Throws: Re-throws the error from the closure.
-    public static func run<T: Sendable>(resultType: T.Type = T.self, body: @SpeziBluetooth @Sendable () async throws -> T) async rethrows -> T {
-        try await body()
+    static func unsafeDQSync<T>(_ operation: @SpeziBluetooth () throws -> T) rethrows -> T {
+        // this is considered unsafe, because we don't enter create a Task context.
+        // Meaning you do get isolation, but a call to SpeziBluetooth.shared.assertIsolated() would still crash because the check wouldn't detect
+        // the executor without a Task context. MainActor.assumeIsolated is similar, however Swift runtime has a special check patched for
+        // the Main DispatchQueue to avoid this problem.
+
+        typealias YesActor = @SpeziBluetooth () throws -> T
+        typealias NoActor = () throws -> T
+
+        if SpeziBluetooth.shared.isSync {
+            return try withoutActuallyEscaping(operation) { (_ block: @escaping YesActor) throws -> T in
+                let rawFn = unsafeBitCast(block, to: NoActor.self)
+                return try rawFn()
+            }
+        } else {
+            return try SpeziBluetooth.shared.dispatchQueue.sync {
+                try withoutActuallyEscaping(operation) { (_ block: @escaping YesActor) throws -> T in
+                    let rawFn = unsafeBitCast(block, to: NoActor.self)
+                    return try rawFn()
+                }
+            }
+        }
     }
 }

@@ -176,23 +176,28 @@ public struct Characteristic<Value: Sendable>: Sendable {
         }
     }
 
+    // TODO: design goals
+    //  - we
+
     @Observable
     final class State: Sendable {
         private nonisolated(unsafe) var _value: Value?
         private nonisolated(unsafe) var _capturedCharacteristic: GATTCharacteristicCapture? // TODO: actually update that value!
+
+        // TODO: get rid of locks, doesn't make sense!
         private let lock = NSLock() // protects both non-isolated properties above
 
-        var value: Value? {
+        @SpeziBluetooth var value: Value? {
             get {
-                lock.withLock {
-                    _value
-                }
+                _value
             }
             set {
-                lock.withLock {
-                    _value = newValue
-                }
+                _value = newValue
             }
+        }
+
+        var unsafeValue: Value? {
+            _value // TODO: this is NOT safe! (review ALL!)
         }
 
         var capturedCharacteristic: GATTCharacteristicCapture? {
@@ -224,7 +229,7 @@ public struct Characteristic<Value: Sendable>: Sendable {
     ///
     /// This is either the last read value or the latest notified value.
     public var wrappedValue: Value? {
-        storage.state.value
+        storage.state.unsafeValue
     }
 
     /// Retrieve a temporary accessors instance.

@@ -26,7 +26,7 @@ protocol BluetoothScanner: Identifiable, Sendable where ID: Hashable {
     /// Indicates if there is at least one connected peripheral.
     ///
     /// Make sure this tracks observability of all devices.
-    var hasConnectedDevices: Bool { get }
+    @MainActor var hasConnectedDevices: Bool { get }
 
     /// Scan for nearby bluetooth devices.
     ///
