@@ -180,7 +180,7 @@ public struct Characteristic<Value: Sendable>: Sendable {
     final class State: Sendable {
         private nonisolated(unsafe) var _value: Value?
         private nonisolated(unsafe) var _capturedCharacteristic: GATTCharacteristicCapture? // TODO: actually update that value!
-        private let lock = NSLock()
+        private let lock = NSLock() // protects both non-isolated properties above
 
         var value: Value? {
             get {

@@ -380,7 +380,7 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
     private func handleUpdatedNearbyDevicesChange(_ discoveredDevices: OrderedDictionary<UUID, BluetoothPeripheral>) {
         var newlyPreparedDevices: Set<UUID> = [] // track for which device instances we need to call Spezi/loadModule(...)
 
-        let discoveredDeviceInstances: [UUID: any BluetoothDevice] = (consume discoveredDevices).reduce(into: [:]) { partialResult, entry in
+        let discoveredDeviceInstances: [UUID: any BluetoothDevice] = discoveredDevices.reduce(into: [:]) { partialResult, entry in
             let device: any BluetoothDevice
 
             // The union of initializedDevices.keys and discoveredDevices.keys are devices that are connected.
