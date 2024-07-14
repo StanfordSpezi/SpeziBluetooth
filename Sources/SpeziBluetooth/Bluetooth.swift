@@ -258,12 +258,12 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
 
 
     /// Represents the current state of Bluetooth.
-    public var state: BluetoothState {
+    public nonisolated var state: BluetoothState {
         bluetoothManager.state
     }
 
     /// Whether or not we are currently scanning for nearby devices.
-    public var isScanning: Bool {
+    public nonisolated var isScanning: Bool {
         bluetoothManager.isScanning
     }
 
