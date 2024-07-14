@@ -14,8 +14,8 @@
 /// ## Topics
 ///
 /// ### Get notified about changes
-/// - ``onChange(initial:perform:)-8x9cj``
-/// - ``onChange(initial:perform:)-9igc9``
+/// - ``onChange(initial:perform:)-819sg``
+/// - ``onChange(initial:perform:)-76kjp``
 public struct DeviceStateAccessor<Value: Sendable> {
     private let storage: DeviceState<Value>.Storage
 

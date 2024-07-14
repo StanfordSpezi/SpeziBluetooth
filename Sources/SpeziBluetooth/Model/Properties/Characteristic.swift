@@ -43,8 +43,8 @@ import Foundation
 /// by supplying the `notify` initializer argument.
 ///
 /// - Tip: If you want to react to every change of the characteristic value, you can use
-///     ``CharacteristicAccessor/onChange(initial:perform:)-6ltwk`` or
-///     ``CharacteristicAccessor/onChange(initial:perform:)-5awby``  to set up your action.
+///     ``CharacteristicAccessor/onChange(initial:perform:)-4ecct`` or
+///     ``CharacteristicAccessor/onChange(initial:perform:)-6ahtp``  to set up your action.
 ///
 /// The below code example uses the [Bluetooth Heart Rate Service](https://www.bluetooth.com/specifications/specs/heart-rate-service-1-0)
 /// to demonstrate the automatic notifications feature for the Heart Rate Measurement characteristic.
@@ -123,17 +123,13 @@ import Foundation
 /// ## Topics
 ///
 /// ### Declaring a Characteristic
-/// - ``init(wrappedValue:id:notify:discoverDescriptors:)-322p2``
-/// - ``init(wrappedValue:id:notify:discoverDescriptors:)-6jfpk``
-/// - ``init(wrappedValue:id:discoverDescriptors:)-1nome``
-/// - ``init(wrappedValue:id:discoverDescriptors:)-1gflb``
-/// - ``init(wrappedValue:id:notify:discoverDescriptors:)-6c95d``
-/// - ``init(wrappedValue:id:notify:discoverDescriptors:)-6296j``
+/// - ``init(wrappedValue:id:autoRead:)``
+/// - ``init(wrappedValue:id:notify:autoRead:)-9medy``
+/// - ``init(wrappedValue:id:notify:autoRead:)-9f2nr``
 ///
 /// ### Inspecting a Characteristic
 /// - ``CharacteristicAccessor/isPresent``
 /// - ``CharacteristicAccessor/properties``
-/// - ``CharacteristicAccessor/descriptors``
 ///
 /// ### Reading a value
 /// - ``CharacteristicAccessor/read()``
@@ -147,8 +143,8 @@ import Foundation
 /// - ``CharacteristicAccessor/enableNotifications(_:)``
 ///
 /// ### Get notified about changes
-/// - ``CharacteristicAccessor/onChange(initial:perform:)-6ltwk``
-/// - ``CharacteristicAccessor/onChange(initial:perform:)-5awby``
+/// - ``CharacteristicAccessor/onChange(initial:perform:)-4ecct``
+/// - ``CharacteristicAccessor/onChange(initial:perform:)-6ahtp``
 ///
 /// ### Control Point Characteristics
 /// - ``ControlPointCharacteristic``
@@ -176,39 +172,26 @@ public struct Characteristic<Value: Sendable>: Sendable {
         }
     }
 
-    // TODO: design goals
-    //  - we
-
     @Observable
     final class State: Sendable {
         private nonisolated(unsafe) var _value: Value?
-        private nonisolated(unsafe) var _capturedCharacteristic: GATTCharacteristicCapture? // TODO: actually update that value!
+        @SpeziBluetooth var characteristic: GATTCharacteristic?
 
-        // TODO: get rid of locks, doesn't make sense!
-        private let lock = NSLock() // protects both non-isolated properties above
+        private let lock = RWLock() // protects the _value above
+
+        @inlinable var readOnlyValue: Value? {
+            lock.withReadLock {
+                _value
+            }
+        }
 
         @SpeziBluetooth var value: Value? {
             get {
-                _value
+                readOnlyValue
             }
             set {
-                _value = newValue
-            }
-        }
-
-        var unsafeValue: Value? {
-            _value // TODO: this is NOT safe! (review ALL!)
-        }
-
-        var capturedCharacteristic: GATTCharacteristicCapture? {
-            get {
-                lock.withLock {
-                    _capturedCharacteristic
-                }
-            }
-            set {
-                lock.withLock {
-                    _capturedCharacteristic = newValue
+                lock.withWriteLock {
+                    _value = newValue
                 }
             }
         }
@@ -229,7 +212,7 @@ public struct Characteristic<Value: Sendable>: Sendable {
     ///
     /// This is either the last read value or the latest notified value.
     public var wrappedValue: Value? {
-        storage.state.unsafeValue
+        storage.state.readOnlyValue
     }
 
     /// Retrieve a temporary accessors instance.
@@ -253,17 +236,16 @@ public struct Characteristic<Value: Sendable>: Sendable {
 
     @SpeziBluetooth
     func inject(bluetooth: Bluetooth, peripheral: BluetoothPeripheral, serviceId: BTUUID, service: GATTService?) {
-        let characteristic = service?.getCharacteristic(id: storage.description.characteristicId)
-
         let injection = storage.injection.storeIfNilThenLoad(CharacteristicPeripheralInjection<Value>(
             bluetooth: bluetooth,
             peripheral: peripheral,
             serviceId: serviceId,
             characteristicId: storage.description.characteristicId,
-            characteristic: characteristic,
             state: storage.state
         ))
         assert(injection.peripheral === peripheral, "\(#function) cannot be called more than once in the lifetime of a \(Self.self) instance")
+
+        storage.state.characteristic = service?.getCharacteristic(id: storage.description.characteristicId)
 
         injection.setup(defaultNotify: storage.defaultNotify.load(ordering: .acquiring))
     }

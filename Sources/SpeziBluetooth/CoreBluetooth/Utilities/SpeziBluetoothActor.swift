@@ -58,7 +58,11 @@ struct CBInstance<Value>: Sendable {
 /// - Tip: If you access a property multiple times within a section, consider making one access and saving it to a temporary variable to ensure a consistent view on the property.
 ///
 /// If you need a consistent view of your Bluetooth peripheral's state, especially if you access multiple properties at the same time, consider isolating to the `@SpeziBluetooth` global actor.
-@globalActor // TODO: docs:  $accessor bindings are always consistent???
+///
+/// All accessor bindings of SpeziBluetooth property wrappers (a call like `deviceInformation.$manufacturerName` using ``Characteristic/projectedValue``) capture the current
+/// state of the represented value. For example, the ``CharacteristicAccessor`` binding will capture the current state of the characteristic when the binding was created.
+/// This effectively creates a stable view onto the characteristic properties. However, the accessor binding might be invalidated as soon as the characteristic changes, so don't store it for longer than required.
+@globalActor
 public actor SpeziBluetooth {
     /// The shared actor instance.
     public static let shared = SpeziBluetooth()
@@ -90,10 +94,11 @@ public actor SpeziBluetooth {
 
 extension SpeziBluetooth {
     static func unsafeDQSync<T>(_ operation: @SpeziBluetooth () throws -> T) rethrows -> T {
-        // this is considered unsafe, because we don't enter create a Task context.
+        // this is considered unsafe, because we don't create a Task context.
         // Meaning you do get isolation, but a call to SpeziBluetooth.shared.assertIsolated() would still crash because the check wouldn't detect
         // the executor without a Task context. MainActor.assumeIsolated is similar, however Swift runtime has a special check patched for
         // the Main DispatchQueue to avoid this problem.
+        // So use it only for small, controlled regions that are fully under your control.
 
         typealias YesActor = @SpeziBluetooth () throws -> T
         typealias NoActor = () throws -> T

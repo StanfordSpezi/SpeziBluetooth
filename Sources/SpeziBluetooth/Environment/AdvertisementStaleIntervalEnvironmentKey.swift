@@ -16,7 +16,7 @@ private struct AdvertisementStaleIntervalEnvironmentKey: EnvironmentKey {
 
 extension EnvironmentValues {
     /// The time interval after which a peripheral advertisement is considered stale if we don't hear back from the device. Minimum is 1 second.
-    public var advertisementStaleInterval: TimeInterval? {
+    public internal(set) var advertisementStaleInterval: TimeInterval? {
         get {
             self[AdvertisementStaleIntervalEnvironmentKey.self]
         }

@@ -23,8 +23,7 @@ public struct DiscoveryDescription {
     /// Create a new discovery configuration for a given type of device.
     /// - Parameters:
     ///   - discoveryCriteria: The criteria by which we identify a discovered device.
-    ///   - services: The set of service configurations we expect from the device.
-    ///     Use `nil` to discover all services.
+    ///   - device: The description of the device.
     public init(discoverBy discoveryCriteria: DiscoveryCriteria, device: DeviceDescription) {
         self.discoveryCriteria = discoveryCriteria
         self.device = device

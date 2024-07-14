@@ -273,8 +273,7 @@ due to their async nature.
 
 - ``SwiftUI/View/scanNearbyDevices(enabled:with:minimumRSSI:advertisementStaleInterval:autoConnect:)``
 - ``SwiftUI/View/autoConnect(enabled:with:minimumRSSI:advertisementStaleInterval:)``
-- ``SwiftUI/EnvironmentValues/minimumRSSI``
-- ``SwiftUI/EnvironmentValues/advertisementStaleInterval``
+- ``SwiftUI/View/bluetoothScanningOptions(minimumRSSI:advertisementStaleInterval:)``
 - ``ConnectedDevices``
 
 ### Declaring a Bluetooth Device
@@ -285,6 +284,10 @@ due to their async nature.
 - ``Characteristic``
 - ``DeviceState``
 - ``DeviceAction``
+
+### Concurrency
+
+- ``SpeziBluetooth/SpeziBluetooth``
 
 ### Core Bluetooth 
 
@@ -298,6 +301,7 @@ due to their async nature.
 - ``AdvertisementData``
 - ``ManufacturerIdentifier``
 - ``WriteType``
+- ``BTUUID``
 
 ### Configuring Core Bluetooth
 

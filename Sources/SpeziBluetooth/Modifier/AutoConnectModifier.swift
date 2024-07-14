@@ -28,7 +28,8 @@ extension View {
     ///   - advertisementStaleInterval: The time interval after which a peripheral advertisement is considered stale
     ///     if we don't hear back from the device. Minimum is 1 second. Supply `nil` to use default the default value or a value from the environment.
     /// - Returns: The modified view.
-    @MainActor public func autoConnect( // swiftlint:disable:this function_default_parameter_at_end
+    @MainActor
+    public func autoConnect( // swiftlint:disable:this function_default_parameter_at_end
         enabled: Bool = true,
         with bluetooth: Bluetooth,
         minimumRSSI: Int? = nil,
@@ -58,7 +59,8 @@ extension View {
     ///   - advertisementStaleInterval: The time interval after which a peripheral advertisement is considered stale
     ///     if we don't hear back from the device. Minimum is 1 second. Supply `nil` to use default the default value or a value from the environment.
     /// - Returns: The modified view.
-    @MainActor public func autoConnect( // swiftlint:disable:this function_default_parameter_at_end
+    @MainActor
+    public func autoConnect( // swiftlint:disable:this function_default_parameter_at_end
         enabled: Bool = true,
         with bluetoothManager: BluetoothManager,
         discovery: Set<DiscoveryDescription>,

@@ -12,9 +12,10 @@
 /// ## Topics
 ///
 /// ### Criteria
-/// - ``advertisedService(_:)-5o92s``
-/// - ``advertisedService(_:)-3pnr6``
+/// - ``advertisedService(_:)-swift.type.method``
 /// - ``advertisedService(_:)-swift.enum.case``
+/// - ``accessory(manufacturer:advertising:)-swift.type.method``
+/// - ``accessory(manufacturer:advertising:)-swift.enum.case``
 public enum DiscoveryCriteria: Sendable {
     /// Identify a device by their advertised service.
     case advertisedService(_ uuid: BTUUID)

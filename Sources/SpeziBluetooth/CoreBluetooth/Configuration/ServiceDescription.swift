@@ -38,7 +38,7 @@ public struct ServiceDescription: Sendable {
 
 
     /// Retrieve the characteristic description for a given service id.
-    /// - Parameter serviceId: The Bluetooth characteristic id.
+    /// - Parameter characteristicsId: The Bluetooth characteristic id.
     /// - Returns: Returns the characteristic description if present.
     public func description(for characteristicsId: BTUUID) -> CharacteristicDescription? {
         _characteristics?[characteristicsId]

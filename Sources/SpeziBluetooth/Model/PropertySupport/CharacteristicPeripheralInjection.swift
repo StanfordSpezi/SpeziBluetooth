@@ -29,12 +29,6 @@ class CharacteristicPeripheralInjection<Value: Sendable>: Sendable {
     private let serviceId: BTUUID
     private let characteristicId: BTUUID
 
-    private var characteristic: GATTCharacteristic? {
-        didSet {
-            state.capturedCharacteristic = characteristic?.captured
-        }
-    }
-
     private let state: Characteristic<Value>.State
 
     /// State support for control point characteristics.
@@ -56,19 +50,22 @@ class CharacteristicPeripheralInjection<Value: Sendable>: Sendable {
     private var valueRegistration: OnChangeRegistration?
 
 
+    private var characteristic: GATTCharacteristic? {
+        state.characteristic
+    }
+
+
     init(
         bluetooth: Bluetooth,
         peripheral: BluetoothPeripheral,
         serviceId: BTUUID,
         characteristicId: BTUUID,
-        characteristic: GATTCharacteristic?,
         state: Characteristic<Value>.State
     ) {
         self.bluetooth = bluetooth
         self.peripheral = peripheral
         self.serviceId = serviceId
         self.characteristicId = characteristicId
-        self.characteristic = characteristic
         self.state = state
         self.subscriptions = ChangeSubscriptions()
     }
@@ -159,7 +156,7 @@ class CharacteristicPeripheralInjection<Value: Sendable>: Sendable {
         }
 
         if self.characteristic != characteristic {
-            self.characteristic = characteristic
+            state.characteristic = characteristic
         }
 
         if instanceChanged {

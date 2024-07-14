@@ -62,7 +62,7 @@ extension BTUUID: Sendable {}
 
 extension BTUUID: ExpressibleByStringLiteral {
     /// Create a Bluetooth UUID from a 16-, 32-, or 128-bit UUID string.
-    /// - Parameter stringLiteral: A string containing a 16-, 32-, or 128-bit UUID.
+    /// - Parameter value: A string containing a 16-, 32-, or 128-bit UUID.
     public init(stringLiteral value: StringLiteralType) {
         self.init(string: value)
     }

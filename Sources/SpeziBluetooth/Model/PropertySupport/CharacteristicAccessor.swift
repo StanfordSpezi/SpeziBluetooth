@@ -24,7 +24,6 @@ import CoreBluetooth
 /// ### Characteristic properties
 /// - ``isPresent``
 /// - ``properties``
-/// - ``descriptors``
 ///
 /// ### Reading a value
 /// - ``read()``
@@ -38,19 +37,23 @@ import CoreBluetooth
 /// - ``enableNotifications(_:)``
 ///
 /// ### Get notified about changes
-/// - ``onChange(initial:perform:)-6ltwk``
-/// - ``onChange(initial:perform:)-5awby``
+/// - ``onChange(initial:perform:)-4ecct``
+/// - ``onChange(initial:perform:)-6ahtp``
 ///
 /// ### Control Point Characteristics
 /// - ``sendRequest(_:timeout:)``
 public struct CharacteristicAccessor<Value: Sendable> {
     private let storage: Characteristic<Value>.Storage
+    private let capturedCharacteristic: GATTCharacteristicCapture?
 
 
     init(
         _ storage: Characteristic<Value>.Storage
     ) {
         self.storage = storage
+        self.capturedCharacteristic = SpeziBluetooth.unsafeDQSync {
+            storage.state.characteristic?.captured
+        }
     }
 }
 
@@ -64,14 +67,14 @@ extension CharacteristicAccessor {
     /// Returns `true` if the characteristic is available for the current device.
     /// It is `true` if (a) the device is connected and (b) the device exposes the requested characteristic.
     public var isPresent: Bool {
-        storage.state.capturedCharacteristic != nil
+        capturedCharacteristic != nil
     }
 
     /// Properties of the characteristic.
     ///
     /// `nil` if device is not connected.
     public var properties: CBCharacteristicProperties? {
-        storage.state.capturedCharacteristic?.properties
+        capturedCharacteristic?.properties
     }
 }
 
@@ -82,7 +85,7 @@ extension CharacteristicAccessor where Value: ByteDecodable {
     ///
     /// This is also `false` if device is not connected.
     public var isNotifying: Bool {
-        storage.state.capturedCharacteristic?.isNotifying ?? false
+        capturedCharacteristic?.isNotifying ?? false
     }
 
 

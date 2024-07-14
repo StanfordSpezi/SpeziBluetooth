@@ -21,7 +21,7 @@ private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifie
     private var surroundingModifiers
 
     @Environment(\.minimumRSSI)
-    private var minimumRSSI // TODO: make modifiers!
+    private var minimumRSSI
     @Environment(\.advertisementStaleInterval)
     private var advertisementStaleInterval
 
