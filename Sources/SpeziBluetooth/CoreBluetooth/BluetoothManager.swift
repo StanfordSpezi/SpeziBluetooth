@@ -516,10 +516,11 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
         }
     }
 
+
     deinit {
         discoverySession = nil
 
-        Task { @SpeziBluetooth [isScanning, storage, _centralManager, logger] in
+        Task { @SpeziBluetooth [storage, _centralManager, isScanning, logger] in
             if isScanning {
                 storage.isScanning = false
                 _centralManager.wrappedValue.stopScan()

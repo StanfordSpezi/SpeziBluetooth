@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
-import CoreBluetooth
+import SpeziBluetooth
 @_spi(TestingSupport)
 import SpeziBluetoothServices
 import XCTest
@@ -218,9 +218,9 @@ extension XCUIApplication {
 #endif
     }
 
-    func assert(event: String, characteristic: CBUUID, value: String? = nil) {
+    func assert(event: String, characteristic: BTUUID, value: String? = nil) {
         XCTAssert(staticTexts["Event, \(event)"].waitForExistence(timeout: 5.0))
-        XCTAssert(staticTexts["Characteristic, \(CBUUID.toCustomShort(characteristic))"].waitForExistence(timeout: 2.0))
+        XCTAssert(staticTexts["Characteristic, \(BTUUID.toCustomShort(characteristic))"].waitForExistence(timeout: 2.0))
         if let value {
             XCTAssert(staticTexts["Value, \(value)"].waitForExistence(timeout: 2.0))
         }

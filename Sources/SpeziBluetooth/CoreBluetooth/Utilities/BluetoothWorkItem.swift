@@ -9,7 +9,7 @@
 import Foundation
 
 
-struct BluetoothWorkItem: ~Copyable {
+final class BluetoothWorkItem {
     private let workItem: DispatchWorkItem
 
     init(handler: @SpeziBluetooth @escaping @Sendable () -> Void) {
