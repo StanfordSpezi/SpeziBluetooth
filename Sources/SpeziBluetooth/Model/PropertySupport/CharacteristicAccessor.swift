@@ -51,9 +51,7 @@ public struct CharacteristicAccessor<Value: Sendable> {
         _ storage: Characteristic<Value>.Storage
     ) {
         self.storage = storage
-        self.capturedCharacteristic = SpeziBluetooth.unsafeDQSync {
-            storage.state.characteristic?.captured
-        }
+        self.capturedCharacteristic = storage.state.capture
     }
 }
 
@@ -346,10 +344,7 @@ extension CharacteristicAccessor {
     ///
     /// - Parameter value: The value to inject.
     public func inject(_ value: Value) {
-        // we set the value blocking, which is okay for a testing operation.
-        SpeziBluetooth.unsafeDQSync {
-            storage.state.value = value
-        }
+        storage.state.inject(value)
 
         if let subscriptions = storage.testInjections.load()?.subscriptions {
             Task { @SpeziBluetooth in

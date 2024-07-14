@@ -192,7 +192,7 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
         }
 
         logger.debug("Initialized the underlying CBCentralManager.")
-        return centralManager
+        return central
     }
 
     func cleanupCBCentral() {

@@ -178,14 +178,39 @@ public struct Characteristic<Value: Sendable>: Sendable {
 
     @Observable
     final class State: Sendable {
+        struct CharacteristicCaptureRetrieval: Sendable { // workaround to make the retrieval of the `capture` property Sendable
+            private nonisolated(unsafe) let characteristic: GATTCharacteristic
+
+            var capture: GATTCharacteristicCapture {
+                characteristic.captured
+            }
+
+            init(_ characteristic: GATTCharacteristic) {
+                self.characteristic = characteristic
+            }
+        }
+
         private nonisolated(unsafe) var _value: Value?
-        @SpeziBluetooth var characteristic: GATTCharacteristic?
+        @SpeziBluetooth var characteristic: GATTCharacteristic? {
+            didSet {
+                lock.withWriteLock {
+                    _capture = characteristic.map { CharacteristicCaptureRetrieval($0) }
+                }
+            }
+        }
+        private nonisolated(unsafe) var _capture: CharacteristicCaptureRetrieval?
 
         private let lock = RWLock() // protects the _value above
 
         @inlinable var readOnlyValue: Value? {
             lock.withReadLock {
                 _value
+            }
+        }
+
+        var capture: GATTCharacteristicCapture? {
+            lock.withReadLock {
+                _capture?.capture
             }
         }
 
@@ -202,6 +227,12 @@ public struct Characteristic<Value: Sendable>: Sendable {
 
         init(initialValue: Value?) {
             self._value = initialValue
+        }
+
+        func inject(_ value: Value) {
+            lock.withWriteLock {
+                _value = value
+            }
         }
     }
 

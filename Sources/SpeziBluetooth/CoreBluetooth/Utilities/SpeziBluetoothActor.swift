@@ -94,31 +94,3 @@ public actor SpeziBluetooth {
         self.dispatchQueue = serialQueue
     }
 }
-
-
-extension SpeziBluetooth {
-    static func unsafeDQSync<T>(_ operation: @SpeziBluetooth () throws -> T) rethrows -> T {
-        // this is considered unsafe, because we don't create a Task context.
-        // Meaning you do get isolation, but a call to SpeziBluetooth.shared.assertIsolated() would still crash because the check wouldn't detect
-        // the executor without a Task context. MainActor.assumeIsolated is similar, however Swift runtime has a special check patched for
-        // the Main DispatchQueue to avoid this problem.
-        // So use it only for small, controlled regions that are fully under your control.
-
-        typealias YesActor = @SpeziBluetooth () throws -> T
-        typealias NoActor = () throws -> T
-
-        if SpeziBluetooth.shared.isSync {
-            return try withoutActuallyEscaping(operation) { (_ block: @escaping YesActor) throws -> T in
-                let rawFn = unsafeBitCast(block, to: NoActor.self)
-                return try rawFn()
-            }
-        } else {
-            return try SpeziBluetooth.shared.dispatchQueue.sync {
-                try withoutActuallyEscaping(operation) { (_ block: @escaping YesActor) throws -> T in
-                    let rawFn = unsafeBitCast(block, to: NoActor.self)
-                    return try rawFn()
-                }
-            }
-        }
-    }
-}

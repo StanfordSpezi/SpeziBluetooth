@@ -23,12 +23,11 @@ struct GATTCharacteristicCapture: Sendable {
         self.descriptors = characteristic.descriptors.map { CBInstance(instantiatedOnDispatchQueue: $0) }
     }
 
-    @SpeziBluetooth
     fileprivate init(from characteristic: borrowing GATTCharacteristic) {
         self.isNotifying = characteristic.isNotifying
         self.value = characteristic.value
         self.properties = characteristic.properties
-        self.descriptors = characteristic.descriptors.map { CBInstance(instantiatedOnDispatchQueue: $0) }
+        self.descriptors = characteristic.descriptors.map { CBInstance(unsafe: $0) }
     }
 }
 
@@ -68,8 +67,12 @@ public final class GATTCharacteristic {
         underlyingCharacteristic.properties
     }
 
-    @SpeziBluetooth var captured: GATTCharacteristicCapture {
-        GATTCharacteristicCapture(from: self)
+    private let captureLock = RWLock()
+
+    var captured: GATTCharacteristicCapture {
+        captureLock.withReadLock {
+            GATTCharacteristicCapture(from: self)
+        }
     }
 
     init(characteristic: CBCharacteristic, service: GATTService) {
@@ -83,14 +86,16 @@ public final class GATTCharacteristic {
 
     @SpeziBluetooth
     func synchronizeModel(capture: GATTCharacteristicCapture) {
-        if capture.isNotifying != isNotifying {
-            isNotifying = capture.isNotifying
-        }
-        if capture.value != value {
-            value = capture.value
-        }
-        if capture.descriptors?.cbObject != descriptors {
-            descriptors = capture.descriptors?.cbObject
+        captureLock.withWriteLock {
+            if capture.isNotifying != isNotifying {
+                isNotifying = capture.isNotifying
+            }
+            if capture.value != value {
+                value = capture.value
+            }
+            if capture.descriptors?.cbObject != descriptors {
+                descriptors = capture.descriptors?.cbObject
+            }
         }
     }
 }
