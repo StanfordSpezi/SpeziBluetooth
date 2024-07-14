@@ -104,7 +104,7 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
     /// The list of nearby bluetooth devices.
     ///
     /// This array contains all discovered bluetooth peripherals and those with which we are currently connected.
-    public var nearbyPeripherals: [BluetoothPeripheral] {
+    public nonisolated var nearbyPeripherals: [BluetoothPeripheral] {
         Array(storage._discoveredPeripherals.values)
     }
 
