@@ -41,12 +41,10 @@ final class DeviceStateTestInjections<Value: Sendable>: Sendable {
     }
 
     static func artificialValue(for keyPath: KeyPath<BluetoothPeripheral, Value>) -> Value? {
-        // swiftlint:disable:previous cyclomatic_complexity
-
         let value: Any? = switch keyPath {
         case \.id:
             nil // we cannot provide a stable id?
-        case \.name, \.localName:
+        case \.name:
             Optional<String>.none as Any
         case \.state:
             PeripheralState.disconnected
@@ -58,8 +56,6 @@ final class DeviceStateTestInjections<Value: Sendable>: Sendable {
             false
         case \.lastActivity:
             Date.now
-        case \.services:
-            Optional<[GATTService]>.none as Any
         default:
             nil
         }

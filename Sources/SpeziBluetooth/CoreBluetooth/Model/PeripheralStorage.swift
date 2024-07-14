@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
-import CoreBluetooth
+import Atomics
 import Foundation
 
 
@@ -16,20 +16,63 @@ import Foundation
 /// into a separate state container that is `@Observable`.
 @Observable
 final class PeripheralStorage: ValueObservable, Sendable {
-    nonisolated var name: String? {
-        _peripheralName ?? _localName // TODO: don't make having two locks acquired for that!
+    private let _state: ManagedAtomic<PeripheralState>
+    private let _rssi: ManagedAtomic<Int>
+    private let _nearby: ManagedAtomic<Bool>
+    private let _lastActivityTimeIntervalSince1970BitPattern: ManagedAtomic<UInt64> // workaround to store store Date atomically
+    // swiftlint:disable:previous identifier_name
+
+    private nonisolated(unsafe) var _peripheralName: String?
+    private nonisolated(unsafe) var _advertisementData: AdvertisementData
+    // Its fine to have a single lock. Readers will be isolated anyways to the SpeziBluetooth global actor.
+    // The only side-effect is, that readers will wait for any write to complete, which is fine as peripheralName is rarely updated.
+    private let lock = RWLock()
+
+    @SpeziBluetooth var lastActivity: Date {
+        didSet {
+            _lastActivityTimeIntervalSince1970BitPattern.store(lastActivity.timeIntervalSince1970.bitPattern, ordering: .relaxed)
+            _$simpleRegistrar.triggerDidChange(for: \.lastActivity, on: self)
+        }
     }
 
-    // swiftlint:disable identifier_name
-    private(set) nonisolated(unsafe) var _peripheralName: String?
-    private(set) nonisolated(unsafe) var _localName: String?
-    private(set) nonisolated(unsafe) var _rssi: Int
-    private(set) nonisolated(unsafe) var _advertisementData: AdvertisementData
-    private(set) nonisolated(unsafe) var _state: PeripheralState
-    private(set) nonisolated(unsafe) var _nearby: Bool
-    private(set) nonisolated(unsafe) var _services: [GATTService]? // swiftlint:disable:this discouraged_optional_collection
-    private(set) nonisolated(unsafe) var _lastActivity: Date
-    // swiftlint:enable identifier_name
+
+    @SpeziBluetooth var services: [GATTService]? { // swiftlint:disable:this discouraged_optional_collection
+        didSet {
+            _$simpleRegistrar.triggerDidChange(for: \.services, on: self)
+        }
+    }
+
+    @inlinable var name: String? {
+        lock.withReadLock {
+            _peripheralName ?? _advertisementData.localName
+        }
+    }
+
+    @inlinable var readOnlyRssi: Int {
+        access(keyPath: \._rssi)
+        return _rssi.load(ordering: .relaxed)
+    }
+
+    @inlinable var readOnlyState: PeripheralState {
+        access(keyPath: \._state)
+        return _state.load(ordering: .relaxed)
+    }
+
+    @inlinable var readOnlyNearby: Bool {
+        access(keyPath: \._nearby)
+        return _nearby.load(ordering: .relaxed)
+    }
+
+    @inlinable var readOnlyAdvertisementData: AdvertisementData {
+        lock.withReadLock {
+            _advertisementData
+        }
+    }
+
+    var readOnlyLastActivity: Date {
+        let timeIntervalSince1970 = Double(bitPattern: _lastActivityTimeIntervalSince1970BitPattern.load(ordering: .relaxed))
+        return Date(timeIntervalSince1970: timeIntervalSince1970)
+    }
 
     @SpeziBluetooth var peripheralName: String? {
         get {
@@ -37,33 +80,25 @@ final class PeripheralStorage: ValueObservable, Sendable {
         }
         set {
             let didChange = newValue != _peripheralName
-            _peripheralName = newValue
+            lock.withWriteLock {
+                _peripheralName = newValue
+            }
+
             if didChange {
                 _$simpleRegistrar.triggerDidChange(for: \.peripheralName, on: self)
             }
         }
     }
 
-    @SpeziBluetooth var localName: String? {
-        get {
-            _localName
-        }
-        set {
-            let didChange = newValue != _localName
-            _localName = newValue
-            if didChange {
-                _$simpleRegistrar.triggerDidChange(for: \.localName, on: self)
-            }
-        }
-    }
-
     @SpeziBluetooth var rssi: Int {
         get {
-            _rssi
+            readOnlyRssi
         }
         set {
-            let didChange = newValue != _rssi
-            _rssi = newValue
+            let didChange = newValue != readOnlyRssi
+            withMutation(keyPath: \._rssi) {
+                _rssi.store(newValue, ordering: .relaxed)
+            }
             if didChange {
                 _$simpleRegistrar.triggerDidChange(for: \.rssi, on: self)
             }
@@ -72,11 +107,14 @@ final class PeripheralStorage: ValueObservable, Sendable {
 
     @SpeziBluetooth var advertisementData: AdvertisementData {
         get {
-            _advertisementData
+            readOnlyAdvertisementData
         }
         set {
             let didChange = newValue != _advertisementData
-            _advertisementData = newValue
+            lock.withWriteLock {
+                _advertisementData = newValue
+            }
+
             if didChange {
                 _$simpleRegistrar.triggerDidChange(for: \.advertisementData, on: self)
             }
@@ -85,11 +123,13 @@ final class PeripheralStorage: ValueObservable, Sendable {
 
     @SpeziBluetooth var state: PeripheralState {
         get {
-            _state
+            readOnlyState
         }
         set {
-            let didChange = newValue != _state
-            _state = newValue
+            let didChange = newValue != readOnlyState
+            withMutation(keyPath: \._state) {
+                _state.store(newValue, ordering: .relaxed)
+            }
             if didChange {
                 _$simpleRegistrar.triggerDidChange(for: \.state, on: self)
             }
@@ -98,65 +138,45 @@ final class PeripheralStorage: ValueObservable, Sendable {
 
     @SpeziBluetooth var nearby: Bool {
         get {
-            _nearby
+            readOnlyNearby
         }
         set {
-            _nearby = newValue
-            _$simpleRegistrar.triggerDidChange(for: \.nearby, on: self)
-        }
-    }
+            let didChange = newValue != readOnlyNearby
+            withMutation(keyPath: \._nearby) {
+                _nearby.store(newValue, ordering: .relaxed)
+            }
 
-    @SpeziBluetooth var services: [GATTService]? { // swiftlint:disable:this discouraged_optional_collection
-        get {
-            _services
-        }
-        set {
-            _services = newValue
-            _$simpleRegistrar.triggerDidChange(for: \.services, on: self)
-        }
-    }
-
-    @SpeziBluetooth var lastActivity: Date {
-        get {
-            _lastActivity
-        }
-        set {
-            _lastActivity = newValue
-            _$simpleRegistrar.triggerDidChange(for: \.lastActivity, on: self)
+            if didChange {
+                _$simpleRegistrar.triggerDidChange(for: \.nearby, on: self)
+            }
         }
     }
 
     // swiftlint:disable:next identifier_name
     @ObservationIgnored let _$simpleRegistrar = ValueObservationRegistrar<PeripheralStorage>()
 
-    init(peripheralName: String?, rssi: Int, advertisementData: AdvertisementData, state: CBPeripheralState, lastActivity: Date = .now) {
+    init(peripheralName: String?, rssi: Int, advertisementData: AdvertisementData, state: PeripheralState, lastActivity: Date = .now) {
         self._peripheralName = peripheralName
-        self._localName = advertisementData.localName
         self._advertisementData = advertisementData
-        self._rssi = rssi
-        self._state = .init(from: state)
-        self._nearby = false
+        self._rssi = ManagedAtomic(rssi)
+        self._state = ManagedAtomic(state)
+        self._nearby = ManagedAtomic(false)
         self._lastActivity = lastActivity
+        self._lastActivityTimeIntervalSince1970BitPattern = ManagedAtomic(lastActivity.timeIntervalSince1970.bitPattern)
     }
 
     @SpeziBluetooth
     func update(state: PeripheralState) {
-        if self.state != state {
+        let current = self.state
+        if current != state {
             // we set connected on our own! See `signalFullyDiscovered`
-            if !(self.state == .connecting && state == .connected) {
+            if !(current == .connecting && state == .connected) {
                 self.state = state
             }
         }
 
-        if !nearby && (self.state == .connecting || self.state == .connected) {
+        if current == .connecting || current == .connected {
             self.nearby = true
-        }
-    }
-
-    @SpeziBluetooth
-    func update(nearby: Bool) {
-        if nearby != self.nearby {
-            self.nearby = nearby
         }
     }
 
@@ -166,15 +186,5 @@ final class PeripheralStorage: ValueObservable, Sendable {
             state = .connected
             update(state: .connected) // ensure other logic is called as well
         }
-    }
-
-    @SpeziBluetooth
-    func update(lastActivity: Date = .now) {
-        self.lastActivity = lastActivity
-    }
-
-    @SpeziBluetooth
-    func update(services: [GATTService]?) { // swiftlint:disable:this discouraged_optional_collection
-        self.services = services
     }
 }

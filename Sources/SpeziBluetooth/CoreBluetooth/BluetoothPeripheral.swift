@@ -97,39 +97,29 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
         storage.name
     }
 
-
-    /// The local name included in the advertisement.
-    nonisolated public var localName: String? {
-        storage._localName
-    }
-
-    nonisolated var peripheralName: String? {
-        storage._peripheralName
-    }
-
     /// The current signal strength.
     ///
     /// This value is automatically updated when the device is advertising.
     /// Once the device establishes a connection this has to be manually updated.
-    nonisolated public var rssi: Int {
-        storage._rssi
+    public nonisolated var rssi: Int {
+        storage.readOnlyRssi
     }
 
     /// The advertisement data of the last bluetooth advertisement.
-    nonisolated public var advertisementData: AdvertisementData {
-        storage._advertisementData
+    public nonisolated var advertisementData: AdvertisementData {
+        storage.readOnlyAdvertisementData
     }
 
     /// The current peripheral device state.
-    nonisolated public var state: PeripheralState {
-        storage._state
+    public nonisolated var state: PeripheralState {
+        storage.readOnlyState
     }
 
     /// The list of discovered services.
     ///
     /// Services are discovered automatically upon connection
-    nonisolated public var services: [GATTService]? { // swiftlint:disable:this discouraged_optional_collection
-        storage._services
+    public var services: [GATTService]? { // swiftlint:disable:this discouraged_optional_collection
+        storage.services
     }
 
     /// The last device activity.
@@ -141,7 +131,7 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
             // we are currently connected or connecting/disconnecting, therefore last activity is defined as "now"
             .now
         } else {
-            storage._lastActivity
+            storage.readOnlyLastActivity
         }
     }
 
@@ -149,7 +139,7 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     ///
     /// A device is nearby if either we consider it discovered because we are currently scanning or the device is connected.
     nonisolated public var nearby: Bool {
-        storage._nearby
+        storage.readOnlyNearby
     }
 
 
@@ -170,7 +160,7 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
             peripheralName: peripheral.name,
             rssi: rssi,
             advertisementData: advertisementData,
-            state: peripheral.state
+            state: .init(from: peripheral.state)
         )
 
         let delegate = Delegate()
@@ -287,18 +277,17 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     }
 
     func handleDiscarded() {
-        storage.update(nearby: false)
+        storage.nearby = false
     }
 
     func markLastActivity(_ lastActivity: Date = .now) {
-        storage.update(lastActivity: lastActivity)
+        storage.lastActivity = lastActivity
     }
 
     func update(advertisement: AdvertisementData, rssi: Int) {
         storage.advertisementData = advertisement
-        storage.localName = advertisementData.localName
         storage.rssi = rssi
-        storage.update(nearby: true)
+        storage.nearby = true
     }
 
     /// Determines if the device is considered stale.
@@ -572,7 +561,7 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
             // the service was invalidated!
             var services = self.services
             services?.remove(at: index)
-            self.storage.update(services: services)
+            self.storage.services = services
 
             // make sure we notify subscribed handlers about removed services!
             for characteristic in service.characteristics {
@@ -599,9 +588,9 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
             }
 
         if let services = self.services {
-            storage.update(services: services + addedServices)
+            storage.services = services + addedServices
         } else {
-            storage.update(services: addedServices)
+            storage.services = addedServices
         }
     }
 
@@ -618,7 +607,7 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
 
         Task.detached { @SpeziBluetooth [storage, nearby] in
             if nearby { // make sure signal is sent
-                storage.update(nearby: false)
+                storage.nearby = false
             }
 
             manager.handlePeripheralDeinit(id: id)

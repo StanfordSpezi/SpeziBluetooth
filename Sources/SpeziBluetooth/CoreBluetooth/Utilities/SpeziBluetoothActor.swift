@@ -58,7 +58,7 @@ struct CBInstance<Value>: Sendable {
 /// - Tip: If you access a property multiple times within a section, consider making one access and saving it to a temporary variable to ensure a consistent view on the property.
 ///
 /// If you need a consistent view of your Bluetooth peripheral's state, especially if you access multiple properties at the same time, consider isolating to the `@SpeziBluetooth` global actor.
-@globalActor // TODO: $accessor bindings are always consistent???
+@globalActor // TODO: docs:  $accessor bindings are always consistent???
 public actor SpeziBluetooth {
     /// The shared actor instance.
     public static let shared = SpeziBluetooth()

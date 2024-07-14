@@ -46,6 +46,20 @@ final class RWLock: @unchecked Sendable {
         return try body()
     }
 
+    func isWriteLocked() -> Bool {
+        let status = pthread_rwlock_trywrlock(&rwLock)
+
+        switch status {
+        case 0:
+            pthread_rwlock_unlock(&rwLock)
+            return false
+        case EBUSY:
+            return true
+        default:
+            preconditionFailure("Unexpected status from pthread_rwlock_tryrdlock: \(status)")
+        }
+    }
+
     deinit {
         let status = pthread_rwlock_destroy(&rwLock)
         assert(status == 0)
