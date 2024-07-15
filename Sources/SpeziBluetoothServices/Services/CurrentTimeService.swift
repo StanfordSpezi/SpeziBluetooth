@@ -34,15 +34,12 @@ public struct CurrentTimeService: BluetoothService, Sendable {
     ///
     /// - Note: The peripheral may choose to ignore fields of the current time during writes. In this case
     ///     it may return the error code 0x80 _Data field ignored_.
-    @Characteristic public var currentTime: CurrentTime?
+    @Characteristic(id: "2A2B", notify: true)
+    public var currentTime: CurrentTime?
 
 
     /// Initialize a new Current Time Service.
-    /// - Parameter autoRead: Automatically read the initial value of the current time characteristic.
-    public init(autoRead: Bool = true) {
-        // TODO: just have an characteristic accessor instead of requiring initilaizer?
-        _currentTime = Characteristic(id: "2A2B", notify: true, autoRead: autoRead)
-    }
+    public init() {}
 }
 
 
@@ -55,14 +52,14 @@ extension CurrentTimeService {
     /// - Note: This method expects that the ``currentTime`` characteristic is current.
     /// - Parameters:
     ///   - now: The `Date` which is perceived as now.
-    ///   - threshold: The threshold in seconds used to decide if peripheral time should be updated.
+    ///   - threshold: The threshold used to decide if peripheral time should be updated.
     ///     A time difference smaller than the threshold is considered current.
-    public func synchronizeDeviceTime(now: Date = .now, threshold: TimeInterval = 1) {
+    public func synchronizeDeviceTime(now: Date = .now, threshold: Duration = .seconds(1)) { // we consider 1 second difference accurate enough
         // check if time update is necessary
         if let currentTime = currentTime,
            let deviceTime = currentTime.time.date {
             let difference = abs(deviceTime.timeIntervalSinceReferenceDate - now.timeIntervalSinceReferenceDate)
-            if difference < 1 {
+            if difference < threshold.timeInterval {
                 return // we consider 1 second difference accurate enough
             }
 
@@ -89,5 +86,16 @@ extension CurrentTimeService {
                 Self.logger.warning("Failed to update current time: \(error)")
             }
         }
+    }
+}
+
+
+extension Duration {
+    fileprivate var timeInterval: TimeInterval {
+        let components = self.components
+
+
+        let attosecondsInSeconds = Double(components.attoseconds) / 1_000_000_000_000_000_000.0 // 10^-18
+        return Double(components.seconds) + attosecondsInSeconds
     }
 }

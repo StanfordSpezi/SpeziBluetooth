@@ -162,16 +162,19 @@ import Foundation
 public struct Characteristic<Value: Sendable>: Sendable {
     /// Storage unit for the property wrapper.
     final class Storage: Sendable {
-        let description: CharacteristicDescription
+        let id: BTUUID
         let defaultNotify: ManagedAtomic<Bool>
+        let autoRead: ManagedAtomic<Bool>
+
         let injection = ManagedAtomicLazyReference<CharacteristicPeripheralInjection<Value>>()
         let testInjections = ManagedAtomicLazyReference<CharacteristicTestInjections<Value>>()
 
         let state: State
 
-        init(description: CharacteristicDescription, defaultNotify: Bool, initialValue: Value?) {
-            self.description = description
+        init(id: BTUUID, defaultNotify: Bool, autoRead: Bool, initialValue: Value?) {
+            self.id = id
             self.defaultNotify = ManagedAtomic(defaultNotify)
+            self.autoRead = ManagedAtomic(autoRead)
             self.state = State(initialValue: initialValue)
         }
     }
@@ -246,7 +249,7 @@ public struct Characteristic<Value: Sendable>: Sendable {
 
     /// The characteristic description.
     var description: CharacteristicDescription {
-        storage.description
+        CharacteristicDescription(id: storage.id, discoverDescriptors: false, autoRead: storage.autoRead.load(ordering: .relaxed))
     }
 
     /// Access the current characteristic value.
@@ -270,8 +273,7 @@ public struct Characteristic<Value: Sendable>: Sendable {
 
     fileprivate init(wrappedValue: Value? = nil, characteristic: BTUUID, notify: Bool, autoRead: Bool = true) {
         // swiftlint:disable:previous function_default_parameter_at_end
-        let description = CharacteristicDescription(id: characteristic, discoverDescriptors: false, autoRead: autoRead)
-        self.storage = Storage(description: description, defaultNotify: notify, initialValue: wrappedValue)
+        self.storage = Storage(id: characteristic, defaultNotify: notify, autoRead: autoRead, initialValue: wrappedValue)
     }
 
 
@@ -281,12 +283,12 @@ public struct Characteristic<Value: Sendable>: Sendable {
             bluetooth: bluetooth,
             peripheral: peripheral,
             serviceId: serviceId,
-            characteristicId: storage.description.characteristicId,
+            characteristicId: storage.id,
             state: storage.state
         ))
         assert(injection.peripheral === peripheral, "\(#function) cannot be called more than once in the lifetime of a \(Self.self) instance")
 
-        storage.state.characteristic = service?.getCharacteristic(id: storage.description.characteristicId)
+        storage.state.characteristic = service?.getCharacteristic(id: storage.id)
 
         injection.setup(defaultNotify: storage.defaultNotify.load(ordering: .acquiring))
     }

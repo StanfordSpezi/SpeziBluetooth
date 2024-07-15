@@ -32,13 +32,15 @@ import CoreBluetooth
 /// - ``write(_:)``
 /// - ``writeWithoutResponse(_:)``
 ///
-/// ### Controlling notifications
+/// ### Configuring the characteristic
 /// - ``isNotifying``
 /// - ``enableNotifications(_:)``
+/// - ``setAutoRead(_:)``
 ///
 /// ### Get notified about changes
 /// - ``onChange(initial:perform:)-4ecct``
 /// - ``onChange(initial:perform:)-6ahtp``
+/// - ``subscription``
 ///
 /// ### Control Point Characteristics
 /// - ``sendRequest(_:timeout:)``
@@ -189,6 +191,25 @@ extension CharacteristicAccessor where Value: ByteDecodable {
         await injection.enableNotifications(enabled)
     }
 
+
+    /// Automatically read the initial value of characteristic
+    ///
+    /// Enable or disable if the initial value should be automatically read from the peripheral.
+    ///
+    /// - Note: AutoRead behavior can only be changed within the initializer. Calls to this method outside of the initializer won't have any effect.
+    /// - Parameter enabled: Once the peripheral connects, a read request is sent to the characteristic to retrieve the initial value, if enabled.
+    public func setAutoRead(_ enabled: Bool) {
+        if storage.injection.load() != nil {
+            Bluetooth.logger.warning(
+                """
+                AutoRead was set to \(enabled) for Characteristic \(storage.id) after it was already initialized. You must set autoRead within the \
+                initializer for the setting to take effect.
+                """
+            )
+        }
+        storage.autoRead.store(enabled, ordering: .relaxed)
+    }
+
     /// Read the current characteristic value from the remote peripheral.
     /// - Returns: The value that was read.
     /// - Throws: Throws an `CBError` or `CBATTError` if the read fails.
@@ -202,14 +223,14 @@ extension CharacteristicAccessor where Value: ByteDecodable {
 
             if testInjection.simulatePeripheral {
                 guard let value = await storage.state.value else {
-                    throw BluetoothError.notPresent(characteristic: storage.description.characteristicId)
+                    throw BluetoothError.notPresent(characteristic: storage.id)
                 }
                 return value
             }
         }
 
         guard let injection = storage.injection.load() else {
-            throw BluetoothError.notPresent(characteristic: storage.description.characteristicId)
+            throw BluetoothError.notPresent(characteristic: storage.id)
         }
 
         return try await injection.read()
@@ -243,7 +264,7 @@ extension CharacteristicAccessor where Value: ByteEncodable {
         }
 
         guard let injection = storage.injection.load() else {
-            throw BluetoothError.notPresent(characteristic: storage.description.characteristicId)
+            throw BluetoothError.notPresent(characteristic: storage.id)
         }
 
         try await injection.write(value)
@@ -272,7 +293,7 @@ extension CharacteristicAccessor where Value: ByteEncodable {
         }
 
         guard let injection = storage.injection.load() else {
-            throw BluetoothError.notPresent(characteristic: storage.description.characteristicId)
+            throw BluetoothError.notPresent(characteristic: storage.id)
         }
 
         try await injection.writeWithoutResponse(value)
@@ -303,7 +324,7 @@ extension CharacteristicAccessor where Value: ControlPointCharacteristic {
         }
 
         guard let injection = storage.injection.load() else {
-            throw BluetoothError.notPresent(characteristic: storage.description.characteristicId)
+            throw BluetoothError.notPresent(characteristic: storage.id)
         }
 
         return try await injection.sendRequest(value, timeout: timeout)

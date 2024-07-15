@@ -22,13 +22,10 @@ public struct BatteryService: BluetoothService, Sendable {
     /// Battery Level in percent (range 0 to 100).
     /// 100 represents fully charged, 0 represents fully discharged.
     /// All other values are reserved.
-    @Characteristic public var batteryLevel: UInt8?
+    @Characteristic(id: "2A19", notify: true)
+    public var batteryLevel: UInt8?
 
 
     /// Initialize a new Battery Service.
-    /// - Parameter autoRead: Automatically read the initial value of the battery level characteristic.
-    public init(autoRead: Bool = true) {
-        // TODO: same here, accessor?
-        _batteryLevel = Characteristic(id: "2A19", notify: true, autoRead: autoRead)
-    }
+    public init() {}
 }
