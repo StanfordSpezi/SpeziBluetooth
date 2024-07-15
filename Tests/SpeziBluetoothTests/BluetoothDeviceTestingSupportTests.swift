@@ -25,6 +25,10 @@ final class MockDevice: BluetoothDevice, @unchecked Sendable {
     var nearby
     @DeviceState(\.lastActivity)
     var lastActivity
+
+
+    @DeviceAction(\.connect)
+    var connect
 }
 
 
@@ -73,8 +77,23 @@ final class BluetoothDeviceTestingSupportTests: XCTestCase {
 
         device.$id.inject(id2)
 
-        try await Task.sleep(for: .milliseconds(50))
+        try await Task.sleep(for: .milliseconds(200))
 
         XCTAssertEqual(results.received, [id1, id2])
+    }
+
+    func testDeviceActionInjection() async throws {
+        let device = MockDevice()
+
+        let expectation = XCTestExpectation(description: "closure")
+
+        device.$connect.inject {
+            try? await Task.sleep(for: .milliseconds(10))
+            expectation.fulfill()
+        }
+
+        await device.connect()
+
+        await fulfillment(of: [expectation], timeout: 0.1)
     }
 }
