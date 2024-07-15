@@ -86,7 +86,8 @@ let package = Package(
         .testTarget(
             name: "SpeziBluetoothTests",
             dependencies: [
-                .target(name: "SpeziBluetooth")
+                .target(name: "SpeziBluetooth"),
+                .target(name: "SpeziBluetoothServices")
             ],
             swiftSettings: [
                 swiftConcurrency
@@ -96,8 +97,8 @@ let package = Package(
         .testTarget(
             name: "SpeziBluetoothServicesTests",
             dependencies: [
-                .target(name: "SpeziBluetoothServices"),
                 .target(name: "SpeziBluetooth"),
+                .target(name: "SpeziBluetoothServices"),
                 .product(name: "XCTByteCoding", package: "SpeziNetworking"),
                 .product(name: "NIO", package: "swift-nio"),
                 .product(name: "XCTestExtensions", package: "XCTestExtensions")
