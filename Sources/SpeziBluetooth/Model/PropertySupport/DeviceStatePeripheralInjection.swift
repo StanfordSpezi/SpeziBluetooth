@@ -13,7 +13,7 @@ import Foundation
 class DeviceStatePeripheralInjection<Value: Sendable>: Sendable {
     private let bluetooth: Bluetooth
     let peripheral: BluetoothPeripheral
-    private let accessKeyPath: KeyPath<BluetoothPeripheral, Value>
+    private let accessKeyPath: KeyPath<BluetoothPeripheral, Value> & Sendable
     private let observationKeyPath: KeyPath<PeripheralStorage, Value>?
     private let subscriptions: ChangeSubscriptions<Value>
 
@@ -22,7 +22,7 @@ class DeviceStatePeripheralInjection<Value: Sendable>: Sendable {
     }
 
 
-    init(bluetooth: Bluetooth, peripheral: BluetoothPeripheral, keyPath: KeyPath<BluetoothPeripheral, Value>) {
+    init(bluetooth: Bluetooth, peripheral: BluetoothPeripheral, keyPath: KeyPath<BluetoothPeripheral, Value> & Sendable) {
         self.bluetooth = bluetooth
         self.peripheral = peripheral
         self.accessKeyPath = keyPath

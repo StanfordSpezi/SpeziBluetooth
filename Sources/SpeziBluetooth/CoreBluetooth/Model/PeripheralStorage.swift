@@ -22,8 +22,8 @@ final class PeripheralStorage: ValueObservable, Sendable {
     private let _lastActivityTimeIntervalSince1970BitPattern: ManagedAtomic<UInt64> // workaround to store store Date atomically
     // swiftlint:disable:previous identifier_name
 
-    private nonisolated(unsafe) var _peripheralName: String?
-    private nonisolated(unsafe) var _advertisementData: AdvertisementData
+    @ObservationIgnored private nonisolated(unsafe) var _peripheralName: String?
+    @ObservationIgnored private nonisolated(unsafe) var _advertisementData: AdvertisementData
     // Its fine to have a single lock. Readers will be isolated anyways to the SpeziBluetooth global actor.
     // The only side-effect is, that readers will wait for any write to complete, which is fine as peripheralName is rarely updated.
     private let lock = RWLock()
@@ -43,7 +43,11 @@ final class PeripheralStorage: ValueObservable, Sendable {
     }
 
     @inlinable var name: String? {
-        lock.withReadLock {
+        access(keyPath: \._peripheralName)
+        if _peripheralName == nil {
+            access(keyPath: \._advertisementData)
+        }
+        return lock.withReadLock {
             _peripheralName ?? _advertisementData.localName
         }
     }
@@ -80,8 +84,10 @@ final class PeripheralStorage: ValueObservable, Sendable {
         }
         set {
             let didChange = newValue != _peripheralName
-            lock.withWriteLock {
-                _peripheralName = newValue
+            withMutation(keyPath: \._peripheralName) {
+                lock.withWriteLock {
+                    _peripheralName = newValue
+                }
             }
 
             if didChange {
@@ -111,8 +117,10 @@ final class PeripheralStorage: ValueObservable, Sendable {
         }
         set {
             let didChange = newValue != _advertisementData
-            lock.withWriteLock {
-                _advertisementData = newValue
+            withMutation(keyPath: \._advertisementData) {
+                lock.withWriteLock {
+                    _advertisementData = newValue
+                }
             }
 
             if didChange {

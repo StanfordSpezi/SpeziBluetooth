@@ -86,16 +86,39 @@ public final class GATTCharacteristic {
 
     @SpeziBluetooth
     func synchronizeModel(capture: GATTCharacteristicCapture) {
-        captureLock.withWriteLock {
-            if capture.isNotifying != isNotifying {
-                isNotifying = capture.isNotifying
+        let notifyChanged = capture.isNotifying != isNotifying
+        let valueChanged = capture.value != value
+        let descriptorsChanged = capture.descriptors?.cbObject != descriptors
+
+        // make sure to keep the mutations outside the locked area
+        withMutation(if: notifyChanged, keyPath: \.isNotifying) {
+            withMutation(if: valueChanged, keyPath: \.value) {
+                withMutation(if: descriptorsChanged, keyPath: \.descriptors) {
+                    captureLock.withWriteLock {
+                        if capture.isNotifying != isNotifying {
+                            _isNotifying = capture.isNotifying
+                        }
+                        if capture.value != value {
+                            _value = capture.value
+                        }
+                        if capture.descriptors?.cbObject != descriptors {
+                            _descriptors = capture.descriptors?.cbObject
+                        }
+                    }
+                }
             }
-            if capture.value != value {
-                value = capture.value
-            }
-            if capture.descriptors?.cbObject != descriptors {
-                descriptors = capture.descriptors?.cbObject
-            }
+        }
+    }
+
+    private func withMutation<Member, MutationResult>(
+        if condition: Bool,
+        keyPath: KeyPath<GATTCharacteristic, Member>,
+        _ mutation: () throws -> MutationResult
+    ) rethrows -> MutationResult {
+        if condition {
+            try withMutation(keyPath: keyPath, mutation)
+        } else {
+            try mutation()
         }
     }
 }

@@ -12,7 +12,7 @@ import SpeziBluetooth
 import SpeziBluetoothServices
 
 
-final class TestDevice: BluetoothDevice, Identifiable, SomePeripheral, Sendable {
+final class TestDevice: BluetoothDevice, Identifiable, SomePeripheral, @unchecked Sendable {
     @Observable
     class State {
         @MainActor fileprivate(set) var didReceiveManufacturer = false

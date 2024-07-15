@@ -88,7 +88,7 @@ final class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
         while !peripheralManager.updateValue(data, for: characteristic, onSubscribedCentrals: centrals) {
             // if false is returned, queue is full and we need to wait for flush signal.
             await withCheckedContinuation { continuation in
-                logger.warning("Peripheral update failed!")
+                logger.warning("Peripheral update failed! Queuing update operation until ready ...")
                 queuedUpdates.append(continuation)
             }
         }
@@ -166,7 +166,7 @@ final class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
 
     nonisolated func peripheralManagerIsReady(toUpdateSubscribers peripheral: CBPeripheralManager) {
         Task { @MainActor [logger, queuedUpdates] in
-            logger.debug("Received manager is ready.")
+            logger.debug("Received manager is ready. Processing queued updates.")
             queuedUpdates.signalReady()
         }
     }

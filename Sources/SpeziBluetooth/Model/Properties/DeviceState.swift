@@ -88,12 +88,12 @@ import Observation
 @propertyWrapper
 public struct DeviceState<Value: Sendable>: Sendable {
     final class Storage: Sendable {
-        let keyPath: KeyPath<BluetoothPeripheral, Value>
+        let keyPath: KeyPath<BluetoothPeripheral, Value> & Sendable
         let injection = ManagedAtomicLazyReference<DeviceStatePeripheralInjection<Value>>()
         /// To support testing support.
         let testInjections = ManagedAtomicLazyReference<DeviceStateTestInjections<Value>>()
 
-        init(keyPath: KeyPath<BluetoothPeripheral, Value>) {
+        init(keyPath: KeyPath<BluetoothPeripheral, Value> & Sendable) {
             self.keyPath = keyPath
         }
     }
@@ -126,7 +126,7 @@ public struct DeviceState<Value: Sendable>: Sendable {
 
     /// Provide a `KeyPath` to the device state you want to access.
     /// - Parameter keyPath: The `KeyPath` to a property of the underlying ``BluetoothPeripheral`` instance.
-    public init(_ keyPath: KeyPath<BluetoothPeripheral, Value>) {
+    public init(_ keyPath: KeyPath<BluetoothPeripheral, Value> & Sendable) {
         self.storage = Storage(keyPath: keyPath)
     }
 

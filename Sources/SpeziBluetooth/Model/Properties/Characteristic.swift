@@ -190,28 +190,33 @@ public struct Characteristic<Value: Sendable>: Sendable {
             }
         }
 
-        private nonisolated(unsafe) var _value: Value?
+        @ObservationIgnored private nonisolated(unsafe) var _value: Value?
+        @ObservationIgnored private nonisolated(unsafe) var _capture: CharacteristicCaptureRetrieval?
+        private let lock = RWLock() // protects both properties above
+
         @SpeziBluetooth var characteristic: GATTCharacteristic? {
             didSet {
-                lock.withWriteLock {
-                    _capture = characteristic.map { CharacteristicCaptureRetrieval($0) }
+                withMutation(keyPath: \._capture) {
+                    lock.withWriteLock {
+                        _capture = characteristic.map { CharacteristicCaptureRetrieval($0) }
+                    }
                 }
             }
         }
-        private nonisolated(unsafe) var _capture: CharacteristicCaptureRetrieval?
-
-        private let lock = RWLock() // protects the _value above
 
         @inlinable var readOnlyValue: Value? {
-            lock.withReadLock {
+            access(keyPath: \._value)
+            return lock.withReadLock {
                 _value
             }
         }
 
         var capture: GATTCharacteristicCapture? {
-            lock.withReadLock {
-                _capture?.capture
+            access(keyPath: \._capture)
+            let characteristic = lock.withReadLock {
+                _capture
             }
+            return characteristic?.capture
         }
 
         @SpeziBluetooth var value: Value? {
@@ -219,9 +224,7 @@ public struct Characteristic<Value: Sendable>: Sendable {
                 readOnlyValue
             }
             set {
-                lock.withWriteLock {
-                    _value = newValue
-                }
+                inject(newValue)
             }
         }
 
@@ -229,9 +232,12 @@ public struct Characteristic<Value: Sendable>: Sendable {
             self._value = initialValue
         }
 
-        func inject(_ value: Value) {
-            lock.withWriteLock {
-                _value = value
+        @inlinable
+        func inject(_ value: Value?) {
+            withMutation(keyPath: \._value) {
+                lock.withWriteLock {
+                    _value = value
+                }
             }
         }
     }
