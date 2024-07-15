@@ -117,6 +117,7 @@ final class BluetoothDeviceTestingSupportTests: XCTestCase {
 
         let value1 = "Manufacturer1"
         let value2 = "Manufacturer2"
+        let value3 = "Manufacturer3"
 
         service.$manufacturerName.enableSubscriptions()
         service.$manufacturerName.inject(value1)
@@ -129,9 +130,12 @@ final class BluetoothDeviceTestingSupportTests: XCTestCase {
 
         service.$manufacturerName.inject(value2)
 
-        try await Task.sleep(for: .milliseconds(200))
+        try await Task.sleep(for: .milliseconds(50))
+        service.$manufacturerName.inject(value3)
 
-        XCTAssertEqual(results.received, [value1, value2])
+        try await Task.sleep(for: .milliseconds(50))
+
+        XCTAssertEqual(results.received, [value1, value2, value3])
     }
 
     func testCharacteristicPeripheralSimulation() async throws {

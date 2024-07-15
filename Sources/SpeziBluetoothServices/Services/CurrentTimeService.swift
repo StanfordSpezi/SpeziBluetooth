@@ -40,6 +40,7 @@ public struct CurrentTimeService: BluetoothService, Sendable {
     /// Initialize a new Current Time Service.
     /// - Parameter autoRead: Automatically read the initial value of the current time characteristic.
     public init(autoRead: Bool = true) {
+        // TODO: just have an characteristic accessor instead of requiring initilaizer?
         _currentTime = Characteristic(id: "2A2B", notify: true, autoRead: autoRead)
     }
 }

@@ -28,6 +28,7 @@ public struct BatteryService: BluetoothService, Sendable {
     /// Initialize a new Battery Service.
     /// - Parameter autoRead: Automatically read the initial value of the battery level characteristic.
     public init(autoRead: Bool = true) {
+        // TODO: same here, accessor?
         _batteryLevel = Characteristic(id: "2A19", notify: true, autoRead: autoRead)
     }
 }

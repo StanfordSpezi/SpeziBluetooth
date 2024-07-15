@@ -151,10 +151,8 @@ extension CharacteristicAccessor where Value: ByteDecodable {
             let id = subscriptions.newOnChangeSubscription(perform: action)
 
             if initial, let value = storage.state.readOnlyValue {
-                Task { @SpeziBluetooth in
-                    // if there isn't a value already, initial won't work properly with injections
-                    subscriptions.notifySubscriber(id: id, with: value)
-                }
+                // if there isn't a value already, initial won't work properly with injections
+                subscriptions.notifySubscriber(id: id, with: value)
             }
             return
         }
@@ -345,9 +343,7 @@ extension CharacteristicAccessor {
         storage.state.inject(value)
 
         if let subscriptions = storage.testInjections.load()?.subscriptions {
-            Task { @SpeziBluetooth in
-                subscriptions.notifySubscribers(with: value)
-            }
+            subscriptions.notifySubscribers(with: value)
         }
     }
 

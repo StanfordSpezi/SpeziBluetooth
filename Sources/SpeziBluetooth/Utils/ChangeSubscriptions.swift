@@ -10,39 +10,45 @@ import Foundation
 import OrderedCollections
 
 
-@SpeziBluetooth
 final class ChangeSubscriptions<Value: Sendable>: Sendable {
     private struct Registration: Sendable {
         let subscription: AsyncStream<Value>
         let id: UUID
     }
 
-    private var continuations: OrderedDictionary<UUID, AsyncStream<Value>.Continuation> = [:]
+    private nonisolated(unsafe) var continuations: OrderedDictionary<UUID, AsyncStream<Value>.Continuation> = [:]
+    private let lock = RWLock()
 
     nonisolated init() {}
 
     func notifySubscribers(with value: Value, ignoring: Set<UUID> = []) {
-        for (id, continuation) in continuations where !ignoring.contains(id) {
-            continuation.yield(value)
+        lock.withReadLock {
+            for (id, continuation) in continuations where !ignoring.contains(id) {
+                continuation.yield(value)
+            }
         }
     }
 
     func notifySubscriber(id: UUID, with value: Value) {
-        continuations[id]?.yield(value)
+        lock.withReadLock {
+            _ = continuations[id]?.yield(value)
+        }
     }
 
     private nonisolated  func _newSubscription() -> Registration {
         let id = UUID()
         let stream = AsyncStream { continuation in
-            Task.detached { @SpeziBluetooth in
+            lock.withWriteLock {
                 self.continuations[id] = continuation
+            }
 
-                continuation.onTermination = { [weak self] _ in
-                    guard let self else {
-                        return
-                    }
+            continuation.onTermination = { [weak self] _ in
+                guard let self else {
+                    return
+                }
 
-                    Task { @SpeziBluetooth in
+                Task { @SpeziBluetooth in
+                    self.lock.withWriteLock {
                         self.continuations.removeValue(forKey: id)
                     }
                 }
@@ -83,10 +89,12 @@ final class ChangeSubscriptions<Value: Sendable>: Sendable {
     }
 
     deinit {
-        for continuation in continuations.values {
-            continuation.finish()
-        }
+        lock.withWriteLock {
+            for continuation in continuations.values {
+                continuation.finish()
+            }
 
-        continuations.removeAll()
+            continuations.removeAll()
+        }
     }
 }

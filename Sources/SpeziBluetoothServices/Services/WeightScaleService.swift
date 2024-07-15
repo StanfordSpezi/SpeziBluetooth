@@ -18,7 +18,8 @@ public struct WeightScaleService: BluetoothService, Sendable {
     /// Receive weight measurements.
     ///
     /// - Note: This characteristic is required and indicate-only.
-    @Characteristic public var weightMeasurement: WeightMeasurement?
+    @Characteristic(id: "2A9D", notify: true, autoRead: false)
+    public var weightMeasurement: WeightMeasurement?
 
     /// Describe supported features and value resolutions of the weight scale.
     ///
@@ -28,8 +29,5 @@ public struct WeightScaleService: BluetoothService, Sendable {
 
 
     /// Initialize a new Weight Scale Service.
-    /// - Parameter autoRead: Automatically read the initial value of the measurement characteristic.
-    public init(autoRead: Bool = false) {
-        _weightMeasurement = Characteristic(id: "2A9D", notify: true, autoRead: autoRead)
-    }
+    public init() {}
 }

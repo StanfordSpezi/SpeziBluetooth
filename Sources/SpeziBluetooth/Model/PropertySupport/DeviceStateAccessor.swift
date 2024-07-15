@@ -91,9 +91,7 @@ extension DeviceStateAccessor {
 
             if initial, let value = testInjections.injectedValue ?? DeviceStateTestInjections<Value>.artificialValue(for: storage.keyPath) {
                 // if there isn't a value already, initial won't work properly with injections
-                Task { @SpeziBluetooth in
-                    subscriptions.notifySubscriber(id: id, with: value)
-                }
+                subscriptions.notifySubscriber(id: id, with: value)
             }
             return
         }
@@ -149,9 +147,7 @@ extension DeviceStateAccessor {
         injections.injectedValue = value
 
         if let subscriptions = injections.subscriptions {
-            Task { @SpeziBluetooth in
-                subscriptions.notifySubscribers(with: value)
-            }
+            subscriptions.notifySubscribers(with: value)
         }
     }
 }
