@@ -87,6 +87,12 @@ import Observation
 /// - ``DeviceStateAccessor``
 @propertyWrapper
 public struct DeviceState<Value: Sendable>: Sendable {
+#if compiler(<6)
+    typealias KeyPathType = KeyPath<BluetoothPeripheral, Value>
+#else
+    typealias KeyPathType = KeyPath<BluetoothPeripheral, Value> & Sendable
+#endif
+
     final class Storage: Sendable {
         let keyPath: KeyPathType
         let injection = ManagedAtomicLazyReference<DeviceStatePeripheralInjection<Value>>()
@@ -97,12 +103,6 @@ public struct DeviceState<Value: Sendable>: Sendable {
             self.keyPath = keyPath
         }
     }
-
-#if compiler(<6)
-    typealias KeyPathType = KeyPath<BluetoothPeripheral, Value>
-#else
-    typealias KeyPathType = KeyPath<BluetoothPeripheral, Value> & Sendable
-#endif
 
     private let storage: Storage
 
