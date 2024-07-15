@@ -80,7 +80,9 @@ final class PeripheralStorage: ValueObservable, Sendable {
 
     @SpeziBluetooth var peripheralName: String? {
         get {
-            _peripheralName
+            lock.withReadLock {
+                _peripheralName
+            }
         }
         set {
             let didChange = newValue != _peripheralName

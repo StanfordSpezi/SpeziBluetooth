@@ -84,7 +84,17 @@ let package = Package(
             plugins: [] + swiftLintPlugin()
         ),
         .testTarget(
-            name: "BluetoothServicesTests",
+            name: "SpeziBluetoothTests",
+            dependencies: [
+                .target(name: "SpeziBluetooth")
+            ],
+            swiftSettings: [
+                swiftConcurrency
+            ],
+            plugins: [] + swiftLintPlugin()
+        ),
+        .testTarget(
+            name: "SpeziBluetoothServicesTests",
             dependencies: [
                 .target(name: "SpeziBluetoothServices"),
                 .target(name: "SpeziBluetooth"),
