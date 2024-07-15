@@ -352,7 +352,7 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
     ///   - description: The expected device configuration of the peripheral. This is used to discover service and characteristics if you connect to the peripheral-
     /// - Returns: The retrieved Peripheral. Returns nil if the Bluetooth Central could not be powered on (e.g., not authorized) or if no peripheral with the requested identifier was found.
     public func retrievePeripheral(for uuid: UUID, with description: DeviceDescription) async -> BluetoothPeripheral? {
-        if _centralManager != nil {
+        if _centralManager == nil {
             _ = centralManager // make sure central is initialized!
 
             // we are waiting for the next state transition, ideally to poweredOn state!
