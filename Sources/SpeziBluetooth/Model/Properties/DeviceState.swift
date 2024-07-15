@@ -88,15 +88,21 @@ import Observation
 @propertyWrapper
 public struct DeviceState<Value: Sendable>: Sendable {
     final class Storage: Sendable {
-        let keyPath: KeyPath<BluetoothPeripheral, Value> & Sendable
+        let keyPath: KeyPathType
         let injection = ManagedAtomicLazyReference<DeviceStatePeripheralInjection<Value>>()
         /// To support testing support.
         let testInjections = ManagedAtomicLazyReference<DeviceStateTestInjections<Value>>()
 
-        init(keyPath: KeyPath<BluetoothPeripheral, Value> & Sendable) {
+        init(keyPath: KeyPathType) {
             self.keyPath = keyPath
         }
     }
+
+#if compiler(<6)
+    typealias KeyPathType = KeyPath<BluetoothPeripheral, Value>
+#else
+    typealias KeyPathType = KeyPath<BluetoothPeripheral, Value> & Sendable
+#endif
 
     private let storage: Storage
 
@@ -123,12 +129,19 @@ public struct DeviceState<Value: Sendable>: Sendable {
         DeviceStateAccessor(storage)
     }
 
-
+    #if compiler(<6)
+    /// Provide a `KeyPath` to the device state you want to access.
+    /// - Parameter keyPath: The `KeyPath` to a property of the underlying ``BluetoothPeripheral`` instance.
+    public init(_ keyPath: KeyPath<BluetoothPeripheral, Value>) {
+        self.storage = Storage(keyPath: keyPath)
+    }
+    #else
     /// Provide a `KeyPath` to the device state you want to access.
     /// - Parameter keyPath: The `KeyPath` to a property of the underlying ``BluetoothPeripheral`` instance.
     public init(_ keyPath: KeyPath<BluetoothPeripheral, Value> & Sendable) {
         self.storage = Storage(keyPath: keyPath)
     }
+    #endif
 
 
     @SpeziBluetooth
