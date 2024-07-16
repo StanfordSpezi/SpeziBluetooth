@@ -193,29 +193,26 @@ public struct Characteristic<Value: Sendable>: Sendable {
             }
         }
 
-        @ObservationIgnored private nonisolated(unsafe) var _value: Value?
-        @ObservationIgnored private nonisolated(unsafe) var _capture: CharacteristicCaptureRetrieval?
-        private let lock = RWLock() // protects both properties above
+        private nonisolated(unsafe) var _value: Value?
+        private nonisolated(unsafe) var _capture: CharacteristicCaptureRetrieval?
+        // protects both properties above; we need recursive lock because of @Observable (willSet handler might access the property recursively
+        private let lock = RecursiveRWLock()
 
         @SpeziBluetooth var characteristic: GATTCharacteristic? {
             didSet {
-                withMutation(keyPath: \._capture) {
-                    lock.withWriteLock {
-                        _capture = characteristic.map { CharacteristicCaptureRetrieval($0) }
-                    }
+                lock.withWriteLock {
+                    _capture = characteristic.map { CharacteristicCaptureRetrieval($0) }
                 }
             }
         }
 
         @inlinable var readOnlyValue: Value? {
-            access(keyPath: \._value)
-            return lock.withReadLock {
+            lock.withReadLock {
                 _value
             }
         }
 
         var capture: GATTCharacteristicCapture? {
-            access(keyPath: \._capture)
             let characteristic = lock.withReadLock {
                 _capture
             }
@@ -237,10 +234,8 @@ public struct Characteristic<Value: Sendable>: Sendable {
 
         @inlinable
         func inject(_ value: Value?) {
-            withMutation(keyPath: \._value) {
-                lock.withWriteLock {
-                    _value = value
-                }
+            lock.withWriteLock {
+                _value = value
             }
         }
     }

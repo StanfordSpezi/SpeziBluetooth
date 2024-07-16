@@ -22,11 +22,12 @@ final class PeripheralStorage: ValueObservable, Sendable {
     private let _lastActivityTimeIntervalSince1970BitPattern: ManagedAtomic<UInt64> // workaround to store store Date atomically
     // swiftlint:disable:previous identifier_name
 
-    @ObservationIgnored private nonisolated(unsafe) var _peripheralName: String?
-    @ObservationIgnored private nonisolated(unsafe) var _advertisementData: AdvertisementData
+    private nonisolated(unsafe) var _peripheralName: String?
+    private nonisolated(unsafe) var _advertisementData: AdvertisementData
     // Its fine to have a single lock. Readers will be isolated anyways to the SpeziBluetooth global actor.
     // The only side-effect is, that readers will wait for any write to complete, which is fine as peripheralName is rarely updated.
-    private let lock = RWLock()
+    // Further, we need a recursive lock, as willSet/didSet handlers of @Observable might access the property recursively on mutation
+    private let lock = RecursiveRWLock()
 
     @SpeziBluetooth var lastActivity: Date {
         didSet {
@@ -43,11 +44,7 @@ final class PeripheralStorage: ValueObservable, Sendable {
     }
 
     @inlinable var name: String? {
-        access(keyPath: \._peripheralName)
-        if _peripheralName == nil {
-            access(keyPath: \._advertisementData)
-        }
-        return lock.withReadLock {
+        lock.withReadLock {
             _peripheralName ?? _advertisementData.localName
         }
     }
@@ -86,10 +83,8 @@ final class PeripheralStorage: ValueObservable, Sendable {
         }
         set {
             let didChange = newValue != _peripheralName
-            withMutation(keyPath: \._peripheralName) {
-                lock.withWriteLock {
-                    _peripheralName = newValue
-                }
+            lock.withWriteLock {
+                _peripheralName = newValue
             }
 
             if didChange {
@@ -119,10 +114,8 @@ final class PeripheralStorage: ValueObservable, Sendable {
         }
         set {
             let didChange = newValue != _advertisementData
-            withMutation(keyPath: \._advertisementData) {
-                lock.withWriteLock {
-                    _advertisementData = newValue
-                }
+            lock.withWriteLock {
+                _advertisementData = newValue
             }
 
             if didChange {
