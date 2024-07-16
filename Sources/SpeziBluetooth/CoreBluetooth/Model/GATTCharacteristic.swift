@@ -87,21 +87,21 @@ public final class GATTCharacteristic {
     @SpeziBluetooth
     func synchronizeModel(capture: GATTCharacteristicCapture) {
         if capture.isNotifying != isNotifying {
-            withMutation(keyPath: \._isNotifying) {
+            withMutation(keyPath: \.isNotifying) {
                 captureLock.withWriteLock {
                     _isNotifying = capture.isNotifying
                 }
             }
         }
         if capture.value != value {
-            withMutation(keyPath: \._value) {
+            withMutation(keyPath: \.value) {
                 captureLock.withWriteLock {
                     _value = capture.value
                 }
             }
         }
         if capture.descriptors?.cbObject != descriptors {
-            withMutation(keyPath: \._descriptors) {
+            withMutation(keyPath: \.descriptors) {
                 captureLock.withWriteLock {
                     _descriptors = capture.descriptors?.cbObject
                 }
