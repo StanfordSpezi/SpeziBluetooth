@@ -73,7 +73,12 @@ final class SpeziBluetoothTests: XCTestCase {
         app.checkBoxes["EventLog Notifications"].tap()
         app.assert(event: "subscribed", characteristic: .eventLogCharacteristic)
         #else
+
+#if targetEnvironment(macCatalyst)
+        let offset = 0.98
+#else
         let offset = 0.93
+#endif
 
         XCTAssert(app.switches["EventLog Notifications"].exists)
         XCTAssertEqual(app.switches["EventLog Notifications"].value as? String, "1")
