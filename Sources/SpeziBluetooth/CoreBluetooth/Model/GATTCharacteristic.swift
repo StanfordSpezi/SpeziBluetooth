@@ -67,7 +67,7 @@ public final class GATTCharacteristic {
         underlyingCharacteristic.properties
     }
 
-    private let captureLock = RecursiveRWLock() // recursive because of potential @Observable handlers
+    private let captureLock = RWLock()
 
     var captured: GATTCharacteristicCapture {
         captureLock.withReadLock {
@@ -86,28 +86,26 @@ public final class GATTCharacteristic {
 
     @SpeziBluetooth
     func synchronizeModel(capture: GATTCharacteristicCapture) {
-        captureLock.withWriteLock {
-            if capture.isNotifying != isNotifying {
-                isNotifying = capture.isNotifying
-            }
-            if capture.value != value {
-                value = capture.value
-            }
-            if capture.descriptors?.cbObject != descriptors {
-                descriptors = capture.descriptors?.cbObject
+        if capture.isNotifying != isNotifying {
+            withMutation(keyPath: \._isNotifying) {
+                captureLock.withWriteLock {
+                    _isNotifying = capture.isNotifying
+                }
             }
         }
-    }
-
-    private func withMutation<Member, MutationResult>(
-        if condition: Bool,
-        keyPath: KeyPath<GATTCharacteristic, Member>,
-        _ mutation: () throws -> MutationResult
-    ) rethrows -> MutationResult {
-        if condition {
-            try withMutation(keyPath: keyPath, mutation)
-        } else {
-            try mutation()
+        if capture.value != value {
+            withMutation(keyPath: \._value) {
+                captureLock.withWriteLock {
+                    _value = capture.value
+                }
+            }
+        }
+        if capture.descriptors?.cbObject != descriptors {
+            withMutation(keyPath: \._descriptors) {
+                captureLock.withWriteLock {
+                    _descriptors = capture.descriptors?.cbObject
+                }
+            }
         }
     }
 }

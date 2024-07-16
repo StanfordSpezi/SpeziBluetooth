@@ -16,8 +16,8 @@ final class BluetoothManagerStorage: ValueObservable, Sendable {
     private let _isScanning = ManagedAtomic<Bool>(false)
     private let _state = ManagedAtomic<BluetoothState>(.unknown)
 
-    private nonisolated(unsafe) var _discoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> = [:]
-    private let rwLock = RecursiveRWLock() // recursive because of @Observable (willSet handlers are executed while holding the writer lock)
+    @ObservationIgnored private nonisolated(unsafe) var _discoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> = [:]
+    private let rwLock = RWLock()
 
     @SpeziBluetooth var retrievedPeripherals: OrderedDictionary<UUID, WeakReference<BluetoothPeripheral>> = [:] {
         didSet {
@@ -45,7 +45,8 @@ final class BluetoothManagerStorage: ValueObservable, Sendable {
     }
 
     @inlinable var readOnlyDiscoveredPeripherals: OrderedDictionary<UUID, BluetoothPeripheral> {
-        rwLock.withReadLock {
+        access(keyPath: \._discoveredPeripherals)
+        return rwLock.withReadLock {
             _discoveredPeripherals
         }
     }
@@ -83,8 +84,10 @@ final class BluetoothManagerStorage: ValueObservable, Sendable {
             readOnlyDiscoveredPeripherals
         }
         set {
-            rwLock.withReadLock {
-                _discoveredPeripherals = newValue
+            withMutation(keyPath: \._discoveredPeripherals) {
+                rwLock.withWriteLock {
+                    _discoveredPeripherals = newValue
+                }
             }
             _$simpleRegistrar.triggerDidChange(for: \.discoveredPeripherals, on: self) // didSet
         }

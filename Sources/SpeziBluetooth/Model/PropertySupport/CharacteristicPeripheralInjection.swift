@@ -138,7 +138,9 @@ class CharacteristicPeripheralInjection<Value: Sendable>: Sendable {
 
     private func registerCharacteristicValueChanges() {
         self.valueRegistration = peripheral.registerOnChangeHandler(service: serviceId, characteristic: characteristicId) { [weak self] data in
-            self?.handleUpdatedValue(data)
+            Task {@SpeziBluetooth [weak self] in
+                self?.handleUpdatedValue(data)
+            }
         }
     }
 
@@ -249,6 +251,7 @@ extension CharacteristicPeripheralInjection where Value: ByteDecodable {
             throw BluetoothError.incompatibleDataFormat
         }
 
+        state.value = value // ensure we are consistent after returning
         return value
     }
 }
