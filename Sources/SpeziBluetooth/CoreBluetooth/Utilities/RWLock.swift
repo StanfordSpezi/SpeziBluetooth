@@ -12,19 +12,20 @@ import Foundation
 
 
 private protocol PThreadReadWriteLock: AnyObject {
-    var rwLock: pthread_rwlock_t { get set }
+    // wee need the unsafe mutable pointer, as otherwise we need to pass the property as inout parameter which isn't thread safe
+    var rwLock: UnsafeMutablePointer<pthread_rwlock_t> { get }
 }
 
 
 final class RecursiveRWLock: PThreadReadWriteLock, @unchecked Sendable {
-    fileprivate var rwLock = pthread_rwlock_t()
+    fileprivate let rwLock: UnsafeMutablePointer<pthread_rwlock_t>
 
     private let writerThread = ManagedAtomic<pthread_t?>(nil)
     private var writerCount = 0
     private var readerCount = 0
 
     init() {
-        pthreadInit()
+        rwLock = Self.pthreadInit()
     }
 
 
@@ -112,10 +113,10 @@ final class RecursiveRWLock: PThreadReadWriteLock, @unchecked Sendable {
 /// Looking at https://www.vadimbulavin.com/benchmarking-locking-apis, using `pthread_rwlock`
 /// is favorable over using dispatch queues.
 final class RWLock: PThreadReadWriteLock, @unchecked Sendable {
-    fileprivate var rwLock = pthread_rwlock_t()
+    fileprivate let rwLock: UnsafeMutablePointer<pthread_rwlock_t>
 
     init() {
-        pthreadInit()
+        rwLock = Self.pthreadInit()
     }
 
     /// Call `body` with a reading lock.
@@ -143,7 +144,7 @@ final class RWLock: PThreadReadWriteLock, @unchecked Sendable {
     }
 
     func isWriteLocked() -> Bool {
-        let status = pthread_rwlock_trywrlock(&rwLock)
+        let status = pthread_rwlock_trywrlock(rwLock)
 
         // see status description https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/pthread_rwlock_trywrlock.3.html
         switch status {
@@ -166,28 +167,31 @@ final class RWLock: PThreadReadWriteLock, @unchecked Sendable {
 
 
 extension PThreadReadWriteLock {
-    func pthreadInit() {
-        let status = pthread_rwlock_init(&rwLock, nil)
+    static func pthreadInit() -> UnsafeMutablePointer<pthread_rwlock_t> {
+        let lock: UnsafeMutablePointer<pthread_rwlock_t> = .allocate(capacity: 1)
+        let status = pthread_rwlock_init(lock, nil)
         precondition(status == 0, "pthread_rwlock_init failed with status \(status)")
+        return lock
     }
 
     func pthreadWriteLock() {
-        let status = pthread_rwlock_wrlock(&rwLock)
+        let status = pthread_rwlock_wrlock(rwLock)
         assert(status == 0, "pthread_rwlock_wrlock failed with status \(status)")
     }
 
     func pthreadReadLock() {
-        let status = pthread_rwlock_rdlock(&rwLock)
+        let status = pthread_rwlock_rdlock(rwLock)
         assert(status == 0, "pthread_rwlock_rdlock failed with status \(status)")
     }
 
     func pthreadUnlock() {
-        let status = pthread_rwlock_unlock(&rwLock)
+        let status = pthread_rwlock_unlock(rwLock)
         assert(status == 0, "pthread_rwlock_unlock failed with status \(status)")
     }
 
     func pthreadDeinit() {
-        let status = pthread_rwlock_destroy(&rwLock)
+        let status = pthread_rwlock_destroy(rwLock)
         assert(status == 0)
+        rwLock.deallocate()
     }
 }
