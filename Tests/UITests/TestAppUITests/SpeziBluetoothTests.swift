@@ -189,8 +189,8 @@ final class SpeziBluetoothTests: XCTestCase {
         app.buttons["Connect Device"].tap()
 
         XCTAssert(app.staticTexts["State, connected"].waitForExistence(timeout: 10.0))
-        XCTAssert(app.staticTexts["Manufacturer, Apple Inc."].exists)
-        XCTAssert(app.staticTexts["Retain Count Check, Passed"].exists)
+        XCTAssert(app.staticTexts["Manufacturer, Apple Inc."].waitForExistence(timeout: 2.0))
+        XCTAssert(app.staticTexts["Retain Count Check, Passed"].waitForExistence(timeout: 2.0))
 
         XCTAssert(app.buttons["Disconnect Device"].exists)
         app.buttons["Disconnect Device"].tap()
