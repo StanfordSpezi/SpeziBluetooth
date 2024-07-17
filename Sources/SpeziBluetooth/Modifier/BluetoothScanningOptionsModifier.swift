@@ -10,7 +10,7 @@
 import SwiftUI
 
 
-private struct BluetoothScanningOptions: ViewModifier {
+private struct BluetoothScanningOptionsModifier: ViewModifier {
     private let minimumRSSI: Int?
     private let advertisementStaleInterval: TimeInterval?
 
@@ -49,7 +49,7 @@ extension View {
     ///   - minimumRSSI: The minimum rssi a nearby peripheral must have to be considered nearby. Supply `nil` to use default the default value or a value from the environment.
     ///   - advertisementStaleInterval: The time interval after which a peripheral advertisement is considered stale
     ///     if we don't hear back from the device. Minimum is 1 second. Supply `nil` to use default the default value or a value from the environment.
-    public func bluetoothScanningOptions(minimumRSSI: Int?, advertisementStaleInterval: TimeInterval?) -> some View {
-        modifier(BluetoothScanningOptions(minimumRSSI: minimumRSSI, advertisementStaleInterval: advertisementStaleInterval))
+    public func bluetoothScanningOptions(minimumRSSI: Int? = nil, advertisementStaleInterval: TimeInterval? = nil) -> some View {
+        modifier(BluetoothScanningOptionsModifier(minimumRSSI: minimumRSSI, advertisementStaleInterval: advertisementStaleInterval))
     }
 }
