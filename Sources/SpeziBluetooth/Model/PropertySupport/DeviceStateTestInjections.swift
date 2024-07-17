@@ -9,9 +9,9 @@
 import Foundation
 
 
-final class DeviceStateTestInjections<Value: Sendable>: Sendable {
-    private nonisolated(unsafe) var _subscriptions: ChangeSubscriptions<Value>?
-    private nonisolated(unsafe) var _injectedValue: Value?
+@Observable final class DeviceStateTestInjections<Value: Sendable>: Sendable {
+    @ObservationIgnored private nonisolated(unsafe) var _subscriptions: ChangeSubscriptions<Value>?
+    @ObservationIgnored private nonisolated(unsafe) var _injectedValue: Value?
     private let lock = NSLock() // protects both properties above
 
     var subscriptions: ChangeSubscriptions<Value>? {
@@ -29,13 +29,16 @@ final class DeviceStateTestInjections<Value: Sendable>: Sendable {
 
     var injectedValue: Value? {
         get {
-            lock.withLock {
+            access(keyPath: \.injectedValue)
+            return lock.withLock {
                 _injectedValue
             }
         }
         set {
-            lock.withLock {
-                _injectedValue = newValue
+            withMutation(keyPath: \.injectedValue) {
+                lock.withLock {
+                    _injectedValue = newValue
+                }
             }
         }
     }
