@@ -6,7 +6,6 @@
 // SPDX-License-Identifier: MIT
 //
 
-import class CoreBluetooth.CBUUID
 import SpeziBluetooth
 
 
@@ -14,13 +13,13 @@ import SpeziBluetooth
 ///
 /// This class partially implements the Bluetooth [Blood Pressure Service 1.1](https://www.bluetooth.com/specifications/specs/blood-pressure-service-1-1-1).
 /// - Note: The Enhance Blood Pressure Service is currently not supported.
-public final class BloodPressureService: BluetoothService, @unchecked Sendable {
-    public static let id = CBUUID(string: "1810")
+public struct BloodPressureService: BluetoothService, Sendable {
+    public static let id: BTUUID = "1810"
 
     /// Receive blood pressure measurements
     ///
     /// - Note: This characteristic is required and indicate-only.
-    @Characteristic(id: "2A35", notify: true)
+    @Characteristic(id: "2A35", notify: true, autoRead: false)
     public var bloodPressureMeasurement: BloodPressureMeasurement?
 
     /// Describe supported features of the blood pressure cuff.
@@ -36,5 +35,6 @@ public final class BloodPressureService: BluetoothService, @unchecked Sendable {
     public var intermediateCuffPressure: IntermediateCuffPressure?
 
 
+    /// Initialize a new Blood Pressure Service.
     public init() {}
 }

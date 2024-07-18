@@ -16,8 +16,8 @@ import SpeziBluetooth
 /// This class partially implements the Bluetooth [Current Time Service 1.1](https://www.bluetooth.com/specifications/specs/current-time-service-1-1).
 /// - Note: The Local Time Information and Reference Time Information characteristics are currently not implemented.
 ///     Both are optional to implement for peripherals.
-public final class CurrentTimeService: BluetoothService, @unchecked Sendable {
-    public static let id = CBUUID(string: "1805")
+public struct CurrentTimeService: BluetoothService, Sendable {
+    public static let id: BTUUID = "1805"
 
     fileprivate static let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "CurrentTimeService")
 
@@ -38,6 +38,7 @@ public final class CurrentTimeService: BluetoothService, @unchecked Sendable {
     public var currentTime: CurrentTime?
 
 
+    /// Initialize a new Current Time Service.
     public init() {}
 }
 
@@ -51,14 +52,14 @@ extension CurrentTimeService {
     /// - Note: This method expects that the ``currentTime`` characteristic is current.
     /// - Parameters:
     ///   - now: The `Date` which is perceived as now.
-    ///   - threshold: The threshold in seconds used to decide if peripheral time should be updated.
+    ///   - threshold: The threshold used to decide if peripheral time should be updated.
     ///     A time difference smaller than the threshold is considered current.
-    public func synchronizeDeviceTime(now: Date = .now, threshold: TimeInterval = 1) {
+    public func synchronizeDeviceTime(now: Date = .now, threshold: Duration = .seconds(1)) { // we consider 1 second difference accurate enough
         // check if time update is necessary
         if let currentTime = currentTime,
            let deviceTime = currentTime.time.date {
             let difference = abs(deviceTime.timeIntervalSinceReferenceDate - now.timeIntervalSinceReferenceDate)
-            if difference < 1 {
+            if difference < threshold.timeInterval {
                 return // we consider 1 second difference accurate enough
             }
 
@@ -85,5 +86,16 @@ extension CurrentTimeService {
                 Self.logger.warning("Failed to update current time: \(error)")
             }
         }
+    }
+}
+
+
+extension Duration {
+    fileprivate var timeInterval: TimeInterval {
+        let components = self.components
+
+
+        let attosecondsInSeconds = Double(components.attoseconds) / 1_000_000_000_000_000_000.0 // 10^-18
+        return Double(components.seconds) + attosecondsInSeconds
     }
 }

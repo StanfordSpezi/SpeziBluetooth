@@ -53,13 +53,14 @@ struct ConnectedDevicesEnvironmentModifier: ViewModifier {
 
 
 extension BluetoothDevice {
-    fileprivate static var deviceEnvironmentModifier: any ViewModifier {
+    @MainActor fileprivate static var deviceEnvironmentModifier: any ViewModifier {
         ConnectedDeviceEnvironmentModifier<Self>()
     }
 }
 
 
 extension Array where Element == any ViewModifier {
+    @MainActor
     fileprivate func modify<V: View>(_ view: V) -> AnyView {
         var view = AnyView(view)
         for modifier in self {

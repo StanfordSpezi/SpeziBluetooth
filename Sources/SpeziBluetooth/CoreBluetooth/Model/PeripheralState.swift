@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
+import Atomics
 import CoreBluetooth
 
 
@@ -22,7 +23,13 @@ public enum PeripheralState: UInt8 {
 }
 
 
-extension PeripheralState: CustomStringConvertible, Sendable {
+extension PeripheralState: RawRepresentable, AtomicValue {}
+
+
+extension PeripheralState: Hashable, Sendable {}
+
+
+extension PeripheralState: CustomStringConvertible {
     public var description: String {
         switch self {
         case .disconnected:

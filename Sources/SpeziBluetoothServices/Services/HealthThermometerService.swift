@@ -6,20 +6,19 @@
 // SPDX-License-Identifier: MIT
 //
 
-import class CoreBluetooth.CBUUID
 import SpeziBluetooth
 
 
 /// Bluetooth Health Thermometer Service implementation.
 ///
 /// This class implements the Bluetooth [Health Thermometer Service 1.0](https://www.bluetooth.com/specifications/specs/health-thermometer-service-1-0).
-public final class HealthThermometerService: BluetoothService, @unchecked Sendable {
-    public static let id = CBUUID(string: "1809")
+public struct HealthThermometerService: BluetoothService, Sendable {
+    public static let id: BTUUID = "1809"
 
     /// Receive temperature measurements.
     ///
     /// - Note: This characteristic is required and indicate-only.
-    @Characteristic(id: "2A1C", notify: true)
+    @Characteristic(id: "2A1C", notify: true, autoRead: false)
     public var temperatureMeasurement: TemperatureMeasurement?
     /// The body location of the temperature measurement.
     ///
@@ -44,5 +43,6 @@ public final class HealthThermometerService: BluetoothService, @unchecked Sendab
     public var measurementInterval: MeasurementInterval?
 
 
+    /// Initialize a new Health Thermometer Service.
     public init() {}
 }

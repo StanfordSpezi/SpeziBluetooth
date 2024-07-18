@@ -9,7 +9,7 @@
 import Foundation
 
 
-protocol BluetoothScanningState: Equatable {
+protocol BluetoothScanningState: Equatable, Sendable {
     /// Merge with another state. Order should not matter in the operation.
     /// - Parameter other: The other state to merge with
     func merging(with other: Self) -> Self
@@ -19,14 +19,14 @@ protocol BluetoothScanningState: Equatable {
 
 
 /// Any kind of Bluetooth Scanner.
-protocol BluetoothScanner: Identifiable where ID: Hashable {
+protocol BluetoothScanner: Identifiable, Sendable where ID: Hashable {
     /// Captures state required to start scanning.
     associatedtype ScanningState: BluetoothScanningState
 
     /// Indicates if there is at least one connected peripheral.
     ///
     /// Make sure this tracks observability of all devices.
-    var hasConnectedDevices: Bool { get }
+    @MainActor var hasConnectedDevices: Bool { get }
 
     /// Scan for nearby bluetooth devices.
     ///

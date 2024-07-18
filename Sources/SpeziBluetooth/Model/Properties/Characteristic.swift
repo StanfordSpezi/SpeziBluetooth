@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
+import Atomics
 import ByteCoding
 import CoreBluetooth
 import Foundation
@@ -28,8 +29,8 @@ import Foundation
 /// The below code example demonstrates declaring the Firmware Revision characteristic of the Device Information service.
 ///
 /// ```swift
-/// class DeviceInformationService: BluetoothService {
-///    static let id = CBUUID(string: "180A")
+/// struct DeviceInformationService: BluetoothService {
+///    static let id: BTUUID = "180A"
 ///
 ///     @Characteristic(id: "2A26")
 ///     var firmwareRevision: String?
@@ -42,24 +43,28 @@ import Foundation
 /// by supplying the `notify` initializer argument.
 ///
 /// - Tip: If you want to react to every change of the characteristic value, you can use
-///     ``CharacteristicAccessor/onChange(initial:perform:)-6ltwk`` or
-///     ``CharacteristicAccessor/onChange(initial:perform:)-5awby``  to set up your action.
+///     ``CharacteristicAccessor/onChange(initial:perform:)-4ecct`` or
+///     ``CharacteristicAccessor/onChange(initial:perform:)-6ahtp``  to set up your action.
 ///
 /// The below code example uses the [Bluetooth Heart Rate Service](https://www.bluetooth.com/specifications/specs/heart-rate-service-1-0)
 /// to demonstrate the automatic notifications feature for the Heart Rate Measurement characteristic.
 ///
-/// - Important: This closure is called from the Bluetooth Serial Executor, if you don't pass in an async method
+/// - Important: This closure is called from the ``SpeziBluetooth/SpeziBluetooth`` global actor, if you don't pass in an async method
 ///     that has an annotated actor isolation (e.g., `@MainActor` or actor isolated methods).
 ///
 /// ```swift
-/// class HeartRateService: BluetoothService {
-///    static let id = CBUUID(string: "180D")
+/// struct HeartRateService: BluetoothService {
+///     static let id: BTUUID = "180D"
 ///
 ///     @Characteristic(id: "2A37", notify: true)
 ///     var heartRateMeasurement: HeartRateMeasurement?
 ///
-///     init() {
-///         $heartRateMeasurement.onChange(perform: processMeasurement)
+///     init() {}
+///
+///     configure() {
+///         $heartRateMeasurement.onChange { [weak self] value in
+///             self?.processMeasurement(measurement)
+///         }
 ///     }
 ///
 ///     func processMeasurement(_ measurement: HeartRateMeasurement) {
@@ -79,8 +84,8 @@ import Foundation
 /// and inspecting other properties like `isPresent`.
 ///
 /// ```swift
-/// class HeartRateService: BluetoothService {
-///    static let id = CBUUID(string: "180D")
+/// struct HeartRateService: BluetoothService {
+///    static let id: BTUUID = "180D"
 ///
 ///     @Characteristic(id: "2A37", notify: true)
 ///     var heartRateMeasurement: HeartRateMeasurement?
@@ -122,17 +127,13 @@ import Foundation
 /// ## Topics
 ///
 /// ### Declaring a Characteristic
-/// - ``init(wrappedValue:id:notify:discoverDescriptors:)-322p2``
-/// - ``init(wrappedValue:id:notify:discoverDescriptors:)-6jfpk``
-/// - ``init(wrappedValue:id:discoverDescriptors:)-1nome``
-/// - ``init(wrappedValue:id:discoverDescriptors:)-1gflb``
-/// - ``init(wrappedValue:id:notify:discoverDescriptors:)-6c95d``
-/// - ``init(wrappedValue:id:notify:discoverDescriptors:)-6296j``
+/// - ``init(wrappedValue:id:autoRead:)``
+/// - ``init(wrappedValue:id:notify:autoRead:)-9medy``
+/// - ``init(wrappedValue:id:notify:autoRead:)-9f2nr``
 ///
 /// ### Inspecting a Characteristic
 /// - ``CharacteristicAccessor/isPresent``
 /// - ``CharacteristicAccessor/properties``
-/// - ``CharacteristicAccessor/descriptors``
 ///
 /// ### Reading a value
 /// - ``CharacteristicAccessor/read()``
@@ -146,8 +147,8 @@ import Foundation
 /// - ``CharacteristicAccessor/enableNotifications(_:)``
 ///
 /// ### Get notified about changes
-/// - ``CharacteristicAccessor/onChange(initial:perform:)-6ltwk``
-/// - ``CharacteristicAccessor/onChange(initial:perform:)-5awby``
+/// - ``CharacteristicAccessor/onChange(initial:perform:)-4ecct``
+/// - ``CharacteristicAccessor/onChange(initial:perform:)-6ahtp``
 ///
 /// ### Control Point Characteristics
 /// - ``ControlPointCharacteristic``
@@ -158,41 +159,102 @@ import Foundation
 /// - ``projectedValue``
 /// - ``CharacteristicAccessor``
 @propertyWrapper
-public final class Characteristic<Value>: @unchecked Sendable {
-    class Configuration {
-        let description: CharacteristicDescription
-        var defaultNotify: Bool
+public struct Characteristic<Value: Sendable>: Sendable {
+    /// Storage unit for the property wrapper.
+    final class Storage: Sendable {
+        let id: BTUUID
+        let defaultNotify: ManagedAtomic<Bool>
+        let autoRead: ManagedAtomic<Bool>
 
-        /// Memory address as an identifier for this Characteristic instance.
-        var objectId: ObjectIdentifier {
-            ObjectIdentifier(self)
-        }
+        let injection = ManagedAtomicLazyReference<CharacteristicPeripheralInjection<Value>>()
+        let testInjections = ManagedAtomicLazyReference<CharacteristicTestInjections<Value>>()
 
-        var id: CBUUID {
-            description.characteristicId
-        }
+        let state: State
 
-        init(description: CharacteristicDescription, defaultNotify: Bool) {
-            self.description = description
-            self.defaultNotify = defaultNotify
+        init(id: BTUUID, defaultNotify: Bool, autoRead: Bool, initialValue: Value?) {
+            self.id = id
+            self.defaultNotify = ManagedAtomic(defaultNotify)
+            self.autoRead = ManagedAtomic(autoRead)
+            self.state = State(initialValue: initialValue)
         }
     }
 
-    let configuration: Configuration
-    private let _value: ObservableBox<Value?>
-    private(set) var injection: CharacteristicPeripheralInjection<Value>?
+    @Observable
+    final class State: Sendable {
+        struct CharacteristicCaptureRetrieval: Sendable { // workaround to make the retrieval of the `capture` property Sendable
+            private nonisolated(unsafe) let characteristic: GATTCharacteristic
 
-    private let _testInjections: Box<CharacteristicTestInjections<Value>?> = Box(nil)
+            var capture: GATTCharacteristicCapture {
+                characteristic.captured
+            }
 
+            init(_ characteristic: GATTCharacteristic) {
+                self.characteristic = characteristic
+            }
+        }
+
+        @ObservationIgnored private nonisolated(unsafe) var _value: Value?
+        @ObservationIgnored private nonisolated(unsafe) var _capture: CharacteristicCaptureRetrieval?
+        // protects both properties above
+        private let lock = RWLock()
+
+        @SpeziBluetooth @ObservationIgnored  var characteristic: GATTCharacteristic? {
+            didSet {
+                lock.withWriteLock {
+                    _capture = characteristic.map { CharacteristicCaptureRetrieval($0) }
+                }
+            }
+        }
+
+        @inlinable var readOnlyValue: Value? {
+            access(keyPath: \._value)
+            return lock.withReadLock {
+                _value
+            }
+        }
+
+        var capture: GATTCharacteristicCapture? {
+            let characteristic = lock.withReadLock {
+                _capture
+            }
+            return characteristic?.capture
+        }
+
+        @SpeziBluetooth var value: Value? {
+            get {
+                readOnlyValue
+            }
+            set {
+                inject(newValue)
+            }
+        }
+
+        init(initialValue: Value?) {
+            self._value = initialValue
+        }
+
+        @inlinable
+        func inject(_ value: Value?) {
+            withMutation(keyPath: \._value) {
+                lock.withWriteLock {
+                    _value = value
+                }
+            }
+        }
+    }
+
+    private let storage: Storage
+
+    /// The characteristic description.
     var description: CharacteristicDescription {
-        configuration.description
+        CharacteristicDescription(id: storage.id, discoverDescriptors: false, autoRead: storage.autoRead.load(ordering: .relaxed))
     }
 
     /// Access the current characteristic value.
     ///
     /// This is either the last read value or the latest notified value.
     public var wrappedValue: Value? {
-        _value.value
+        storage.state.readOnlyValue
     }
 
     /// Retrieve a temporary accessors instance.
@@ -204,34 +266,29 @@ public final class Characteristic<Value>: @unchecked Sendable {
     ///     However, if you project a new `CharacteristicAccessor` instance right after your access,
     ///     the view on the characteristic might have changed due to the asynchronous nature of SpeziBluetooth.
     public var projectedValue: CharacteristicAccessor<Value> {
-        CharacteristicAccessor(configuration: configuration, injection: injection, value: _value, testInjections: _testInjections)
+        CharacteristicAccessor(storage)
     }
 
-    fileprivate init(wrappedValue: Value? = nil, characteristic: CBUUID, notify: Bool, autoRead: Bool = true, discoverDescriptors: Bool = false) {
+    fileprivate init(wrappedValue: Value? = nil, characteristic: BTUUID, notify: Bool, autoRead: Bool = true) {
         // swiftlint:disable:previous function_default_parameter_at_end
-        let description = CharacteristicDescription(id: characteristic, discoverDescriptors: discoverDescriptors, autoRead: autoRead)
-        self.configuration = .init(description: description, defaultNotify: notify)
-        self._value = ObservableBox(wrappedValue)
+        self.storage = Storage(id: characteristic, defaultNotify: notify, autoRead: autoRead, initialValue: wrappedValue)
     }
 
 
-    func inject(bluetooth: Bluetooth, peripheral: BluetoothPeripheral, serviceId: CBUUID, service: GATTService?) {
-        let characteristic = service?.getCharacteristic(id: configuration.id)
-
-        let injection = CharacteristicPeripheralInjection<Value>(
+    @SpeziBluetooth
+    func inject(bluetooth: Bluetooth, peripheral: BluetoothPeripheral, serviceId: BTUUID, service: GATTService?) {
+        let injection = storage.injection.storeIfNilThenLoad(CharacteristicPeripheralInjection<Value>(
             bluetooth: bluetooth,
             peripheral: peripheral,
             serviceId: serviceId,
-            characteristicId: configuration.id,
-            value: _value,
-            characteristic: characteristic
-        )
+            characteristicId: storage.id,
+            state: storage.state
+        ))
+        assert(injection.peripheral === peripheral, "\(#function) cannot be called more than once in the lifetime of a \(Self.self) instance")
 
-        // mutual access with `CharacteristicAccessor/enableNotifications`
-        self.injection = injection
-        injection.assumeIsolated { injection in
-            injection.setup(defaultNotify: configuration.defaultNotify)
-        }
+        storage.state.characteristic = service?.getCharacteristic(id: storage.id)
+
+        injection.setup(defaultNotify: storage.defaultNotify.load(ordering: .acquiring))
     }
 }
 
@@ -242,21 +299,9 @@ extension Characteristic where Value: ByteEncodable {
     ///   - wrappedValue: An optional default value.
     ///   - id: The characteristic id.
     ///   - autoRead: Flag indicating if  the initial value should be automatically read from the peripheral.
-    ///   - discoverDescriptors: Flag if characteristic descriptors should be discovered automatically.
-    public convenience init(wrappedValue: Value? = nil, id: String, autoRead: Bool = true, discoverDescriptors: Bool = false) {
+    public init(wrappedValue: Value? = nil, id: BTUUID, autoRead: Bool = true) {
         // swiftlint:disable:previous function_default_parameter_at_end
-        self.init(wrappedValue: wrappedValue, id: CBUUID(string: id), autoRead: autoRead, discoverDescriptors: discoverDescriptors)
-    }
-
-    /// Declare a write-only characteristic.
-    /// - Parameters:
-    ///   - wrappedValue: An optional default value.
-    ///   - id: The characteristic id.
-    ///   - autoRead: Flag indicating if  the initial value should be automatically read from the peripheral.
-    ///   - discoverDescriptors: Flag if characteristic descriptors should be discovered automatically.
-    public convenience init(wrappedValue: Value? = nil, id: CBUUID, autoRead: Bool = true, discoverDescriptors: Bool = false) {
-        // swiftlint:disable:previous function_default_parameter_at_end
-        self.init(wrappedValue: wrappedValue, characteristic: id, notify: false, autoRead: autoRead, discoverDescriptors: discoverDescriptors)
+        self.init(wrappedValue: wrappedValue, characteristic: id, notify: false, autoRead: autoRead)
     }
 }
 
@@ -268,22 +313,9 @@ extension Characteristic where Value: ByteDecodable {
     ///   - id: The characteristic id.
     ///   - notify: Automatically subscribe to characteristic notifications if supported.
     ///   - autoRead: Flag indicating if  the initial value should be automatically read from the peripheral.
-    ///   - discoverDescriptors: Flag if characteristic descriptors should be discovered automatically.
-    public convenience init(wrappedValue: Value? = nil, id: String, notify: Bool = false, autoRead: Bool = true, discoverDescriptors: Bool = false) {
+    public init(wrappedValue: Value? = nil, id: BTUUID, notify: Bool = false, autoRead: Bool = true) {
         // swiftlint:disable:previous function_default_parameter_at_end
-        self.init(wrappedValue: wrappedValue, id: CBUUID(string: id), notify: notify, autoRead: autoRead, discoverDescriptors: discoverDescriptors)
-    }
-
-    /// Declare a read-only characteristic.
-    /// - Parameters:
-    ///   - wrappedValue: An optional default value.
-    ///   - id: The characteristic id.
-    ///   - notify: Automatically subscribe to characteristic notifications if supported.
-    ///   - autoRead: Flag indicating if  the initial value should be automatically read from the peripheral.
-    ///   - discoverDescriptors: Flag if characteristic descriptors should be discovered automatically.
-    public convenience init(wrappedValue: Value? = nil, id: CBUUID, notify: Bool = false, autoRead: Bool = true, discoverDescriptors: Bool = false) {
-        // swiftlint:disable:previous function_default_parameter_at_end
-        self.init(wrappedValue: wrappedValue, characteristic: id, notify: notify, autoRead: autoRead, discoverDescriptors: discoverDescriptors)
+        self.init(wrappedValue: wrappedValue, characteristic: id, notify: notify, autoRead: autoRead)
     }
 }
 
@@ -295,22 +327,9 @@ extension Characteristic where Value: ByteCodable { // reduce ambiguity
     ///   - id: The characteristic id.
     ///   - notify: Automatically subscribe to characteristic notifications if supported.
     ///   - autoRead: Flag indicating if  the initial value should be automatically read from the peripheral.
-    ///   - discoverDescriptors: Flag if characteristic descriptors should be discovered automatically.
-    public convenience init(wrappedValue: Value? = nil, id: String, notify: Bool = false, autoRead: Bool = true, discoverDescriptors: Bool = false) {
+    public init(wrappedValue: Value? = nil, id: BTUUID, notify: Bool = false, autoRead: Bool = true) {
         // swiftlint:disable:previous function_default_parameter_at_end
-        self.init(wrappedValue: wrappedValue, id: CBUUID(string: id), notify: notify, autoRead: autoRead, discoverDescriptors: discoverDescriptors)
-    }
-
-    /// Declare a read and write characteristic.
-    /// - Parameters:
-    ///   - wrappedValue: An optional default value.
-    ///   - id: The characteristic id.
-    ///   - notify: Automatically subscribe to characteristic notifications if supported.
-    ///   - autoRead: Flag indicating if  the initial value should be automatically read from the peripheral.
-    ///   - discoverDescriptors: Flag if characteristic descriptors should be discovered automatically.
-    public convenience init(wrappedValue: Value? = nil, id: CBUUID, notify: Bool = false, autoRead: Bool = true, discoverDescriptors: Bool = false) {
-        // swiftlint:disable:previous function_default_parameter_at_end
-        self.init(wrappedValue: wrappedValue, characteristic: id, notify: notify, autoRead: autoRead, discoverDescriptors: discoverDescriptors)
+        self.init(wrappedValue: wrappedValue, characteristic: id, notify: notify, autoRead: autoRead)
     }
 }
 

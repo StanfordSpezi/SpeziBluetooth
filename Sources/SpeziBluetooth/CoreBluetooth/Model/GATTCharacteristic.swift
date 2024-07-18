@@ -6,19 +6,28 @@
 // SPDX-License-Identifier: MIT
 //
 
-@preconcurrency import CoreBluetooth
+import CoreBluetooth
 import Foundation
 
 
-struct CBCharacteristicCapture {
+struct GATTCharacteristicCapture: Sendable {
     let isNotifying: Bool
     let value: Data?
-    let descriptors: [CBDescriptor]? // swiftlint:disable:this discouraged_optional_collection
+    let properties: CBCharacteristicProperties
+    let descriptors: CBInstance<[CBDescriptor]>?
 
     init(from characteristic: CBCharacteristic) {
         self.isNotifying = characteristic.isNotifying
         self.value = characteristic.value
-        self.descriptors = characteristic.descriptors
+        self.properties = characteristic.properties
+        self.descriptors = characteristic.descriptors.map { CBInstance(instantiatedOnDispatchQueue: $0) }
+    }
+
+    fileprivate init(from characteristic: borrowing GATTCharacteristic) {
+        self.isNotifying = characteristic.isNotifying
+        self.value = characteristic.value
+        self.properties = characteristic.properties
+        self.descriptors = characteristic.descriptors.map { CBInstance(unsafe: $0) }
     }
 }
 
@@ -49,13 +58,21 @@ public final class GATTCharacteristic {
     public private(set) var descriptors: [CBDescriptor]? // swiftlint:disable:this discouraged_optional_collection
 
     /// The Bluetooth UUID of the characteristic.
-    public var uuid: CBUUID {
-        underlyingCharacteristic.uuid
+    public var uuid: BTUUID {
+        BTUUID(data: underlyingCharacteristic.uuid.data)
     }
 
     /// The properties of the characteristic.
     public var properties: CBCharacteristicProperties {
         underlyingCharacteristic.properties
+    }
+
+    private let captureLock = RWLock()
+
+    var captured: GATTCharacteristicCapture {
+        captureLock.withReadLock {
+            GATTCharacteristicCapture(from: self)
+        }
     }
 
     init(characteristic: CBCharacteristic, service: GATTService) {
@@ -67,21 +84,34 @@ public final class GATTCharacteristic {
     }
 
 
-    func synchronizeModel(capture: CBCharacteristicCapture) { // always called from the Bluetooth thread
+    @SpeziBluetooth
+    func synchronizeModel(capture: GATTCharacteristicCapture) {
         if capture.isNotifying != isNotifying {
-            isNotifying = capture.isNotifying
+            withMutation(keyPath: \.isNotifying) {
+                captureLock.withWriteLock {
+                    _isNotifying = capture.isNotifying
+                }
+            }
         }
         if capture.value != value {
-            value = capture.value
+            withMutation(keyPath: \.value) {
+                captureLock.withWriteLock {
+                    _value = capture.value
+                }
+            }
         }
-        if capture.descriptors != descriptors {
-            descriptors = capture.descriptors
+        if capture.descriptors?.cbObject != descriptors {
+            withMutation(keyPath: \.descriptors) {
+                captureLock.withWriteLock {
+                    _descriptors = capture.descriptors?.cbObject
+                }
+            }
         }
     }
 }
 
 
-extension GATTCharacteristic: @unchecked Sendable {}
+extension GATTCharacteristic {}
 
 
 extension GATTCharacteristic: CustomDebugStringConvertible {

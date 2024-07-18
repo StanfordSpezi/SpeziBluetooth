@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
-import CoreBluetooth
+import SpeziBluetooth
 @_spi(TestingSupport)
 import SpeziBluetoothServices
 import XCTest
@@ -73,7 +73,12 @@ final class SpeziBluetoothTests: XCTestCase {
         app.checkBoxes["EventLog Notifications"].tap()
         app.assert(event: "subscribed", characteristic: .eventLogCharacteristic)
         #else
+
+#if targetEnvironment(macCatalyst)
         let offset = 0.98
+#else
+        let offset = 0.93
+#endif
 
         XCTAssert(app.switches["EventLog Notifications"].exists)
         XCTAssertEqual(app.switches["EventLog Notifications"].value as? String, "1")
@@ -184,8 +189,8 @@ final class SpeziBluetoothTests: XCTestCase {
         app.buttons["Connect Device"].tap()
 
         XCTAssert(app.staticTexts["State, connected"].waitForExistence(timeout: 10.0))
-        XCTAssert(app.staticTexts["Manufacturer, Apple Inc."].exists)
-        XCTAssert(app.staticTexts["Retain Count Check, Passed"].exists)
+        XCTAssert(app.staticTexts["Manufacturer, Apple Inc."].waitForExistence(timeout: 2.0))
+        XCTAssert(app.staticTexts["Retain Count Check, Passed"].waitForExistence(timeout: 2.0))
 
         XCTAssert(app.buttons["Disconnect Device"].exists)
         app.buttons["Disconnect Device"].tap()
@@ -218,9 +223,9 @@ extension XCUIApplication {
 #endif
     }
 
-    func assert(event: String, characteristic: CBUUID, value: String? = nil) {
+    func assert(event: String, characteristic: BTUUID, value: String? = nil) {
         XCTAssert(staticTexts["Event, \(event)"].waitForExistence(timeout: 5.0))
-        XCTAssert(staticTexts["Characteristic, \(CBUUID.toCustomShort(characteristic))"].waitForExistence(timeout: 2.0))
+        XCTAssert(staticTexts["Characteristic, \(BTUUID.toCustomShort(characteristic))"].waitForExistence(timeout: 2.0))
         if let value {
             XCTAssert(staticTexts["Value, \(value)"].waitForExistence(timeout: 2.0))
         }

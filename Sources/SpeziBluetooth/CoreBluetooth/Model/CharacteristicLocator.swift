@@ -6,16 +6,14 @@
 // SPDX-License-Identifier: MIT
 //
 
-import CoreBluetooth
-
 
 struct CharacteristicLocator {
-    let serviceId: CBUUID
-    let characteristicId: CBUUID
+    let serviceId: BTUUID
+    let characteristicId: BTUUID
 }
 
 
-extension CharacteristicLocator: Hashable {}
+extension CharacteristicLocator: Hashable, Sendable {}
 
 extension CharacteristicLocator: CustomStringConvertible, CustomDebugStringConvertible {
     public var description: String {

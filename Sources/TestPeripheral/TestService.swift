@@ -8,14 +8,27 @@
 
 import CoreBluetooth
 import OSLog
+import SpeziBluetooth
 @_spi(TestingSupport)
 import SpeziBluetoothServices
 
 
-class TestService {
-    private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "TestService")
+struct ATTErrorCode: Error, Sendable {
+    let code: CBATTError.Code
 
-    private weak var peripheral: TestPeripheral?
+    init(_ code: CBATTError.Code) {
+        self.code = code
+    }
+}
+
+
+@MainActor
+final class TestService: Sendable {
+    private var logger: Logger {
+        Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "TestService")
+    }
+
+    private nonisolated(unsafe) weak var peripheral: TestPeripheral?
     let service: CBMutableService
 
     let eventLog: CBMutableCharacteristic
@@ -37,30 +50,42 @@ class TestService {
     }
 
     private var lastEvent: EventLog = .none
-    private var readWriteStringValue: String
+    private var readWriteStringValue: String = "Hello Spezi"
 
     init(peripheral: TestPeripheral) {
         self.peripheral = peripheral
-        self.service = CBMutableService(type: .testService, primary: true)
+        self.service = CBMutableService(type: BTUUID.testService.cbuuid, primary: true)
 
-        self.readWriteStringValue = ""
-
-        self.eventLog = CBMutableCharacteristic(type: .eventLogCharacteristic, properties: [.indicate, .read], value: nil, permissions: [.readable])
-        self.readString = CBMutableCharacteristic(type: .readStringCharacteristic, properties: [.read], value: nil, permissions: [.readable])
-        self.writeString = CBMutableCharacteristic(type: .writeStringCharacteristic, properties: [.write], value: nil, permissions: [.writeable])
+        self.eventLog = CBMutableCharacteristic(
+            type: BTUUID.eventLogCharacteristic.cbuuid,
+            properties: [.indicate, .read],
+            value: nil,
+            permissions: [.readable]
+        )
+        self.readString = CBMutableCharacteristic(
+            type: BTUUID.readStringCharacteristic.cbuuid,
+            properties: [.read],
+            value: nil,
+            permissions: [.readable]
+        )
+        self.writeString = CBMutableCharacteristic(
+            type: BTUUID.writeStringCharacteristic.cbuuid,
+            properties: [.write],
+            value: nil,
+            permissions: [.writeable]
+        )
         self.readWriteString = CBMutableCharacteristic(
-            type: .readWriteStringCharacteristic,
+            type: BTUUID.readWriteStringCharacteristic.cbuuid,
             properties: [.read, .write],
             value: nil,
             permissions: [.readable, .writeable]
         )
-        self.reset = CBMutableCharacteristic(type: .resetCharacteristic, properties: [.write], value: nil, permissions: [.writeable])
+        self.reset = CBMutableCharacteristic(type: BTUUID.resetCharacteristic.cbuuid, properties: [.write], value: nil, permissions: [.writeable])
 
         service.characteristics = [eventLog, readString, writeString, readWriteString, reset]
-
-        resetState()
     }
 
+    @MainActor
     private func resetState() {
         self.readStringCount = 1
         self.readWriteStringValue = "Hello Spezi"
@@ -80,31 +105,28 @@ class TestService {
     }
 
     @MainActor
-    func handleRead(for request: CBATTRequest) -> CBATTError.Code {
-        switch request.characteristic.uuid {
+    func handleRead(for uuid: BTUUID) -> Result<Data, ATTErrorCode> {
+        switch uuid.cbuuid {
         case eventLog.uuid:
-            request.value = self.lastEvent.encode()
+            .success(self.lastEvent.encode())
         case writeString.uuid, reset.uuid:
-            return .readNotPermitted
+            .failure(.init(.readNotPermitted))
         case readString.uuid:
-            let value = readStringValue
-            request.value = value.encode()
+            .success(readStringValue.encode())
         case readWriteString.uuid:
-            request.value = readWriteStringValue.encode()
+            .success(readWriteStringValue.encode())
         default:
-            return .attributeNotFound
+            .failure(.init(.attributeNotFound))
         }
-
-        return .success
     }
 
     @MainActor
-    func handleWrite(for request: CBATTRequest) -> CBATTError.Code {
-        guard let value = request.value else {
+    func handleWrite(value: Data?, characteristicId: BTUUID) -> CBATTError.Code {
+        guard let value = value else {
             return .attributeNotFound
         }
 
-        switch request.characteristic.uuid {
+        switch characteristicId.cbuuid {
         case eventLog.uuid, readString.uuid:
             return .writeNotPermitted
         case writeString.uuid:

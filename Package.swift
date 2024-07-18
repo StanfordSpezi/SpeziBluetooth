@@ -13,9 +13,9 @@ import PackageDescription
 
 
 #if swift(<6)
-let swiftConcurrency: SwiftSetting = .enableExperimentalFeature("SwiftConcurrency")
+let swiftConcurrency: SwiftSetting = .enableExperimentalFeature("StrictConcurrency")
 #else
-let swiftConcurrency: SwiftSetting = .enableUpcomingFeature("SwiftConcurrency")
+let swiftConcurrency: SwiftSetting = .enableUpcomingFeature("StrictConcurrency")
 #endif
 
 
@@ -37,6 +37,7 @@ let package = Package(
         .package(url: "https://github.com/StanfordSpezi/SpeziNetworking", from: "2.1.0"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.59.0"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.0.4"),
+        .package(url: "https://github.com/apple/swift-atomics.git", from: "1.2.0"),
         .package(url: "https://github.com/StanfordBDHG/XCTestExtensions.git", from: "0.4.11")
     ] + swiftLintPackage(),
     targets: [
@@ -47,7 +48,8 @@ let package = Package(
                 .product(name: "NIO", package: "swift-nio"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "SpeziFoundation", package: "SpeziFoundation"),
-                .product(name: "ByteCoding", package: "SpeziNetworking")
+                .product(name: "ByteCoding", package: "SpeziNetworking"),
+                .product(name: "Atomics", package: "swift-atomics")
             ],
             resources: [
                 .process("Resources")
@@ -82,10 +84,21 @@ let package = Package(
             plugins: [] + swiftLintPlugin()
         ),
         .testTarget(
-            name: "BluetoothServicesTests",
+            name: "SpeziBluetoothTests",
             dependencies: [
-                .target(name: "SpeziBluetoothServices"),
                 .target(name: "SpeziBluetooth"),
+                .target(name: "SpeziBluetoothServices")
+            ],
+            swiftSettings: [
+                swiftConcurrency
+            ],
+            plugins: [] + swiftLintPlugin()
+        ),
+        .testTarget(
+            name: "SpeziBluetoothServicesTests",
+            dependencies: [
+                .target(name: "SpeziBluetooth"),
+                .target(name: "SpeziBluetoothServices"),
                 .product(name: "XCTByteCoding", package: "SpeziNetworking"),
                 .product(name: "NIO", package: "swift-nio"),
                 .product(name: "XCTestExtensions", package: "XCTestExtensions")

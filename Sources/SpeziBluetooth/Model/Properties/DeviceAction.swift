@@ -6,6 +6,8 @@
 // SPDX-License-Identifier: MIT
 //
 
+import Atomics
+
 
 /// Control an action of a Bluetooth peripheral.
 ///
@@ -55,16 +57,21 @@
 /// ### Device Actions
 /// - ``DeviceActions``
 @propertyWrapper
-public final class DeviceAction<Action: _BluetoothPeripheralAction>: @unchecked Sendable {
-    private var injection: DeviceActionPeripheralInjection?
-    /// Support injection of closures for testing support.
-    private let _injectedClosure = Box<Action.ClosureType?>(nil)
+public struct DeviceAction<Action: _BluetoothPeripheralAction>: Sendable {
+    final class Storage: Sendable {
+        let injection = ManagedAtomicLazyReference<DeviceActionPeripheralInjection>()
+        let testInjections = ManagedAtomicLazyReference<DeviceActionTestInjections<Action.ClosureType>>()
+
+        init() {}
+    }
+
+    private let storage = Storage()
 
 
     /// Access the device action.
     public var wrappedValue: Action {
-        guard let injection else {
-            if let injectedClosure = _injectedClosure.value {
+        guard let injection = storage.injection.load() else {
+            if let injectedClosure = storage.testInjections.load()?.injectedClosure {
                 return Action(.injected(injectedClosure))
             }
 
@@ -79,8 +86,8 @@ public final class DeviceAction<Action: _BluetoothPeripheralAction>: @unchecked 
     }
 
     /// Retrieve a temporary accessors instance.
-    public var projectedValue: DeviceActionAccessor<Action.ClosureType> {
-        DeviceActionAccessor(_injectedClosure)
+    public var projectedValue: DeviceActionAccessor<Action> {
+        DeviceActionAccessor(storage)
     }
 
 
@@ -90,7 +97,8 @@ public final class DeviceAction<Action: _BluetoothPeripheralAction>: @unchecked 
 
 
     func inject(bluetooth: Bluetooth, peripheral: BluetoothPeripheral) {
-        self.injection = DeviceActionPeripheralInjection(bluetooth: bluetooth, peripheral: peripheral)
+        let injection = storage.injection.storeIfNilThenLoad(DeviceActionPeripheralInjection(bluetooth: bluetooth, peripheral: peripheral))
+        assert(injection.peripheral === peripheral, "\(#function) cannot be called more than once in the lifetime of a \(Self.self) instance")
     }
 }
 

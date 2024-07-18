@@ -6,7 +6,6 @@
 // SPDX-License-Identifier: MIT
 //
 
-import CoreBluetooth
 import NIO
 @_spi(TestingSupport)
 @testable import SpeziBluetooth
@@ -28,7 +27,7 @@ final class BluetoothServicesTests: XCTestCase {
     }
 
     func testUUID() {
-        XCTAssertEqual(CBUUID.toCustomShort(.testService), "F001")
+        XCTAssertEqual(BTUUID.toCustomShort(.testService), "F001")
     }
 
     func testEventLog() throws {

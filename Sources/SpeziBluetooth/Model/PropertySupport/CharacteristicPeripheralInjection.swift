@@ -11,7 +11,8 @@ import CoreBluetooth
 import SpeziFoundation
 
 
-private protocol DecodableCharacteristic: Actor {
+private protocol DecodableCharacteristic {
+    @SpeziBluetooth
     func handleUpdateValueAssumingIsolation(_ data: Data?)
 }
 
@@ -21,18 +22,14 @@ private protocol PrimitiveDecodableCharacteristic {
 
 
 /// Captures and synchronizes access to the state of a ``Characteristic`` property wrapper.
-actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
-    let bluetoothQueue: DispatchSerialQueue
-
+@SpeziBluetooth
+class CharacteristicPeripheralInjection<Value: Sendable>: Sendable {
     private let bluetooth: Bluetooth
-    fileprivate let peripheral: BluetoothPeripheral
-    let serviceId: CBUUID
-    let characteristicId: CBUUID
+    let peripheral: BluetoothPeripheral
+    private let serviceId: BTUUID
+    private let characteristicId: BTUUID
 
-    /// Observable value. Don't access directly.
-    private let _value: ObservableBox<Value?>
-    /// Don't access directly. Observable for the properties of ``CharacteristicAccessor``.
-    private let _characteristic: WeakObservableBox<GATTCharacteristic>
+    private let state: Characteristic<Value>.State
 
     /// State support for control point characteristics.
     ///
@@ -53,45 +50,24 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
     private var valueRegistration: OnChangeRegistration?
 
 
-    private(set) var value: Value? {
-        get {
-            _value.value
-        }
-        set {
-            _value.value = newValue
-        }
-    }
-
     private var characteristic: GATTCharacteristic? {
-        get {
-            _characteristic.value
-        }
-        set {
-            _characteristic.value = newValue
-        }
-    }
-
-    nonisolated var unsafeCharacteristic: GATTCharacteristic? {
-        _characteristic.value
+        state.characteristic
     }
 
 
     init(
         bluetooth: Bluetooth,
         peripheral: BluetoothPeripheral,
-        serviceId: CBUUID,
-        characteristicId: CBUUID,
-        value: ObservableBox<Value?>,
-        characteristic: GATTCharacteristic?
+        serviceId: BTUUID,
+        characteristicId: BTUUID,
+        state: Characteristic<Value>.State
     ) {
         self.bluetooth = bluetooth
-        self.bluetoothQueue = peripheral.bluetoothQueue
         self.peripheral = peripheral
         self.serviceId = serviceId
         self.characteristicId = characteristicId
-        self._value = value
-        self._characteristic = .init(characteristic)
-        self.subscriptions = ChangeSubscriptions(queue: peripheral.bluetoothQueue)
+        self.state = state
+        self.subscriptions = ChangeSubscriptions()
     }
 
     /// Setup the injection. Must be called after initialization to set up all handlers and write the initial value.
@@ -121,7 +97,10 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
         subscriptions.newSubscription()
     }
 
-    nonisolated func newOnChangeSubscription(initial: Bool, perform action: @escaping (_ oldValue: Value, _ newValue: Value) async -> Void) {
+    nonisolated func newOnChangeSubscription(
+        initial: Bool,
+        perform action: @escaping @Sendable (_ oldValue: Value, _ newValue: Value) async -> Void
+    ) {
         let id = subscriptions.newOnChangeSubscription(perform: action)
 
         // Must be called detached, otherwise it might inherit TaskLocal values which includes Spezi moduleInitContext
@@ -136,7 +115,7 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
             if !initial {
                 nonInitialChangeHandlers?.insert(id)
             }
-        } else if initial, let value {
+        } else if initial, let value = state.value {
             // nonInitialChangeHandlers is nil, meaning the initial value already arrived and we can call the action instantly if they wanted that
             subscriptions.notifySubscriber(id: id, with: value)
         }
@@ -145,39 +124,22 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
     /// Enable or disable notifications for the characteristic.
     /// - Parameter enabled: Flag indicating if notifications should be enabled.
     func enableNotifications(_ enabled: Bool = true) {
-        peripheral.assumeIsolated { peripheral in
-            peripheral.enableNotifications(enabled, serviceId: serviceId, characteristicId: characteristicId)
-        }
+        peripheral.enableNotifications(enabled, serviceId: serviceId, characteristicId: characteristicId)
     }
 
     private func registerCharacteristicInstanceChanges() {
-        self.instanceRegistration = peripheral.assumeIsolated { peripheral in
-            peripheral.registerOnChangeCharacteristicHandler(
-                service: serviceId,
-                characteristic: characteristicId
-            ) { [weak self] characteristic in
-                guard let self = self else {
-                    return
-                }
-
-                self.assertIsolated("BluetoothPeripheral onChange handler was unexpectedly executed outside the peripheral actor!")
-                self.assumeIsolated { injection in
-                    injection.handleChangedCharacteristic(characteristic)
-                }
-            }
+        self.instanceRegistration = peripheral.registerOnChangeCharacteristicHandler(
+            service: serviceId,
+            characteristic: characteristicId
+        ) { [weak self] characteristic in
+            self?.handleChangedCharacteristic(characteristic)
         }
     }
 
     private func registerCharacteristicValueChanges() {
-        self.valueRegistration = peripheral.assumeIsolated { peripheral in
-            peripheral.registerOnChangeHandler(service: serviceId, characteristic: characteristicId) { [weak self] data in
-                guard let self = self else {
-                    return
-                }
-                self.assertIsolated("BluetoothPeripheral onChange handler was unexpectedly executed outside the peripheral actor!")
-                self.assumeIsolated { injection in
-                    injection.handleUpdatedValue(data)
-                }
+        self.valueRegistration = peripheral.registerOnChangeHandler(service: serviceId, characteristic: characteristicId) { [weak self] data in
+            Task {@SpeziBluetooth [weak self] in
+                self?.handleUpdatedValue(data)
             }
         }
     }
@@ -196,7 +158,7 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
         }
 
         if self.characteristic != characteristic {
-            self.characteristic = characteristic
+            state.characteristic = characteristic
         }
 
         if instanceChanged {
@@ -206,7 +168,7 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
                 }
             } else {
                 // we must make sure to not override the default value if one is present
-                self.value = nil
+                state.value = nil
             }
         }
     }
@@ -216,9 +178,7 @@ actor CharacteristicPeripheralInjection<Value>: BluetoothActor {
             return
         }
 
-        decodable.assumeIsolated { decodable in
-            decodable.handleUpdateValueAssumingIsolation(data)
-        }
+        decodable.handleUpdateValueAssumingIsolation(data)
     }
 
 
@@ -236,13 +196,13 @@ extension CharacteristicPeripheralInjection: DecodableCharacteristic where Value
                 return
             }
 
-            self.value = value
+            state.value = value
             self.fullFillControlPointRequest(value)
 
             self.subscriptions.notifySubscribers(with: value, ignoring: nonInitialChangeHandlers ?? [])
             nonInitialChangeHandlers = nil
         } else {
-            self.value = nil
+            state.value = nil
         }
     }
 }
@@ -291,6 +251,7 @@ extension CharacteristicPeripheralInjection where Value: ByteDecodable {
             throw BluetoothError.incompatibleDataFormat
         }
 
+        state.value = value // ensure we are consistent after returning
         return value
     }
 }
@@ -304,7 +265,7 @@ extension CharacteristicPeripheralInjection where Value: ByteEncodable {
 
         let data = encodeValue(value)
         try await peripheral.write(data: data, for: characteristic)
-        self.value = value
+        state.value = value
     }
 
     func writeWithoutResponse(_ value: Value) async throws {
@@ -314,7 +275,7 @@ extension CharacteristicPeripheralInjection where Value: ByteEncodable {
 
         let data = encodeValue(value)
         await peripheral.writeWithoutResponse(data: data, for: characteristic)
-        self.value = value
+        state.value = value
     }
 }
 
@@ -327,9 +288,9 @@ extension CharacteristicPeripheralInjection where Value: ControlPointCharacteris
         }
 
         if !characteristic.isNotifying { // shortcut that doesn't require actor isolation.
-            // It takes some time for the characteristic to acknowledge notification registration. Assuming the characteristic was injected,
-            // and notifications were requests is good enough for us to assume we will receive the notification. Allows to send request much earlier.
-            guard await peripheral.didRequestNotifications(serviceId: serviceId, characteristicId: characteristicId) else {
+            // It takes some time for the characteristic to acknowledge notification registration. Assuming the characteristic was injected
+            // and notifications were requested, is good enough for us to assume we will receive the notification. Allows to send request much earlier.
+            guard peripheral.didRequestNotifications(serviceId: serviceId, characteristicId: characteristicId) else {
                 throw BluetoothError.controlPointRequiresNotifying(service: serviceId, characteristic: characteristicId)
             }
         }
@@ -359,7 +320,7 @@ extension CharacteristicPeripheralInjection where Value: ControlPointCharacteris
             throw error
         }
 
-        async let _ = withTimeout(of: timeout) {
+        async let _ = withTimeout(of: timeout) { @SpeziBluetooth in
             transaction.signalTimeout()
         }
 
@@ -372,7 +333,9 @@ extension CharacteristicPeripheralInjection where Value: ControlPointCharacteris
                 transaction.assignContinuation(continuation)
             }
         } onCancel: {
-            transaction.signalCancellation()
+            Task { @SpeziBluetooth in
+                transaction.signalCancellation()
+            }
         }
     }
 }

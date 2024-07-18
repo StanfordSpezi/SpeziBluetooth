@@ -56,7 +56,7 @@ final class CurrentTimeTests: XCTestCase {
         }
 
         let date = try XCTUnwrap(now.date)
-        service.synchronizeDeviceTime(now: date, threshold: 8)
+        service.synchronizeDeviceTime(now: date, threshold: .seconds(8))
 
         await fulfillment(of: [writeExpectation])
         try await Task.sleep(for: .milliseconds(500)) // let task complete

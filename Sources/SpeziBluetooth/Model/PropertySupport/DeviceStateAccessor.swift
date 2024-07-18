@@ -6,57 +6,6 @@
 // SPDX-License-Identifier: MIT
 //
 
-import Foundation
-import Spezi
-
-
-struct DeviceStateTestInjections<Value>: DefaultInitializable {
-    var subscriptions: ChangeSubscriptions<Value>?
-
-    init() {}
-
-    mutating func enableSubscriptions() {
-        // there is no BluetoothManager, so we need to create a queue on the fly
-        subscriptions = ChangeSubscriptions<Value>(
-            queue: DispatchSerialQueue(label: "edu.stanford.spezi.bluetooth.testing-\(Self.self)", qos: .userInitiated)
-        )
-    }
-
-    func artificialValue(for keyPath: KeyPath<BluetoothPeripheral, Value>) -> Value? {
-        // swiftlint:disable:previous cyclomatic_complexity
-
-        let value: Any? = switch keyPath {
-        case \.id:
-            nil // we cannot provide a stable id?
-        case \.name, \.localName:
-            Optional<String>.none as Any
-        case \.state:
-            PeripheralState.disconnected
-        case \.advertisementData:
-            AdvertisementData([:])
-        case \.rssi:
-            Int(UInt8.max)
-        case \.nearby:
-            false
-        case \.lastActivity:
-            Date.now
-        case \.services:
-            Optional<[GATTService]>.none as Any
-        default:
-            nil
-        }
-
-        guard let value else {
-            return nil
-        }
-
-        guard let value = value as? Value else {
-            preconditionFailure("Default value \(value) was not the expected type for \(keyPath)")
-        }
-        return value
-    }
-}
-
 
 /// Interact with a given device state.
 ///
@@ -65,29 +14,13 @@ struct DeviceStateTestInjections<Value>: DefaultInitializable {
 /// ## Topics
 ///
 /// ### Get notified about changes
-/// - ``onChange(initial:perform:)-8x9cj``
-/// - ``onChange(initial:perform:)-9igc9``
-public struct DeviceStateAccessor<Value> {
-    private let id: ObjectIdentifier
-    private let keyPath: KeyPath<BluetoothPeripheral, Value>
-    private let injection: DeviceStatePeripheralInjection<Value>?
-    /// To support testing support.
-    private let _injectedValue: ObservableBox<Value?>
-    private let _testInjections: Box<DeviceStateTestInjections<Value>?>
+/// - ``onChange(initial:perform:)-819sg``
+/// - ``onChange(initial:perform:)-76kjp``
+public struct DeviceStateAccessor<Value: Sendable> {
+    private let storage: DeviceState<Value>.Storage
 
-
-    init(
-        id: ObjectIdentifier,
-        keyPath: KeyPath<BluetoothPeripheral, Value>,
-        injection: DeviceStatePeripheralInjection<Value>?,
-        injectedValue: ObservableBox<Value?>,
-        testInjections: Box<DeviceStateTestInjections<Value>?>
-    ) {
-        self.id = id
-        self.keyPath = keyPath
-        self.injection = injection
-        self._injectedValue = injectedValue
-        self._testInjections = testInjections
+    init(_ storage: DeviceState<Value>.Storage) {
+        self.storage = storage
     }
 }
 
@@ -97,11 +30,11 @@ extension DeviceStateAccessor {
     ///
     /// This property creates an AsyncStream that yields all future updates to the device state.
     public var subscription: AsyncStream<Value> {
-        if let subscriptions = _testInjections.value?.subscriptions {
+        if let subscriptions = storage.testInjections.load()?.subscriptions {
             return subscriptions.newSubscription()
         }
 
-        guard let injection else {
+        guard let injection = storage.injection.load() else {
             preconditionFailure(
                 "The `subscription` of a @DeviceState cannot be accessed within the initializer. Defer access to the `configure() method"
             )
@@ -120,14 +53,14 @@ extension DeviceStateAccessor {
     /// all your handlers.
     /// - Important: You must capture `self` weakly only. Capturing `self` strongly causes a memory leak.
     ///
-    /// - Note: This closure is called from the Bluetooth Serial Executor, if you don't pass in an async method
+    /// - Note: This closure is called from the ``SpeziBluetooth/SpeziBluetooth`` global actor, if you don't pass in an async method
     ///     that has an annotated actor isolation (e.g., `@MainActor` or actor isolated methods).
     ///
     /// - Parameters:
     ///     - initial: Whether the action should be run with the initial state value. Otherwise, the action will only run
     ///     strictly if the value changes.
     ///     - action: The change handler to register.
-    public func onChange(initial: Bool = false, perform action: @escaping (Value) async -> Void) {
+    public func onChange(initial: Bool = false, perform action: @escaping @Sendable (Value) async -> Void) {
         onChange(initial: true) { _, newValue in
             await action(newValue)
         }
@@ -144,26 +77,26 @@ extension DeviceStateAccessor {
     /// all your handlers.
     /// - Important: You must capture `self` weakly only. Capturing `self` strongly causes a memory leak.
     ///
-    /// - Note: This closure is called from the Bluetooth Serial Executor, if you don't pass in an async method
+    /// - Note: This closure is called from the ``SpeziBluetooth/SpeziBluetooth`` global actor, if you don't pass in an async method
     ///     that has an annotated actor isolation (e.g., `@MainActor` or actor isolated methods).
     ///
     /// - Parameters:
     ///     - initial: Whether the action should be run with the initial state value. Otherwise, the action will only run
     ///     strictly if the value changes.
     ///     - action: The change handler to register, receiving both the old and new value.
-    public func onChange(initial: Bool = false, perform action: @escaping (_ oldValue: Value, _ newValue: Value) async -> Void) {
-        if let testInjections = _testInjections.value,
+    public func onChange(initial: Bool = false, perform action: @escaping @Sendable (_ oldValue: Value, _ newValue: Value) async -> Void) {
+        if let testInjections = storage.testInjections.load(),
            let subscriptions = testInjections.subscriptions {
             let id = subscriptions.newOnChangeSubscription(perform: action)
 
-            if initial, let value = _injectedValue.value ?? testInjections.artificialValue(for: keyPath) {
+            if initial, let value = testInjections.injectedValue ?? DeviceStateTestInjections<Value>.artificialValue(for: storage.keyPath) {
                 // if there isn't a value already, initial won't work properly with injections
                 subscriptions.notifySubscriber(id: id, with: value)
             }
             return
         }
 
-        guard let injection else {
+        guard let injection = storage.injection.load() else {
             preconditionFailure(
                 """
                 Register onChange(perform:) inside the initializer is not supported anymore. \
@@ -184,7 +117,7 @@ extension DeviceStateAccessor {
 }
 
 
-extension DeviceStateAccessor: @unchecked Sendable {}
+extension DeviceStateAccessor: Sendable {}
 
 
 // MARK: - Testing Support
@@ -197,7 +130,7 @@ extension DeviceStateAccessor {
     /// will be stored and called  when injecting new values via `inject(_:)`.
     /// - Note: Make sure to inject a initial value if you want to make the `initial` property work properly
     public func enableSubscriptions() {
-        _testInjections.valueOrInitialize.enableSubscriptions()
+        storage.testInjections.storeIfNilThenLoad(.init()).enableSubscriptions()
     }
 
     /// Inject a custom value for previewing purposes.
@@ -210,9 +143,10 @@ extension DeviceStateAccessor {
     ///
     /// - Parameter value: The value to inject.
     public func inject(_ value: Value) {
-        _injectedValue.value = value
+        let injections = storage.testInjections.storeIfNilThenLoad(.init())
+        injections.injectedValue = value
 
-        if let subscriptions = _testInjections.value?.subscriptions {
+        if let subscriptions = injections.subscriptions {
             subscriptions.notifySubscribers(with: value)
         }
     }

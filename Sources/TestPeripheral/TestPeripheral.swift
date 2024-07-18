@@ -15,7 +15,26 @@ import SpeziBluetoothServices
 
 
 @main
-class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
+@MainActor
+final class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
+    @MainActor
+    class QueueUpdates: Sendable {
+        private var queuedUpdates: [CheckedContinuation<Void, Never>] = []
+
+        func append(_ element: CheckedContinuation<Void, Never>) {
+            queuedUpdates.append(element)
+        }
+
+        func signalReady() {
+            let elements = queuedUpdates
+            queuedUpdates.removeAll()
+
+            for element in elements {
+                element.resume()
+            }
+        }
+    }
+
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "TestPeripheral")
     private let dispatchQueue = DispatchQueue(label: "edu.stanford.spezi.bluetooth-peripheral", qos: .userInitiated)
 
@@ -24,7 +43,7 @@ class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
     private(set) var testService: TestService?
     private(set) var state: CBManagerState = .unknown
 
-    @MainActor private var queuedUpdates: [CheckedContinuation<Void, Never>] = []
+    private let queuedUpdates = QueueUpdates()
 
     override init() {
         super.init()
@@ -69,23 +88,13 @@ class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
         while !peripheralManager.updateValue(data, for: characteristic, onSubscribedCentrals: centrals) {
             // if false is returned, queue is full and we need to wait for flush signal.
             await withCheckedContinuation { continuation in
-                logger.warning("Peripheral update failed!")
+                logger.warning("Peripheral update failed! Queuing update operation until ready ...")
                 queuedUpdates.append(continuation)
             }
         }
     }
 
     @MainActor
-    private func receiveManagerIsReady() {
-        logger.debug("Received manager is ready.")
-        let elements = queuedUpdates
-        queuedUpdates.removeAll()
-
-        for element in elements {
-            element.resume()
-        }
-    }
-
     private func addServices() {
         peripheralManager.removeAllServices()
 
@@ -97,26 +106,31 @@ class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
 
     // MARK: - CBPeripheralManagerDelegate
 
-    func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
-        print("PeripheralManager state is now \("\(peripheral.state)")")
-        state = peripheral.state
+    nonisolated func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
+        let state = peripheral.state
+        print("PeripheralManager state is now \("\(state)")")
+        MainActor.assumeIsolated {
+            self.state = state
 
-        if case .poweredOn = state {
-            addServices()
+            if case .poweredOn = state {
+                addServices()
+            }
         }
     }
 
-    func peripheralManager(_ peripheral: CBPeripheralManager, didAdd service: CBService, error: Error?) {
+    nonisolated func peripheralManager(_ peripheral: CBPeripheralManager, didAdd service: CBService, error: Error?) {
         if let error = error {
             logger.error("Error adding service \(service.uuid): \(error.localizedDescription)")
             return
         }
 
         print("Service \(service.uuid) was added!")
-        startAdvertising()
+        MainActor.assumeIsolated {
+            startAdvertising()
+        }
     }
 
-    func peripheralManagerDidStartAdvertising(_ peripheral: CBPeripheralManager, error: Error?) {
+    nonisolated func peripheralManagerDidStartAdvertising(_ peripheral: CBPeripheralManager, error: Error?) {
         if let error = error {
             logger.error("Error starting advertising: \(error.localizedDescription)")
         } else {
@@ -126,49 +140,53 @@ class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
 
     // MARK: - Interactions
 
-    func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didSubscribeTo characteristic: CBCharacteristic) {
-        guard let testService else {
+    nonisolated func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didSubscribeTo characteristic: CBCharacteristic) {
+        guard let testService = MainActor.assumeIsolated({ testService }) else {
             logger.error("Service was not available within \(#function)")
             return
         }
 
+        let id = BTUUID(from: characteristic.uuid)
         Task { @MainActor in
-            await testService.logEvent(.subscribedToNotification(characteristic.uuid))
+            await testService.logEvent(.subscribedToNotification(id))
         }
     }
 
-    func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didUnsubscribeFrom characteristic: CBCharacteristic) {
-        guard let testService else {
+    nonisolated func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didUnsubscribeFrom characteristic: CBCharacteristic) {
+        guard let testService = MainActor.assumeIsolated({ testService }) else {
             logger.error("Service was not available within \(#function)")
             return
         }
 
+        let id = BTUUID(from: characteristic.uuid)
         Task { @MainActor in
-            await testService.logEvent(.unsubscribedToNotification(characteristic.uuid))
+            await testService.logEvent(.unsubscribedToNotification(id))
         }
     }
 
-    func peripheralManagerIsReady(toUpdateSubscribers peripheral: CBPeripheralManager) {
-        Task { @MainActor in
-            receiveManagerIsReady()
+    nonisolated func peripheralManagerIsReady(toUpdateSubscribers peripheral: CBPeripheralManager) {
+        Task { @MainActor [logger, queuedUpdates] in
+            logger.debug("Received manager is ready. Processing queued updates.")
+            queuedUpdates.signalReady()
         }
     }
 
-    func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveRead request: CBATTRequest) {
-        guard let testService else {
+    nonisolated func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveRead request: CBATTRequest) {
+        guard let testService = MainActor.assumeIsolated({ testService }) else {
             logger.error("Service was not available within \(#function)")
             peripheral.respond(to: request, withResult: .attributeNotFound)
             return
         }
 
-        guard request.characteristic.service?.uuid == testService.service.uuid else {
+        guard request.characteristic.service?.uuid == MainActor.assumeIsolated({ BTUUID(from: testService.service.uuid) }).cbuuid else {
             logger.error("Received request for unexpected service \(request.characteristic.service?.uuid)")
             peripheral.respond(to: request, withResult: .attributeNotFound)
             return
         }
 
+        let id = BTUUID(from: request.characteristic.uuid)
         Task { @MainActor in
-            await testService.logEvent(.receivedRead(request.characteristic.uuid))
+            await testService.logEvent(.receivedRead(id))
         }
 
         guard request.offset == 0 else {
@@ -178,26 +196,37 @@ class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
             return
         }
 
-        Task { @MainActor in
-            let result = testService.handleRead(for: request)
-            peripheral.respond(to: request, withResult: result)
+        let result: CBATTError.Code
+
+        let readResult = MainActor.assumeIsolated {
+            testService.handleRead(for: id)
         }
+
+        switch readResult {
+        case let .success(value):
+            request.value = value
+            result = .success
+        case let .failure(code):
+            result = code.code
+        }
+
+        peripheral.respond(to: request, withResult: result)
     }
 
-    func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]) {
+    nonisolated func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]) {
         guard let first = requests.first else {
             logger.error("Received invalid write request from the central. Zero elements!")
             return
         }
 
-        guard let testService else {
+        guard let testService = MainActor.assumeIsolated({ testService }) else {
             logger.error("Service was not available within \(#function)")
             peripheral.respond(to: first, withResult: .attributeNotFound)
             return
         }
 
         for request in requests {
-            guard request.characteristic.service?.uuid == testService.service.uuid else {
+            guard request.characteristic.service?.uuid == MainActor.assumeIsolated({ BTUUID(from: testService.service.uuid) }).cbuuid else {
                 logger.error("Received request for unexpected service \(request.characteristic.service?.uuid)")
                 peripheral.respond(to: first, withResult: .attributeNotFound)
                 return
@@ -209,8 +238,9 @@ class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
                 continue
             }
 
+            let id = BTUUID(from: request.characteristic.uuid)
             Task { @MainActor in
-                await testService.logEvent(.receivedWrite(request.characteristic.uuid, value: value))
+                await testService.logEvent(.receivedWrite(id, value: value))
             }
         }
 
@@ -221,22 +251,22 @@ class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
             return
         }
 
-
-        Task { @MainActor in
-            // The following is mentioned in the docs:
-            // Always respond with the first request.
-            // Treat it as a multi request otherwise.
-            // If you can't fulfill a single one, don't fulfill any of them (we are not exactly supporting the transactions part of that).
-            for request in requests {
-                let result = testService.handleWrite(for: request)
-
-                if result != .success {
-                    peripheral.respond(to: first, withResult: result)
-                    return
-                }
+        // The following is mentioned in the docs:
+        // Always respond with the first request.
+        // Treat it as a multi request otherwise.
+        // If you can't fulfill a single one, don't fulfill any of them (we are not exactly supporting the transactions part of that).
+        for request in requests {
+            let value = request.value
+            let id = BTUUID(from: request.characteristic.uuid)
+            let result = MainActor.assumeIsolated {
+                testService.handleWrite(value: value, characteristicId: id)
             }
 
-            peripheral.respond(to: first, withResult: .success)
+            if result != .success {
+                peripheral.respond(to: first, withResult: result)
+                return
+            }
         }
+        peripheral.respond(to: first, withResult: .success)
     }
 }

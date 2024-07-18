@@ -15,6 +15,8 @@ class ConnectedDevicesModel {
     /// We track the connected device for every BluetoothDevice type and index by peripheral identifier.
     @MainActor private var connectedDevices: [ObjectIdentifier: OrderedDictionary<UUID, any BluetoothDevice>] = [:]
 
+    init() {}
+
     @MainActor
     func update(with devices: [UUID: any BluetoothDevice]) {
         // remove devices that disconnected

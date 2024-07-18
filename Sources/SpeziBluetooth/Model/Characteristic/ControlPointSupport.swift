@@ -10,23 +10,17 @@ import Foundation
 import SpeziFoundation
 
 
-final class ControlPointTransaction<Value>: @unchecked Sendable {
+@SpeziBluetooth
+final class ControlPointTransaction<Value: Sendable>: Sendable {
     let id: UUID
 
     private(set) var continuation: CheckedContinuation<Value, Error>?
-    private let lock = NSLock()
 
     init(id: UUID = UUID()) {
         self.id = id
     }
 
     func assignContinuation(_ continuation: CheckedContinuation<Value, Error>) {
-        lock.lock()
-
-        defer {
-            lock.unlock()
-        }
-
         self.continuation = continuation
     }
 
@@ -43,11 +37,6 @@ final class ControlPointTransaction<Value>: @unchecked Sendable {
     }
 
     private func resume(with result: Result<Value, Error>) {
-        lock.lock()
-        defer {
-            lock.unlock()
-        }
-
         guard let continuation else {
             return
         }

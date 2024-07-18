@@ -6,8 +6,6 @@
 // SPDX-License-Identifier: MIT
 //
 
-import class CoreBluetooth.CBUUID
-
 
 /// A Bluetooth service implementation.
 ///
@@ -20,8 +18,8 @@ import class CoreBluetooth.CBUUID
 /// Below is a short code example that implements some parts of the Device Information service.
 ///
 /// ```swift
-/// class DeviceInformationService: BluetoothService {
-///    static let id = CBUUID(string: "180A")
+/// struct DeviceInformationService: BluetoothService {
+///    static let id: BTUUID = "180A"
 ///
 ///     @Characteristic(id: "2A29")
 ///     var manufacturer: String?
@@ -29,7 +27,7 @@ import class CoreBluetooth.CBUUID
 ///     var firmwareRevision: String?
 /// }
 /// ```
-public protocol BluetoothService: AnyObject {
+public protocol BluetoothService {
     /// The Bluetooth service id.
-    static var id: CBUUID { get }
+    static var id: BTUUID { get }
 }

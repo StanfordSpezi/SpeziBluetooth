@@ -8,16 +8,19 @@
 
 
 protocol ServiceVisitable {
+    @SpeziBluetooth
     func accept<Visitor: ServiceVisitor>(_ visitor: inout Visitor)
 }
 
 
+@SpeziBluetooth
 protocol ServiceVisitor: BaseVisitor {
     mutating func visit<Value>(_ characteristic: Characteristic<Value>)
 }
 
 
 extension BluetoothService {
+    @SpeziBluetooth
     func accept<Visitor: ServiceVisitor>(_ visitor: inout Visitor) {
         let mirror = Mirror(reflecting: self)
         for (_, child) in mirror.children {

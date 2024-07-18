@@ -9,12 +9,11 @@
 import Foundation
 
 
-actor DeviceStatePeripheralInjection<Value>: BluetoothActor {
-    let bluetoothQueue: DispatchSerialQueue
-
+@SpeziBluetooth
+class DeviceStatePeripheralInjection<Value: Sendable>: Sendable {
     private let bluetooth: Bluetooth
-    private let peripheral: BluetoothPeripheral
-    private let accessKeyPath: KeyPath<BluetoothPeripheral, Value>
+    let peripheral: BluetoothPeripheral
+    private let accessKeyPath: DeviceState<Value>.KeyPathType
     private let observationKeyPath: KeyPath<PeripheralStorage, Value>?
     private let subscriptions: ChangeSubscriptions<Value>
 
@@ -23,13 +22,12 @@ actor DeviceStatePeripheralInjection<Value>: BluetoothActor {
     }
 
 
-    init(bluetooth: Bluetooth, peripheral: BluetoothPeripheral, keyPath: KeyPath<BluetoothPeripheral, Value>) {
+    init(bluetooth: Bluetooth, peripheral: BluetoothPeripheral, keyPath: DeviceState<Value>.KeyPathType) {
         self.bluetooth = bluetooth
-        self.bluetoothQueue = peripheral.bluetoothQueue
         self.peripheral = peripheral
         self.accessKeyPath = keyPath
         self.observationKeyPath = keyPath.storageEquivalent()
-        self.subscriptions = ChangeSubscriptions(queue: peripheral.bluetoothQueue)
+        self.subscriptions = ChangeSubscriptions()
     }
 
     func setup() {
@@ -41,18 +39,13 @@ actor DeviceStatePeripheralInjection<Value>: BluetoothActor {
             return
         }
 
-        peripheral.assumeIsolated { peripheral in
-            peripheral.onChange(of: observationKeyPath) { [weak self] value in
-                guard let self = self else {
-                    return
-                }
-
-                self.assumeIsolated { injection in
-                    injection.trackStateUpdate()
-
-                    self.subscriptions.notifySubscribers(with: value)
-                }
+        peripheral.onChange(of: observationKeyPath) { [weak self] value in
+            guard let self = self else {
+                return
             }
+
+            self.trackStateUpdate()
+            self.subscriptions.notifySubscribers(with: value)
         }
     }
 
@@ -60,7 +53,10 @@ actor DeviceStatePeripheralInjection<Value>: BluetoothActor {
         subscriptions.newSubscription()
     }
 
-    nonisolated func newOnChangeSubscription(initial: Bool, perform action: @escaping (_ oldValue: Value, _ newValue: Value) async -> Void) {
+    nonisolated func newOnChangeSubscription(
+        initial: Bool,
+        perform action: @escaping @Sendable (_ oldValue: Value, _ newValue: Value) async -> Void
+    ) {
         let id = subscriptions.newOnChangeSubscription(perform: action)
 
         if initial {
@@ -76,21 +72,17 @@ actor DeviceStatePeripheralInjection<Value>: BluetoothActor {
 
 
 extension KeyPath where Root == BluetoothPeripheral {
-    // swiftlint:disable:next cyclomatic_complexity
+    @SpeziBluetooth
     func storageEquivalent() -> KeyPath<PeripheralStorage, Value>? {
         let anyKeyPath: AnyKeyPath? = switch self {
         case \.name:
             \PeripheralStorage.name
-        case \.localName:
-            \PeripheralStorage.localName
         case \.rssi:
             \PeripheralStorage.rssi
         case \.advertisementData:
             \PeripheralStorage.advertisementData
         case \.state:
             \PeripheralStorage.state
-        case \.services:
-            \PeripheralStorage.services
         case \.nearby:
             \PeripheralStorage.nearby
         case \.lastActivity:

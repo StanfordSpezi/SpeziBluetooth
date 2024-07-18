@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
+import Atomics
 import CoreBluetooth
 
 
@@ -38,11 +39,55 @@ import CoreBluetooth
 /// - ``projectedValue``
 /// - ``ServiceAccessor``
 @propertyWrapper
-public final class Service<S: BluetoothService>: @unchecked Sendable {
-    var id: CBUUID {
+public struct Service<S: BluetoothService> {
+    final class Storage: Sendable {
+        let injection = ManagedAtomicLazyReference<ServicePeripheralInjection<S>>()
+        let state = State()
+    }
+
+    @Observable
+    final class State: Sendable {
+        // Type safe capture of the current GATTService state.
+        // To make this lock-free and non-blocking, we collapse the information we need in `ServiceAccessor` into a single
+        // RawRepresentable atomic value.
+        enum ServiceState: UInt8, RawRepresentable, AtomicValue {
+            case notPresent
+            case presentNotPrimary
+            case presentPrimary
+
+            @SpeziBluetooth
+            init(from value: GATTService?) {
+                switch value {
+                case .none:
+                    self = .notPresent
+                case let .some(service):
+                    self = service.isPrimary ? .presentPrimary : .presentNotPrimary
+                }
+            }
+        }
+
+        private let _serviceState = ManagedAtomic<ServiceState>(.notPresent)
+
+        var serviceState: ServiceState {
+            get {
+                access(keyPath: \.serviceState)
+                return _serviceState.load(ordering: .relaxed)
+            }
+            set {
+                withMutation(keyPath: \.serviceState) {
+                    _serviceState.store(newValue, ordering: .relaxed)
+                }
+            }
+        }
+
+        init() {}
+    }
+
+    var id: BTUUID {
         S.id
     }
-    private var injection: ServicePeripheralInjection?
+
+    private let storage = Storage()
 
     /// Access the service instance.
     public let wrappedValue: S
@@ -54,8 +99,8 @@ public final class Service<S: BluetoothService>: @unchecked Sendable {
     /// - Note: The accessor captures the service instance upon creation. Within the same `ServiceAccessor` instance
     ///     the view on the service is consistent. However, if you project a new `ServiceAccessor` instance right
     ///     after your access, the view on the service might have changed due to the asynchronous nature of SpeziBluetooth.
-    public var projectedValue: ServiceAccessor {
-        ServiceAccessor(id: id, injection: injection)
+    public var projectedValue: ServiceAccessor<S> {
+        ServiceAccessor(storage)
     }
 
     /// Declare a service.
@@ -66,14 +111,19 @@ public final class Service<S: BluetoothService>: @unchecked Sendable {
     }
 
 
-    func inject(peripheral: BluetoothPeripheral, service: GATTService?) {
-        let injection = ServicePeripheralInjection(peripheral: peripheral, serviceId: id, service: service)
-        self.injection = injection
-        injection.assumeIsolated { injection in
-            injection.setup()
-        }
+    @SpeziBluetooth
+    func inject(bluetooth: Bluetooth, peripheral: BluetoothPeripheral, service: GATTService?) {
+        let injection = storage.injection.storeIfNilThenLoad(
+            ServicePeripheralInjection(bluetooth: bluetooth, peripheral: peripheral, serviceId: id, service: service, state: storage.state)
+        )
+        assert(injection.peripheral === peripheral, "\(#function) cannot be called more than once in the lifetime of a \(Self.self) instance")
+
+        injection.setup()
     }
 }
+
+
+extension Service: Sendable where S: Sendable {}
 
 
 extension Service: DeviceVisitable {

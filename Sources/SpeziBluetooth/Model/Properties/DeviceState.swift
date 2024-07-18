@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: MIT
 //
 
+import Atomics
 import Observation
 
 
@@ -50,8 +51,12 @@ import Observation
 ///     @DeviceState(\.state)
 ///     var state: PeripheralState
 ///
-///     init() {
-///         $state.onChange(perform: handleStateChange)
+///     required init() {}
+///
+///     func configure() {
+///         $state.onChange { [weak self] value in
+///             self?.handleStateChange(value)
+///         }
 ///     }
 ///
 ///     handleStateChange(_ state: PeripheralState) {
@@ -73,29 +78,37 @@ import Observation
 /// - ``BluetoothPeripheral/advertisementData``
 ///
 /// ### Get notified about changes
-/// - ``DeviceStateAccessor/onChange(initial:perform:)-8x9cj``
-/// - ``DeviceStateAccessor/onChange(initial:perform:)-9igc9``
+/// - ``DeviceStateAccessor/onChange(initial:perform:)-819sg``
+/// - ``DeviceStateAccessor/onChange(initial:perform:)-76kjp``
 ///
 /// ### Property wrapper access
 /// - ``wrappedValue``
 /// - ``projectedValue``
 /// - ``DeviceStateAccessor``
-@Observable
 @propertyWrapper
-public final class DeviceState<Value>: @unchecked Sendable {
-    private let keyPath: KeyPath<BluetoothPeripheral, Value>
-    private(set) var injection: DeviceStatePeripheralInjection<Value>?
+public struct DeviceState<Value: Sendable>: Sendable {
+#if compiler(<6)
+    typealias KeyPathType = KeyPath<BluetoothPeripheral, Value>
+#else
+    typealias KeyPathType = KeyPath<BluetoothPeripheral, Value> & Sendable
+#endif
 
-    private var _injectedValue = ObservableBox<Value?>(nil)
-    private let _testInjections: Box<DeviceStateTestInjections<Value>?> = Box(nil)
+    final class Storage: Sendable {
+        let keyPath: KeyPathType
+        let injection = ManagedAtomicLazyReference<DeviceStatePeripheralInjection<Value>>()
+        /// To support testing support.
+        let testInjections = ManagedAtomicLazyReference<DeviceStateTestInjections<Value>>()
 
-    var objectId: ObjectIdentifier {
-        ObjectIdentifier(self)
+        init(keyPath: KeyPathType) {
+            self.keyPath = keyPath
+        }
     }
+
+    private let storage: Storage
 
     /// Access the device state.
     public var wrappedValue: Value {
-        guard let injection else {
+        guard let injection = storage.injection.load() else {
             if let defaultValue { // better support previews with some default values
                 return defaultValue
             }
@@ -113,24 +126,31 @@ public final class DeviceState<Value>: @unchecked Sendable {
 
     /// Retrieve a temporary accessors instance.
     public var projectedValue: DeviceStateAccessor<Value> {
-        DeviceStateAccessor(id: objectId, keyPath: keyPath, injection: injection, injectedValue: _injectedValue, testInjections: _testInjections)
+        DeviceStateAccessor(storage)
     }
 
-
+    #if compiler(<6)
     /// Provide a `KeyPath` to the device state you want to access.
     /// - Parameter keyPath: The `KeyPath` to a property of the underlying ``BluetoothPeripheral`` instance.
     public init(_ keyPath: KeyPath<BluetoothPeripheral, Value>) {
-        self.keyPath = keyPath
+        self.storage = Storage(keyPath: keyPath)
     }
+    #else
+    /// Provide a `KeyPath` to the device state you want to access.
+    /// - Parameter keyPath: The `KeyPath` to a property of the underlying ``BluetoothPeripheral`` instance.
+    public init(_ keyPath: KeyPath<BluetoothPeripheral, Value> & Sendable) {
+        self.storage = Storage(keyPath: keyPath)
+    }
+    #endif
 
 
+    @SpeziBluetooth
     func inject(bluetooth: Bluetooth, peripheral: BluetoothPeripheral) {
-        let injection = DeviceStatePeripheralInjection(bluetooth: bluetooth, peripheral: peripheral, keyPath: keyPath)
-        self.injection = injection
+        let injection = storage.injection
+            .storeIfNilThenLoad(DeviceStatePeripheralInjection(bluetooth: bluetooth, peripheral: peripheral, keyPath: storage.keyPath))
+        assert(injection.peripheral === peripheral, "\(#function) cannot be called more than once in the lifetime of a \(Self.self) instance")
 
-        injection.assumeIsolated { injection in
-            injection.setup()
-        }
+        injection.setup()
     }
 }
 
@@ -148,10 +168,10 @@ extension DeviceState: DeviceVisitable, ServiceVisitable {
 
 extension DeviceState {
     var defaultValue: Value? {
-        if let injected = _injectedValue.value {
+        if let injected = storage.testInjections.load()?.injectedValue {
             return injected
         }
 
-        return _testInjections.value?.artificialValue(for: keyPath)
+        return DeviceStateTestInjections<Value>.artificialValue(for: storage.keyPath)
     }
 }

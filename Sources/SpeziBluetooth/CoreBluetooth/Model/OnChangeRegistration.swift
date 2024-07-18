@@ -15,8 +15,9 @@ import Foundation
 /// track of a on-change handler and cancel the registration at a later point.
 ///
 /// - Tip: The on-change handler will be automatically unregistered when this object is deallocated.
-public class OnChangeRegistration {
-    private weak var peripheral: BluetoothPeripheral?
+public final class OnChangeRegistration {
+    // reference counting is atomic, so non-isolated(unsafe) is fine, we never mutate
+    private nonisolated(unsafe) weak var peripheral: BluetoothPeripheral?
     let locator: CharacteristicLocator
     let handlerId: UUID
 
@@ -31,7 +32,7 @@ public class OnChangeRegistration {
     /// Cancel the on-change handler registration.
     public func cancel() {
         Task { @SpeziBluetooth in
-            await peripheral?.deregisterOnChange(self)
+            peripheral?.deregisterOnChange(self)
         }
     }
 
@@ -43,7 +44,10 @@ public class OnChangeRegistration {
         let handlerId = handlerId
 
         Task.detached { @SpeziBluetooth in
-            await peripheral?.deregisterOnChange(locator: locator, handlerId: handlerId)
+            peripheral?.deregisterOnChange(locator: locator, handlerId: handlerId)
         }
     }
 }
+
+
+extension OnChangeRegistration: Sendable {}

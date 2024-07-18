@@ -6,8 +6,6 @@
 // SPDX-License-Identifier: MIT
 //
 
-@preconcurrency import CoreBluetooth
-
 
 /// Interact with a given Service.
 ///
@@ -22,30 +20,25 @@
 /// ### Service properties
 /// - ``isPresent``
 /// - ``isPrimary``
-public struct ServiceAccessor {
-    private let id: CBUUID
-    private let injection: ServicePeripheralInjection?
-    /// Capture of the service.
-    private let service: GATTService?
+public struct ServiceAccessor<S: BluetoothService> {
+    private let serviceState: Service<S>.State.ServiceState
 
     /// Determine if the service is available.
     ///
     /// Returns `true` if the device is connected and the service is available and discovered.
     public var isPresent: Bool {
-        service != nil
+        serviceState != .notPresent
     }
 
     /// The type of the service (primary or secondary).
     ///
     /// Returns `false` if service is not available.
     public var isPrimary: Bool {
-        service?.isPrimary == true
+        serviceState == .presentPrimary
     }
 
-    init(id: CBUUID, injection: ServicePeripheralInjection?) {
-        self.id = id
-        self.injection = injection
-        self.service = injection?.unsafeService
+    init(_ storage: Service<S>.Storage) {
+        self.serviceState = storage.state.serviceState
     }
 }
 

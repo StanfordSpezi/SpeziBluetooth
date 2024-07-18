@@ -75,8 +75,8 @@ Note that the value types needs to be optional and conform to
 [`ByteCodable`](https://swiftpackageindex.com/stanfordspezi/spezifileformats/documentation/bytecoding/bytecodable) respectively.
 
 ```swift
-class DeviceInformationService: BluetoothService {
-    static let id = CBUUID(string: "180A")
+struct DeviceInformationService: BluetoothService {
+    static let id: BTUUID = "180A"
 
     @Characteristic(id: "2A29")
     var manufacturer: String?
@@ -237,8 +237,12 @@ class MyDevice: BluetoothDevice {
     // declare dependency to a configured Spezi Module
     @Dependency var measurements: Measurements
     
-    required init() {
-        weightScale.$weightMeasurement.onChange(perform: handleNewMeasurement)
+    required init() {}
+
+    func configure() {
+        weightScale.$weightMeasurement.onChange { [weak self] value in
+            self?.handleNewMeasurement(value)
+        }
     }
     
     private func handleNewMeasurement(_ measurement: WeightMeasurement) {
@@ -273,8 +277,7 @@ due to their async nature.
 
 - ``SwiftUI/View/scanNearbyDevices(enabled:with:minimumRSSI:advertisementStaleInterval:autoConnect:)``
 - ``SwiftUI/View/autoConnect(enabled:with:minimumRSSI:advertisementStaleInterval:)``
-- ``SwiftUI/EnvironmentValues/minimumRSSI``
-- ``SwiftUI/EnvironmentValues/advertisementStaleInterval``
+- ``SwiftUI/View/bluetoothScanningOptions(minimumRSSI:advertisementStaleInterval:)``
 - ``ConnectedDevices``
 
 ### Declaring a Bluetooth Device
@@ -285,6 +288,10 @@ due to their async nature.
 - ``Characteristic``
 - ``DeviceState``
 - ``DeviceAction``
+
+### Concurrency
+
+- ``SpeziBluetooth/SpeziBluetooth``
 
 ### Core Bluetooth 
 
@@ -298,6 +305,7 @@ due to their async nature.
 - ``AdvertisementData``
 - ``ManufacturerIdentifier``
 - ``WriteType``
+- ``BTUUID``
 
 ### Configuring Core Bluetooth
 

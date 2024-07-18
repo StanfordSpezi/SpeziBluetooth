@@ -10,43 +10,35 @@ import Foundation
 import OrderedCollections
 
 
-class ChangeSubscriptions<Value>: @unchecked Sendable {
-    private struct Registration {
+final class ChangeSubscriptions<Value: Sendable>: Sendable {
+    private struct Registration: Sendable {
         let subscription: AsyncStream<Value>
         let id: UUID
     }
 
-    private actor Dispatch: BluetoothActor {
-        let bluetoothQueue: DispatchSerialQueue
+    private nonisolated(unsafe) var continuations: OrderedDictionary<UUID, AsyncStream<Value>.Continuation> = [:]
+    private let lock = RWLock()
 
-        init(_ bluetoothQueue: DispatchSerialQueue) {
-            self.bluetoothQueue = bluetoothQueue
-        }
-    }
-
-    private let dispatch: Dispatch
-    private var continuations: OrderedDictionary<UUID, AsyncStream<Value>.Continuation> = [:]
-    private var taskHandles: [UUID: Task<Void, Never>] = [:]
-    private let lock = NSLock()
-
-    init(queue: DispatchSerialQueue) {
-        self.dispatch = Dispatch(queue)
-    }
+    nonisolated init() {}
 
     func notifySubscribers(with value: Value, ignoring: Set<UUID> = []) {
-        for (id, continuation) in continuations where !ignoring.contains(id) {
-            continuation.yield(value)
+        lock.withReadLock {
+            for (id, continuation) in continuations where !ignoring.contains(id) {
+                continuation.yield(value)
+            }
         }
     }
 
     func notifySubscriber(id: UUID, with value: Value) {
-        continuations[id]?.yield(value)
+        lock.withReadLock {
+            _ = continuations[id]?.yield(value)
+        }
     }
 
-    private func _newSubscription() -> Registration {
+    private nonisolated  func _newSubscription() -> Registration {
         let id = UUID()
         let stream = AsyncStream { continuation in
-            self.lock.withLock {
+            lock.withWriteLock {
                 self.continuations[id] = continuation
             }
 
@@ -55,8 +47,10 @@ class ChangeSubscriptions<Value>: @unchecked Sendable {
                     return
                 }
 
-                lock.withLock {
-                    _ = self.continuations.removeValue(forKey: id)
+                Task { @SpeziBluetooth in
+                    self.lock.withWriteLock {
+                        self.continuations.removeValue(forKey: id)
+                    }
                 }
             }
         }
@@ -64,18 +58,18 @@ class ChangeSubscriptions<Value>: @unchecked Sendable {
         return Registration(subscription: stream, id: id)
     }
 
-    func newSubscription() -> AsyncStream<Value> {
+    nonisolated func newSubscription() -> AsyncStream<Value> {
         _newSubscription().subscription
     }
 
     @discardableResult
-    func newOnChangeSubscription(perform action: @escaping (_ oldValue: Value, _ newValue: Value) async -> Void) -> UUID {
+    nonisolated func newOnChangeSubscription(perform action: @escaping @Sendable (_ oldValue: Value, _ newValue: Value) async -> Void) -> UUID {
         let registration = _newSubscription()
 
         // It's important to use a detached Task here.
         // Otherwise it might inherit TaskLocal values which might include Spezi moduleInitContext
         // which would create a strong reference to the device.
-        let task = Task.detached { @SpeziBluetooth [weak self, dispatch] in
+        Task.detached { @SpeziBluetooth [weak self] in
             var currentValue: Value?
 
             for await element in registration.subscription {
@@ -83,36 +77,24 @@ class ChangeSubscriptions<Value>: @unchecked Sendable {
                     return
                 }
 
-                await dispatch.isolated { _ in
-                    await action(currentValue ?? element, element)
-                }
+                await action(currentValue ?? element, element)
                 currentValue = element
             }
-
-            self?.lock.withLock {
-                _ = self?.taskHandles.removeValue(forKey: registration.id)
-            }
         }
 
-        lock.withLock {
-            taskHandles[registration.id] = task
-        }
+        // There is no need to save this Task handle (makes it easier for use as we are in an non-isolated context right here).
+        // The task will automatically cleanup itself, once it the AsyncStream is getting cancelled/finished.
 
         return registration.id
     }
 
     deinit {
-        lock.withLock {
+        lock.withWriteLock {
             for continuation in continuations.values {
                 continuation.finish()
             }
 
-            for task in taskHandles.values {
-                task.cancel()
-            }
-
             continuations.removeAll()
-            taskHandles.removeAll()
         }
     }
 }
