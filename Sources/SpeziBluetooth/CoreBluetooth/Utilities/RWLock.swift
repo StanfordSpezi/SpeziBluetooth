@@ -12,7 +12,7 @@ import Foundation
 
 
 private protocol PThreadReadWriteLock: AnyObject {
-    // wee need the unsafe mutable pointer, as otherwise we need to pass the property as inout parameter which isn't thread safe
+    // We need the unsafe mutable pointer, as otherwise we need to pass the property as inout parameter which isn't thread safe.
     var rwLock: UnsafeMutablePointer<pthread_rwlock_t> { get }
 }
 
