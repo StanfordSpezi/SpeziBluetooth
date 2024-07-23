@@ -187,21 +187,22 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     ///
     /// - Note: You might want to verify via the ``AdvertisementData/isConnectable`` property that the device is connectable.
     public func connect() async throws {
+        guard let manager else {
+            logger.warning("Tried to connect an orphaned bluetooth peripheral!")
+            return
+        }
+
         try await connectAccess.waitCheckingCancellation()
 
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 assert(connectContinuation == nil, "connectContinuation was unexpectedly not nil")
                 connectContinuation = continuation
-                guard let manager = self.manager else {
-                    logger.warning("Tried to connect an orphaned bluetooth peripheral!")
-                    return
-                }
                 manager.connect(peripheral: self)
             }
         } onCancel: {
-            Task {
-                await disconnect()
+            Task { @SpeziBluetooth in
+                disconnect()
             }
         }
     }
@@ -274,9 +275,10 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
         }
 
         connectAccess.cancelAll()
-        characteristicAccesses.cancelAll()
         writeWithoutResponseAccess.cancelAll()
         rssiAccess.cancelAll()
+
+        characteristicAccesses.cancelAll(disconnectError: error)
 
         if let connectContinuation {
             self.connectContinuation = nil

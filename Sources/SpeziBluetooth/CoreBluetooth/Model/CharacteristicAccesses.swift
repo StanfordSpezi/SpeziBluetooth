@@ -43,16 +43,16 @@ class CharacteristicAccess: Sendable {
         semaphore.signal()
     }
 
-    func cancelAll() {
+    func cancelAll(disconnectError error: (any Error)?) {
         semaphore.cancelAll()
         let access = value
         self.value = nil
 
         switch access {
         case let .read(continuation):
-            continuation.resume(throwing: CancellationError())
+            continuation.resume(throwing: error ?? CancellationError())
         case let .write(continuation):
-            continuation.resume(throwing: CancellationError())
+            continuation.resume(throwing: error ?? CancellationError())
         case .none:
             break
         }
@@ -79,12 +79,12 @@ struct CharacteristicAccesses: Sendable {
         ongoingAccesses[characteristic]
     }
 
-    mutating func cancelAll() {
+    mutating func cancelAll(disconnectError error: (any Error)?) {
         let accesses = ongoingAccesses
         ongoingAccesses.removeAll()
 
         for access in accesses.values {
-            access.cancelAll()
+            access.cancelAll(disconnectError: error)
         }
     }
 }
