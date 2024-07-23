@@ -18,6 +18,8 @@ struct RetrievePairedDevicesView: View {
     @Binding private var pairedDeviceId: UUID?
     @Binding private var retrievedDevice: TestDevice?
 
+    @State private var viewState: ViewState = .idle
+
     var body: some View {
         Group { // swiftlint:disable:this closure_body_length
             if let pairedDeviceId {
@@ -39,8 +41,8 @@ struct RetrievePairedDevicesView: View {
                         if let retrievedDevice {
                             switch retrievedDevice.state {
                             case .disconnected:
-                                AsyncButton("Connect Device") {
-                                    await retrievedDevice.connect()
+                                AsyncButton("Connect Device", state: $viewState) {
+                                    try await retrievedDevice.connect()
                                 }
                             case .connecting, .connected:
                                 AsyncButton("Disconnect Device") {
