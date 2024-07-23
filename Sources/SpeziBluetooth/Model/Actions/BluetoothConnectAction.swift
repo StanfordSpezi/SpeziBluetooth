@@ -21,10 +21,10 @@ public struct BluetoothConnectAction: _BluetoothPeripheralAction, Sendable {
     }
 
 
-    public func callAsFunction() async {
+    public func callAsFunction() async throws {
         switch content {
         case let .peripheral(peripheral):
-            await peripheral.connect()
+            try await peripheral.connect()
         case let .injected(closure):
             await closure()
         }

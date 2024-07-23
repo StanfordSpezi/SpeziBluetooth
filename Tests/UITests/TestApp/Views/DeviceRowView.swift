@@ -17,7 +17,7 @@ protocol SomePeripheral: Sendable {
     var state: PeripheralState { get }
     var rssi: Int { get }
 
-    func connect() async
+    func connect() async throws
     func disconnect() async
 }
 
@@ -57,7 +57,7 @@ struct DeviceRowView<Peripheral: SomePeripheral>: View {
         Task {
             switch state {
             case .disconnected, .disconnecting:
-                await self.peripheral.connect()
+                try await self.peripheral.connect()
             case .connecting, .connected:
                 await self.peripheral.disconnect()
             }

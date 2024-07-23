@@ -18,10 +18,12 @@ struct RetrievePairedDevicesView: View {
     @Binding private var pairedDeviceId: UUID?
     @Binding private var retrievedDevice: TestDevice?
 
+    @State private var viewState: ViewState = .idle
+
     var body: some View {
         Group { // swiftlint:disable:this closure_body_length
             if let pairedDeviceId {
-                List { // swiftlint:disable:this closure_body_length
+                List {
                     Section {
                         ListRow("Device") {
                             Text("Paired")
@@ -37,17 +39,18 @@ struct RetrievePairedDevicesView: View {
                             self.pairedDeviceId = nil
                         }
                         if let retrievedDevice {
-                            switch retrievedDevice.state {
-                            case .disconnected:
-                                AsyncButton("Connect Device") {
-                                    await retrievedDevice.connect()
+                            let state = retrievedDevice.state
+
+                            if state == .disconnected || state == .connecting {
+                                AsyncButton("Connect Device", state: $viewState) {
+                                    try await retrievedDevice.connect()
                                 }
-                            case .connecting, .connected:
+                            }
+
+                            if state == .connecting || state == .connected || state == .disconnecting {
                                 AsyncButton("Disconnect Device") {
                                     await retrievedDevice.disconnect()
                                 }
-                            case .disconnecting:
-                                EmptyView()
                             }
                         } else {
                             AsyncButton("Retrieve Device") {

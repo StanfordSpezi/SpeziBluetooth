@@ -66,8 +66,8 @@ final class TestDevice: BluetoothDevice, Identifiable, SomePeripheral, @unchecke
     }
 
 
-    func connect() async {
-        await self.connect()
+    func connect() async throws {
+        try await self.connect()
     }
 
     func disconnect() async {

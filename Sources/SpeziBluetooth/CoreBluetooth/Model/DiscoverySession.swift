@@ -105,6 +105,12 @@ class DiscoverySession: Sendable {
     private var autoConnectItem: BluetoothWorkItem?
     private(set) var staleTimer: DiscoveryStaleTimer?
 
+    private var connectionAttempt: Task<Void, Error>? {
+        willSet {
+            connectionAttempt?.cancel()
+        }
+    }
+
     var configuredDevices: Set<DiscoveryDescription> {
         configuration.configuredDevices
     }
@@ -227,7 +233,16 @@ extension DiscoverySession {
                 return
             }
 
-            candidate.connect()
+            guard connectionAttempt == nil else {
+                return
+            }
+
+            connectionAttempt = Task { @SpeziBluetooth [weak self] in
+                defer {
+                    self?.connectionAttempt = nil
+                }
+                try await candidate.connect()
+            }
         }
 
         item.schedule(for: .now() + .seconds(BluetoothManager.Defaults.defaultAutoConnectDebounce))
