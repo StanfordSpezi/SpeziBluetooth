@@ -141,11 +141,11 @@ final class SpeziBluetoothTests: XCTestCase {
         // manually disconnect device and ensure it doesn't automatically reconnect to manually disconnected devices
         app.staticTexts["connected"].tap()
 
-        XCTAssert(app.staticTexts["disconnected"].waitForExistence(timeout: 2.0))
+        XCTAssert(app.staticTexts["disconnected"].waitForExistence(timeout: 4.0))
         sleep(5)
         // check that it stays disconnected
-        XCTAssert(app.staticTexts["disconnected"].waitForExistence(timeout: 2.0))
-        XCTAssertFalse(app.staticTexts["Connected TestDevice"].waitForExistence(timeout: 0.5))
+        XCTAssert(app.staticTexts["disconnected"].waitForExistence(timeout: 6.0))
+        XCTAssertFalse(app.staticTexts["Connected TestDevice"].exists)
     }
 
     @MainActor

@@ -675,9 +675,12 @@ extension BluetoothPeripheral {
 
     private func signalFullyDiscovered() {
         storage.signalFullyDiscovered()
-        connectContinuation?.resume()
-        connectContinuation = nil
-        connectAccess.signal() // balance async semaphore.
+
+        if let connectContinuation {
+            connectContinuation.resume()
+            self.connectContinuation = nil
+            connectAccess.signal() // balance async semaphore.
+        }
     }
 
     private func receivedUpdatedValue(for characteristic: CBCharacteristic, result: Result<Data, Error>) {

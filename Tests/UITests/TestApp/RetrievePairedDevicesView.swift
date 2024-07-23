@@ -39,17 +39,18 @@ struct RetrievePairedDevicesView: View {
                             self.pairedDeviceId = nil
                         }
                         if let retrievedDevice {
-                            switch retrievedDevice.state {
-                            case .disconnected:
+                            let state = retrievedDevice.state
+
+                            if state == .disconnected || state == .connecting {
                                 AsyncButton("Connect Device", state: $viewState) {
                                     try await retrievedDevice.connect()
                                 }
-                            case .connecting, .connected:
+                            }
+
+                            if state == .connecting || state == .connected || state == .disconnecting {
                                 AsyncButton("Disconnect Device") {
                                     await retrievedDevice.disconnect()
                                 }
-                            case .disconnecting:
-                                EmptyView()
                             }
                         } else {
                             AsyncButton("Retrieve Device") {
