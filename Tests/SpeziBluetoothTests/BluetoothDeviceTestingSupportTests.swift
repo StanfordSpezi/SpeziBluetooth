@@ -96,7 +96,7 @@ final class BluetoothDeviceTestingSupportTests: XCTestCase {
             expectation.fulfill()
         }
 
-        await device.connect()
+        try await device.connect()
 
         await fulfillment(of: [expectation], timeout: 0.1)
     }
