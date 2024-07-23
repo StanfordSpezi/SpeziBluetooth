@@ -23,7 +23,7 @@ struct RetrievePairedDevicesView: View {
     var body: some View {
         Group { // swiftlint:disable:this closure_body_length
             if let pairedDeviceId {
-                List { // swiftlint:disable:this closure_body_length
+                List {
                     Section {
                         ListRow("Device") {
                             Text("Paired")
