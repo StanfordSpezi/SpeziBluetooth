@@ -28,7 +28,7 @@ struct GATTServiceCapture: Sendable {
 /// - ``isPrimary``
 /// - ``characteristics``
 @Observable
-public final class GATTService {
+public final class GATTService { // TODO: identifiable conformance?
     let underlyingService: CBService
     /// The stored characteristics, indexed by their uuid.
     private var _characteristics: [BTUUID: GATTCharacteristic]

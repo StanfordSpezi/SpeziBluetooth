@@ -491,11 +491,11 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
         discoverySession?.deviceManuallyDisconnected(id: peripheral.id)
     }
 
-    private func handledConnected(device: BluetoothPeripheral) {
-        device.handleConnect()
-
+    private func handledConnected(device: BluetoothPeripheral) async {
         // we might have connected a bluetooth peripheral that was weakly referenced
         ensurePeripheralReference(device)
+        
+        await device.handleConnect()
     }
 
     private func discardDevice(device: BluetoothPeripheral, error: Error?) {
@@ -706,9 +706,10 @@ extension BluetoothManager {
                 }
 
                 logger.debug("Peripheral \(peripheral.debugIdentifier) connected.")
-                manager.handledConnected(device: device)
-
+                // TODO: is that correct that we move that before the handledConnected?
                 await manager.storage.cbDelegateSignal(connected: true, for: peripheral.identifier)
+
+                await manager.handledConnected(device: device)
             }
         }
 

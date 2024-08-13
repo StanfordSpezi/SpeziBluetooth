@@ -16,6 +16,7 @@ class CharacteristicAccess: Sendable {
     enum Access {
         case read(CheckedContinuation<Data, Error>)
         case write(CheckedContinuation<Void, Error>)
+        case notify(CheckedContinuation<Void, Error>)
     }
 
 
@@ -40,7 +41,8 @@ class CharacteristicAccess: Sendable {
 
     func consume() {
         self.value = nil
-        semaphore.signal()
+        let result = semaphore.signal()
+        // TODO: assert result!
     }
 
     func cancelAll(disconnectError error: (any Error)?) {
@@ -51,7 +53,7 @@ class CharacteristicAccess: Sendable {
         switch access {
         case let .read(continuation):
             continuation.resume(throwing: error ?? CancellationError())
-        case let .write(continuation):
+        case let .write(continuation), let .notify(continuation):
             continuation.resume(throwing: error ?? CancellationError())
         case .none:
             break
@@ -62,6 +64,7 @@ class CharacteristicAccess: Sendable {
 
 @SpeziBluetooth
 struct CharacteristicAccesses: Sendable {
+    // TODO: index for BTUUID?
     private var ongoingAccesses: [CBCharacteristic: CharacteristicAccess] = [:]
 
     mutating func makeAccess(for characteristic: CBCharacteristic) -> CharacteristicAccess {

@@ -81,14 +81,16 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     /// Continuation for a currently ongoing rssi read access.
     private var rssiContinuation: CheckedContinuation<Int, Error>?
 
+    // TODO: Docs!
+    private let discoverServicesAccess = AsyncSemaphore()
+    private var discoverServicesContinuation: CheckedContinuation<[BTUUID], Error>?
+    // TODO: proper type for below!
+    private var discoverCharacteristicAccess: [BTUUID: (access: AsyncSemaphore, continuation: CheckedContinuation<Void, Error>?)] = [:]
+
     /// On-change handler registrations for all characteristics.
     private var onChangeHandlers: [CharacteristicLocator: [UUID: CharacteristicOnChangeHandler]] = [:]
     /// The list of characteristics that are requested to enable notifications.
     private var notifyRequested: Set<CharacteristicLocator> = []
-
-
-    /// A set of service ids we are currently awaiting characteristics discovery for
-    private var servicesAwaitingCharacteristicsDiscovery: Set<BTUUID> = []
 
     /// The internally managed identifier for the peripheral.
     public nonisolated let id: UUID
@@ -245,19 +247,131 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
         storage.onChange(of: keyPath, perform: closure)
     }
 
-    func handleConnect() {
+    func handleConnect() async {
         // ensure that it is updated instantly.
         storage.update(state: PeripheralState(from: cbPeripheral.state))
 
         logger.debug("Discovering services for \(self.cbPeripheral.debugIdentifier) ...")
         let serviceIds = configuration.services?.reduce(into: Set()) { result, description in
-            result.insert(description.serviceId.cbuuid)
+            result.insert(description.serviceId)
         }
-        
+
         if let serviceIds, serviceIds.isEmpty {
             signalFullyDiscovered()
         } else {
-            cbPeripheral.discoverServices(serviceIds.map { Array($0) })
+            do {
+                let discoveredServices = try await self.discoverServices(serviceIds)
+
+                try await discoverCharacteristics(for: discoveredServices)
+                // TODO: would be nice to have the notify setup as a separate task here for better overview
+                //  => maybe move task group into here and make two methods. one for discovery and one for "set up"!
+            } catch {
+                // TODO: or do we kinda want to resume the connect continuation with error?
+                logger.error("Failed to discover initial services: \(error)") // TODO: should we just disconnect again?
+            }
+
+            // TODO: signalFullyDiscovered() // TODO: might propagate with an error!
+        }
+    }
+
+    private func discoverServices(_ services: Set<BTUUID>?) async throws -> [BTUUID] {
+        let serviceIds: [CBUUID]? = services.map { $0.map { $0.cbuuid } }
+
+        try await discoverServicesAccess.waitCheckingCancellation()
+
+        return try await withCheckedThrowingContinuation { continuation in
+            assert(discoverServicesContinuation == nil, "discoverServicesContinuation was unexpectedly not nil")
+            discoverServicesContinuation = continuation
+            cbPeripheral.discoverServices(serviceIds)
+        }
+    }
+
+    private func discoverCharacteristics(for discoveredServices: [BTUUID]) async throws {
+        let discoveryJobs: [(service: GATTService, characteristic: Set<CharacteristicDescription>)] = discoveredServices
+            .reduce(into: []) { partialResult, serviceId in
+                guard let service = getService(id: serviceId),
+                      let serviceDescription = configuration.description(for: serviceId) else {
+                    return
+                }
+
+                // TODO: isn't the behavior to discover all characteristics if nothing is specified?
+                // TODO: => however, Bluetooth module should always specify empty arrays if nothing was found! (also for Service) => review!
+                if let characteristics = serviceDescription.characteristics, !characteristics.isEmpty {
+                    partialResult.append((service, characteristics))
+                }
+            }
+
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for job in discoveryJobs {
+                // TODO: silence warning with Sendable type!
+                group.addTask { @SpeziBluetooth in
+                    try await self.discoverCharacteristic(Set(job.characteristic.map { $0.characteristicId }), for: job.service)
+
+
+                    // handle auto-subscribe and discover descriptors
+                    try await self.handleDiscoveredCharacteristic(job.characteristic, for: job.service)
+                }
+            }
+
+            try await group.waitForAll()
+        }
+
+        signalFullyDiscovered()
+    }
+
+    private func discoverCharacteristic(_ characteristics: Set<BTUUID>?, for service: GATTService) async throws {
+        let (access, existing) = discoverCharacteristicAccess[service.uuid, default: (AsyncSemaphore(), nil)]
+
+        try await access.waitCheckingCancellation()
+
+        try await withCheckedThrowingContinuation { continuation in
+            assert(existing == nil, "discoverCharacteristicContinuation was unexpectedly not nil")
+            discoverCharacteristicAccess[service.uuid] = (access, continuation)
+            cbPeripheral.discoverCharacteristics(characteristics.map { Array($0.map { $0.cbuuid }) }, for: service.underlyingService)
+        }
+    }
+
+    private func handleDiscoveredCharacteristic(_ descriptions: Set<CharacteristicDescription>, for service: GATTService) async throws {
+        // TODO: this loop would do the same would be more efficient!
+        for characteristic in service.characteristics {
+            guard let description = configuration.description(for: service.uuid)?.description(for: characteristic.uuid),
+                  descriptions.contains(description) else {
+                continue
+            }
+        }
+
+        // TODO: this task is never getting marked as cancelled if one of the child tasks is getting cancelled?
+
+        await withDiscardingTaskGroup { group in
+            for description in descriptions {
+                // TODO: this lookup is inefficient!
+                guard let characteristic = getCharacteristic(id: description.characteristicId, on: service.uuid) else {
+                    continue
+                }
+
+                if description.autoRead && characteristic.value == nil && characteristic.properties.contains(.read) {
+                    group.addTask { @SpeziBluetooth in
+                        _ = try? await self.read(characteristic: characteristic)
+                        // TODO: print error?
+                    }
+                }
+
+                if characteristic.properties.supportsNotifications {
+                    if self.didRequestNotifications(serviceId: service.uuid, characteristicId: characteristic.uuid) {
+                        logger.debug("Automatically subscribing to discovered characteristic \(service.uuid) - \(characteristic.uuid)...")
+                        group.addTask { @SpeziBluetooth in
+                            _ = try? await self.setNotifications(true, for: characteristic)
+                            // TODO: we are not interested in the error right?
+                        }
+                    }
+                }
+
+                if description.discoverDescriptors {
+                    logger.debug("Discovering descriptors for \(characteristic.debugDescription)...")
+                    // TODO: add a comment why we didn't bother to make this async currently!
+                    cbPeripheral.discoverDescriptors(for: characteristic.underlyingCharacteristic)
+                }
+            }
         }
     }
 
@@ -268,7 +382,7 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
 
         // clear all the ongoing access
 
-        self.servicesAwaitingCharacteristicsDiscovery.removeAll()
+        // TODO: we don't need to bother about the discovery task at the beginning right?
 
         if let services {
             self.invalidateServices(Set(services.map { $0.uuid }))
@@ -277,6 +391,7 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
         connectAccess.cancelAll()
         writeWithoutResponseAccess.cancelAll()
         rssiAccess.cancelAll()
+        discoverServicesAccess.cancelAll()
 
         characteristicAccesses.cancelAll(disconnectError: error)
 
@@ -291,6 +406,20 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
         if let rssiContinuation {
             self.rssiContinuation = nil
             rssiContinuation.resume(throwing: error ?? CancellationError())
+        }
+
+        if let discoverServicesContinuation {
+            self.discoverServicesContinuation = nil
+            discoverServicesContinuation.resume(throwing: CancellationError())
+        }
+
+        let discoverCharacteristicAccess = discoverCharacteristicAccess
+        self.discoverCharacteristicAccess.removeAll()
+        for (access, continuation) in discoverCharacteristicAccess.values {
+            access.cancelAll()
+            if let continuation {
+                continuation.resume(throwing: CancellationError())
+            }
         }
     }
 
@@ -401,7 +530,14 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
         }
 
         // if setting notify doesn't work here, we do it upon discovery of the characteristics
-        trySettingNotifyValue(enabled, serviceId: serviceId, characteristicId: characteristicId)
+        guard let characteristic = getCharacteristic(id: characteristicId, on: serviceId) else {
+            return
+        }
+
+        if characteristic.properties.supportsNotifications {
+            // TODO: does this race? with the discovery task?
+            cbPeripheral.setNotifyValue(enabled, for: characteristic.underlyingCharacteristic)
+        }
     }
 
     func didRequestNotifications(serviceId: BTUUID, characteristicId: BTUUID) -> Bool {
@@ -415,16 +551,6 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
 
     func deregisterOnChange(locator: CharacteristicLocator, handlerId: UUID) {
         onChangeHandlers[locator]?.removeValue(forKey: handlerId)
-    }
-
-    private func trySettingNotifyValue(_ notify: Bool, serviceId: BTUUID, characteristicId: BTUUID) {
-        guard let characteristic = getCharacteristic(id: characteristicId, on: serviceId) else {
-            return
-        }
-
-        if characteristic.properties.supportsNotifications {
-            cbPeripheral.setNotifyValue(notify, for: characteristic.underlyingCharacteristic)
-        }
     }
 
     /// Call this when things either go wrong, or you're done with the connection.
@@ -507,6 +633,18 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
         return try await withCheckedThrowingContinuation { continuation in
             access.store(.read(continuation))
             cbPeripheral.readValue(for: characteristic)
+        }
+    }
+
+    public func setNotifications(_ enabled: Bool, for characteristic: GATTCharacteristic) async throws {
+        let characteristic = characteristic.underlyingCharacteristic
+
+        let access = characteristicAccesses.makeAccess(for: characteristic)
+        try await access.waitCheckingCancellation()
+
+        try await withCheckedThrowingContinuation { continuation in
+            access.store(.notify(continuation))
+            cbPeripheral.setNotifyValue(enabled, for: characteristic)
         }
     }
 
@@ -593,20 +731,22 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
         }
     }
 
-    private func discovered(services: [CBService]) {
+    private func discovered(services: [CBService]?) { // TODO: Discovered the services in a peripheral!
         // ids of currently maintained ids
         let existingServices = Set(self.services?.map { $0.uuid } ?? [])
 
         // if we re-discover services (e.g., if ones got invalidated), services might still be present. So only add new ones
-        let addedServices = services
+        let addedServices = services?
             .filter { !existingServices.contains(BTUUID(from: $0.uuid)) }
             .map {
                 // we will discover characteristics for all services after that.
                 GATTService(service: $0)
             }
 
+        // TODO: we never remove any services, especially if the array is null, this should OVERRIDE everything!
+
         if let services = self.services {
-            storage.services = services + addedServices
+            storage.services = services + (addedServices ?? [])
         } else {
             storage.services = addedServices
         }
@@ -651,6 +791,10 @@ extension BluetoothPeripheral {
 
             let description = configuration.description(for: serviceId)?.description(for: characteristicId)
 
+            // TODO: this method is not called anymore but did behave differently
+            //  (e.g., you could enable notifications for characteristics that weren't discovered)
+
+            // TODO: also this behavior was different, it also auto-read all characteristics that were not described?
             // pull initial value if none is present
             if description?.autoRead != false && characteristic.value == nil && characteristic.properties.contains(.read) {
                 cbPeripheral.readValue(for: characteristic)
@@ -801,15 +945,15 @@ extension BluetoothPeripheral {
                 let rssi = RSSI.intValue
                 device.storage.rssi = rssi
 
-                let result: Result<Int, Error> = error.map { .failure($0) } ?? .success(rssi)
-
                 guard let rssiContinuation = device.rssiContinuation else {
                     return
                 }
 
+                let result: Result<Int, Error> = error.map { .failure($0) } ?? .success(rssi)
+
                 device.rssiContinuation = nil
+                device.rssiAccess.signal()
                 rssiContinuation.resume(with: result)
-                assert(device.rssiAccess.signal(), "Signaled rssiAccess though no one was waiting")
             }
         }
 
@@ -844,45 +988,33 @@ extension BluetoothPeripheral {
                 return
             }
 
+            let cbServices = peripheral.services.map { CBInstance(instantiatedOnDispatchQueue: $0) }
+            let result: Result<[BTUUID], Error>
+
             if let error {
+                // TODO: do logging here?
                 logger.error("Error discovering services: \(error.localizedDescription)")
-                return
+                result = .failure(error)
+            } else {
+                result = .success(peripheral.services?.map { BTUUID(from: $0.uuid) } ?? [])
             }
-
-            guard let services = peripheral.services else {
-                logger.error("Discovered services but they weren't present!")
-                return
-            }
-
-            let peripheral = CBInstance(instantiatedOnDispatchQueue: peripheral)
-            let cbServices = CBInstance(instantiatedOnDispatchQueue: services)
 
             Task { @SpeziBluetooth [logger] in
-                device.discovered(services: cbServices.cbObject)
-
-                logger.debug("Discovered \(cbServices.cbObject) services for peripheral \(device.debugDescription)")
-
-                for service in cbServices.cbObject {
-                    let serviceId = BTUUID(from: service.uuid)
-
-                    guard let serviceDescription = device.configuration.description(for: serviceId) else {
-                        continue
-                    }
-
-                    let characteristicIds = serviceDescription.characteristics?.reduce(into: Set()) { partialResult, description in
-                        partialResult.insert(description.characteristicId)
-                    }
-
-                    if let characteristicIds, characteristicIds.isEmpty {
-                        continue
-                    }
-
-                    device.servicesAwaitingCharacteristicsDiscovery.insert(serviceId)
-                    peripheral.cbObject.discoverCharacteristics(characteristicIds.map { Array($0.map { $0.cbuuid }) }, for: service)
+                // TODO: move logging outside!?
+                if let cbServices {
+                    logger.debug("Discovered \(cbServices.cbObject) services for peripheral \(device.debugDescription)")
+                } else {
+                    logger.debug("Discovery zero services for peripheral \(device.debugDescription)")
                 }
 
-                if device.servicesAwaitingCharacteristicsDiscovery.isEmpty {
-                    device.signalFullyDiscovered()
+                device.discovered(services: cbServices?.cbObject)
+
+                if let discoverServicesContinuation = device.discoverServicesContinuation {
+                    // TODO: cancel continuation on handleDisconnect!
+
+                    device.discoverServicesContinuation = nil
+                    device.discoverServicesAccess.signal()
+                    discoverServicesContinuation.resume(with: result)
                 }
             }
         }
@@ -893,23 +1025,23 @@ extension BluetoothPeripheral {
             }
 
             let service = CBInstance(instantiatedOnDispatchQueue: service)
-            Task { @SpeziBluetooth [logger] in
+            let result: Result<Void, Error>
+            if let error {
+                logger.error("Error discovering characteristics: \(error.localizedDescription)")
+                result = .failure(error)
+            } else {
+                result = .success(())
+            }
+
+            Task { @SpeziBluetooth in
                 // update our model with latest characteristics!
                 device.synchronizeModel(for: service.cbObject)
 
-                // ensure we keep track of all discoveries, set .connected state
-                device.servicesAwaitingCharacteristicsDiscovery.remove(BTUUID(from: service.uuid))
-                if device.servicesAwaitingCharacteristicsDiscovery.isEmpty {
-                    device.signalFullyDiscovered()
+                if let (access, continuation) = device.discoverCharacteristicAccess[BTUUID(from: service.uuid)] {
+                    device.discoverCharacteristicAccess[BTUUID(from: service.uuid)] = (access, nil) // TODO: destroy the semaphore?
+                    access.signal()
+                    continuation?.resume(with: result)
                 }
-
-                if let error {
-                    logger.error("Error discovering characteristics: \(error.localizedDescription)")
-                    return
-                }
-
-                // handle auto-subscribe and discover descriptors
-                device.discovered(service: service.cbObject)
             }
         }
 
@@ -979,8 +1111,8 @@ extension BluetoothPeripheral {
                 }
 
                 device.writeWithoutResponseContinuation = nil
+                device.writeWithoutResponseAccess.signal()
                 writeWithoutResponseContinuation.resume()
-                assert(device.writeWithoutResponseAccess.signal(), "Signaled writeWithoutResponseAccess though no one was waiting")
             }
         }
 
@@ -989,9 +1121,13 @@ extension BluetoothPeripheral {
                 return
             }
 
-            if let error = error {
+
+            let result: Result<Void, Error>
+            if let error {
                 logger.error("Error changing notification state for \(characteristic.uuid): \(error)")
-                return
+                result = .failure(error)
+            } else {
+                result = .success(())
             }
 
             let capture = GATTCharacteristicCapture(from: characteristic)
@@ -1000,10 +1136,18 @@ extension BluetoothPeripheral {
             Task { @SpeziBluetooth [logger] in
                 device.synchronizeModel(for: characteristic.cbObject, capture: capture)
 
-                if capture.isNotifying {
-                    logger.log("Notification began on \(characteristic.debugIdentifier)")
-                } else {
-                    logger.log("Notification stopped on \(characteristic.debugIdentifier).")
+                if error == nil {
+                    if capture.isNotifying {
+                        logger.log("Notification began on \(characteristic.debugIdentifier)")
+                    } else {
+                        logger.log("Notification stopped on \(characteristic.debugIdentifier).")
+                    }
+                }
+
+                if let access = device.characteristicAccesses.retrieveAccess(for: characteristic.cbObject),
+                    case let .notify(continuation) = access.value {
+                    access.consume()
+                    continuation.resume(with: result)
                 }
             }
         }
