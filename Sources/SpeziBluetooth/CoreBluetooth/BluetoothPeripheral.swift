@@ -623,7 +623,7 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
 
         self.logger.debug("Device \(id), \(name ?? "unnamed") was de-initialized...")
 
-        Task.detached { @SpeziBluetooth [storage, nearby] in
+        Task.detached { @Sendable @SpeziBluetooth [storage, nearby] in
             if nearby { // make sure signal is sent
                 storage.nearby = false
             }

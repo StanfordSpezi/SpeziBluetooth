@@ -11,7 +11,7 @@ import Foundation
 
 private struct SpeziBluetoothDispatchQueueKey: Sendable, Hashable {
     static let shared = SpeziBluetoothDispatchQueueKey()
-    static nonisolated(unsafe) let key = DispatchSpecificKey<Self>()
+    static let key = DispatchSpecificKey<Self>()
     private init() {}
 }
 

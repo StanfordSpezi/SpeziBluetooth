@@ -114,6 +114,7 @@ public struct Service<S: BluetoothService> {
     @SpeziBluetooth
     func inject(bluetooth: Bluetooth, peripheral: BluetoothPeripheral, service: GATTService?) {
         let injection = storage.injection.storeIfNilThenLoad(
+            // TODO: weak peripheral, just to be saave
             ServicePeripheralInjection(bluetooth: bluetooth, peripheral: peripheral, serviceId: id, service: service, state: storage.state)
         )
         assert(injection.peripheral === peripheral, "\(#function) cannot be called more than once in the lifetime of a \(Self.self) instance")

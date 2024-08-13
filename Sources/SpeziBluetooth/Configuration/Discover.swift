@@ -36,3 +36,6 @@ public struct Discover<Device: BluetoothDevice> {
         self.discoveryCriteria = discoveryCriteria
     }
 }
+
+
+extension Discover: Sendable {}

@@ -27,6 +27,7 @@ struct DeviceCountButton: View {
     var body: some View {
         Section {
             AsyncButton("Query Count") {
+                let bluetooth = bluetooth
                 lastReadCount = await bluetooth._initializedDevicesCount()
             }
             .onDisappear {

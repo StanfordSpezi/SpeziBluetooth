@@ -16,7 +16,7 @@
 /// - ``advertisedService(_:)-swift.enum.case``
 /// - ``accessory(manufacturer:advertising:)-swift.type.method``
 /// - ``accessory(manufacturer:advertising:)-swift.enum.case``
-public enum DiscoveryCriteria: Sendable {
+public enum DiscoveryCriteria {
     /// Identify a device by their advertised service.
     case advertisedService(_ uuid: BTUUID)
     /// Identify a device by its manufacturer and advertised service.
@@ -52,6 +52,9 @@ public enum DiscoveryCriteria: Sendable {
         }
     }
 }
+
+
+extension DiscoveryCriteria: Sendable {}
 
 
 extension DiscoveryCriteria {

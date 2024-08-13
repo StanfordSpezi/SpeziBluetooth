@@ -105,7 +105,7 @@ class CharacteristicPeripheralInjection<Value: Sendable>: Sendable {
 
         // Must be called detached, otherwise it might inherit TaskLocal values which includes Spezi moduleInitContext
         // which would create a strong reference to the device.
-        Task.detached { @SpeziBluetooth in
+        Task.detached { @Sendable @SpeziBluetooth in
             await self.handleInitialCall(id: id, initial: initial, action: action)
         }
     }

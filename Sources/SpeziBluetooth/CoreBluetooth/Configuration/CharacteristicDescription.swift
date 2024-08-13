@@ -8,7 +8,7 @@
 
 
 /// A characteristic description.
-public struct CharacteristicDescription: Sendable {
+public struct CharacteristicDescription {
     /// The characteristic id.
     public let characteristicId: BTUUID
     /// Flag indicating if descriptors should be discovered for this characteristic.
@@ -28,6 +28,9 @@ public struct CharacteristicDescription: Sendable {
         self.autoRead = autoRead
     }
 }
+
+
+extension CharacteristicDescription: Sendable {}
 
 
 extension CharacteristicDescription: ExpressibleByStringLiteral {

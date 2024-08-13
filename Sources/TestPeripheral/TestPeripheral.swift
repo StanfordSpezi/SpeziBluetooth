@@ -45,16 +45,18 @@ final class TestPeripheral: NSObject, CBPeripheralManagerDelegate {
 
     private let queuedUpdates = QueueUpdates()
 
-    override init() {
-        super.init()
-        peripheralManager = CBPeripheralManager(delegate: self, queue: DispatchQueue.main)
-    }
+    override private init() {}
 
     static func main() {
         let peripheral = TestPeripheral()
+        peripheral.performInit()
         peripheral.logger.info("Initialized")
 
         RunLoop.main.run()
+    }
+
+    private func performInit() {
+        peripheralManager = CBPeripheralManager(delegate: self, queue: DispatchQueue.main)
     }
 
     func startAdvertising() {

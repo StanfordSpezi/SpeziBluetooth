@@ -54,6 +54,7 @@ struct RetrievePairedDevicesView: View {
                             }
                         } else {
                             AsyncButton("Retrieve Device") {
+                                let bluetooth = bluetooth
                                 retrievedDevice = await bluetooth.retrieveDevice(for: pairedDeviceId)
                             }
                         }

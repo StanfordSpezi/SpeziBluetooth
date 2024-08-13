@@ -69,7 +69,7 @@ final class ChangeSubscriptions<Value: Sendable>: Sendable {
         // It's important to use a detached Task here.
         // Otherwise it might inherit TaskLocal values which might include Spezi moduleInitContext
         // which would create a strong reference to the device.
-        Task.detached { @SpeziBluetooth [weak self] in
+        Task.detached { @Sendable @SpeziBluetooth [weak self] in
             var currentValue: Value?
 
             for await element in registration.subscription {
