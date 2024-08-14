@@ -49,18 +49,18 @@ extension CurrentTimeService {
     /// This method checks the current time of the connected peripheral. If the current time was never set or the time difference
     /// is larger than the specified `threshold`, the peripheral time is updated to `now`.
     ///
-    /// - Note: This method expects that the ``currentTime`` characteristic is current.
+    /// - Note: This method expects that the ``currentTime`` characteristic to be present and current.
     /// - Parameters:
     ///   - now: The `Date` which is perceived as now.
     ///   - threshold: The threshold used to decide if peripheral time should be updated.
     ///     A time difference smaller than the threshold is considered current.
-    public func synchronizeDeviceTime(now: Date = .now, threshold: Duration = .seconds(1)) { // we consider 1 second difference accurate enough
+    public func synchronizeDeviceTime(now: Date = .now, threshold: Duration = .seconds(1)) {
         // check if time update is necessary
         if let currentTime = currentTime,
            let deviceTime = currentTime.time.date {
             let difference = abs(deviceTime.timeIntervalSinceReferenceDate - now.timeIntervalSinceReferenceDate)
             if difference < threshold.timeInterval {
-                return // we consider 1 second difference accurate enough
+                return
             }
 
             Self.logger.debug("Current time difference is \(difference)s. Device time: \(String(describing: currentTime)). Updating time ...")
@@ -68,9 +68,10 @@ extension CurrentTimeService {
             Self.logger.debug("Unknown current time (\(String(describing: self.currentTime))). Updating time ...")
         }
 
-
+        // TODO: think again about this Task thingy :/
+        
         // update time if it isn't present or if it is outdated
-        Task {
+        Task { @SpeziBluetooth in
             let exactTime = ExactTime256(from: now)
             do {
                 try await $currentTime.write(CurrentTime(time: exactTime))

@@ -53,6 +53,32 @@ extension DayOfWeek: RawRepresentable {}
 extension DayOfWeek: Hashable, Sendable {}
 
 
+extension DayOfWeek: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .unknown:
+            "unknown"
+        case .monday:
+            "monday"
+        case .tuesday:
+            "tuesday"
+        case .wednesday:
+            "wednesday"
+        case .thursday:
+            "thursday"
+        case .friday:
+            "friday"
+        case .saturday:
+            "saturday"
+        case .sunday:
+            "sunday"
+        default:
+            "\(Self.self)(rawValue: \(rawValue))"
+        }
+    }
+}
+
+
 extension DayOfWeek: ByteCodable {
     public init?(from byteBuffer: inout ByteBuffer) {
         guard let rawValue = UInt8(from: &byteBuffer) else {

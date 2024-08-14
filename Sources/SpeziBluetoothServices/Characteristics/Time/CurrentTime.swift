@@ -55,6 +55,26 @@ public struct CurrentTime {
 extension CurrentTime.AdjustReason: Hashable, Sendable {}
 
 
+extension CurrentTime.AdjustReason: CustomStringConvertible {
+    public var description: String {
+        var components: [String] = []
+        if contains(.manualTimeUpdate) {
+            components.append("manualTimeUpdate")
+        }
+        if contains(.externalReferenceTimeUpdate) {
+            components.append("externalReferenceTimeUpdate")
+        }
+        if contains(.changeOfTimeZone) {
+            components.append("changeOfTimeZone")
+        }
+        if contains(.changeOfDST) {
+            components.append("changeOfDST")
+        }
+        return "[\(components.joined(separator: ", "))]"
+    }
+}
+
+
 extension CurrentTime: Hashable, Sendable {}
 
 

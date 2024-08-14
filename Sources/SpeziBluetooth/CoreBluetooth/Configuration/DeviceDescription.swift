@@ -17,6 +17,7 @@ public struct DeviceDescription {
     /// The set of service configurations we expect from the device.
     ///
     /// This will be the list of services we are interested in and we try to discover.
+    /// - Note: If `nil`, we discover all services on a device.
     public var services: Set<ServiceDescription>? { // swiftlint:disable:this discouraged_optional_collection
         let values: Dictionary<BTUUID, ServiceDescription>.Values? = _services?.values
         return values.map { Set($0) }

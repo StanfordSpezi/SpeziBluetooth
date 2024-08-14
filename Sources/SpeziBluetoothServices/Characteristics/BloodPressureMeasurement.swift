@@ -144,6 +144,36 @@ extension BloodPressureMeasurement.Status: Sendable, Hashable {}
 extension BloodPressureMeasurement: Sendable, Hashable {}
 
 
+extension BloodPressureMeasurement.Status: CustomStringConvertible, CustomDebugStringConvertible {
+    public var description: String {
+        var components: [String] = []
+        if contains(.bodyMovementDetected) {
+            components.append("bodyMovementDetected")
+        }
+        if contains(.looseCuffFit) {
+            components.append("looseCuffFit")
+        }
+        if contains(.irregularPulse) {
+            components.append("irregularPulse")
+        }
+        if contains(.pulseRateExceedsUpperLimit) {
+            components.append("pulseRateExceedsUpperLimit")
+        }
+        if contains(.pulseRateBelowLowerLimit) {
+            components.append("pulseRateBelowLowerLimit")
+        }
+        if contains(.improperMeasurementPosition) {
+            components.append("improperMeasurementPosition")
+        }
+        return "[\(components.joined(separator: ", "))]"
+    }
+
+    public var debugDescription: String {
+        "\(Self.self)(rawValue: \(String(format:"%02X", rawValue)))"
+    }
+}
+
+
 extension BloodPressureMeasurement.Flags: ByteCodable {
     init?(from byteBuffer: inout ByteBuffer) {
         guard let rawValue = UInt8(from: &byteBuffer) else {

@@ -15,8 +15,8 @@ public struct ServiceDescription: Sendable {
     public let serviceId: BTUUID
     /// The description of characteristics present on the service.
     ///
-    /// Those are the characteristics we try to discover. If empty, we discover all characteristics
-    /// on a given service.
+    /// Those are the characteristics we try to discover.
+    /// - Note: If `nil`, we discover all characteristics on a given service.
     public var characteristics: Set<CharacteristicDescription>? { // swiftlint:disable:this discouraged_optional_collection
         let values: Dictionary<BTUUID, CharacteristicDescription>.Values? = _characteristics?.values
         return values.map { Set($0) }

@@ -30,7 +30,7 @@ class CharacteristicAccess: Sendable {
     }
 
 
-    func waitCheckingCancellation() async throws {
+    func waitCheckingCancellation() async throws { // TODO: check if we can align the design!
         try await semaphore.waitCheckingCancellation()
     }
 
@@ -41,8 +41,7 @@ class CharacteristicAccess: Sendable {
 
     func consume() {
         self.value = nil
-        let result = semaphore.signal()
-        // TODO: assert result!
+        semaphore.signal()
     }
 
     func cancelAll(disconnectError error: (any Error)?) {
