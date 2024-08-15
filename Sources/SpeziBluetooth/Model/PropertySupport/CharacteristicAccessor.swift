@@ -178,13 +178,30 @@ extension CharacteristicAccessor where Value: ByteDecodable {
     /// Enable or disable characteristic notifications.
     /// - Parameter enabled: Flag indicating if notifications should be enabled.
     public func enableNotifications(_ enabled: Bool = true) async {
-        guard let injection = storage.injection.load() else { // load always reads with acquire order
-            // this value will be populated to the injection once it is set up
-            storage.defaultNotify.store(enabled, ordering: .releasing)
-            return
-        }
+        while true {
+            guard let injection = storage.injection.load() else { // load always reads with acquire order
+                // We use the `defaultNotify` storage to temporary store the enableNotifications value.
+                // This value will be populated to the injection once it is set up
 
-        await injection.enableNotifications(enabled)
+                let state = storage.defaultNotify.load(ordering: .acquiring)
+                if state.completed {
+                    continue // retry loading the injection, it should be present now
+                }
+
+                let (exchanged, _) = storage.defaultNotify.compareExchange(
+                    expected: state,
+                    desired: .init(from: enabled),
+                    ordering: .acquiringAndReleasing
+                )
+                if !exchanged {
+                    continue // retry, value changed while we were setting it
+                }
+                return
+            }
+
+            await injection.enableNotifications(enabled)
+            break
+        }
     }
 
 

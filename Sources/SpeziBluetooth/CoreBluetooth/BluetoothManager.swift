@@ -6,7 +6,6 @@
 // SPDX-License-Identifier: MIT
 //
 
-@preconcurrency import class CoreBluetooth.CBCentralManager // swiftlint:disable:this duplicate_imports
 import CoreBluetooth
 import NIO
 import Observation
@@ -84,15 +83,15 @@ import OSLog
 public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint:disable:this type_body_length
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothManager")
 
-    private var _centralManager: CBCentralManager?
+    private var _centralManager: CBInstance<CBCentralManager>?
 
     private var centralManager: CBCentralManager {
         guard let centralManager = _centralManager else {
             let centralManager = supplyCBCentral()
-            self._centralManager = centralManager
+            self._centralManager = CBInstance(instantiatedOnDispatchQueue: centralManager)
             return centralManager
         }
-        return centralManager
+        return centralManager.cbObject
     }
 
     private lazy var centralDelegate: Delegate = { // swiftlint:disable:this weak_delegate
@@ -522,7 +521,7 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
         Task { @SpeziBluetooth [storage, _centralManager, isScanning, logger] in
             if isScanning {
                 storage.isScanning = false
-                _centralManager?.stopScan()
+                _centralManager?.cbObject.stopScan()
                 logger.debug("Scanning stopped")
             }
 

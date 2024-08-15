@@ -162,8 +162,41 @@ import Foundation
 public struct Characteristic<Value: Sendable>: Sendable {
     /// Storage unit for the property wrapper.
     final class Storage: Sendable {
+        enum DefaultNotifyState: UInt8, AtomicValue {
+            case disabled
+            case enabled
+            case collectedDisabled
+            case collectedEnabled
+
+            var defaultNotify: Bool {
+                switch self {
+                case .disabled, .collectedDisabled:
+                    return false
+                case .enabled, .collectedEnabled:
+                    return true
+                }
+            }
+
+            var completed: Bool {
+                switch self {
+                case .disabled, .enabled:
+                    false
+                case .collectedDisabled, .collectedEnabled:
+                    true
+                }
+            }
+
+            init(from defaultNotify: Bool) {
+                self = defaultNotify ? .enabled : .disabled
+            }
+
+            static func collected(notify: Bool) -> DefaultNotifyState {
+                notify ? .collectedEnabled : .collectedDisabled
+            }
+        }
+
         let id: BTUUID
-        let defaultNotify: ManagedAtomic<Bool>
+        let defaultNotify: ManagedAtomic<DefaultNotifyState>
         let autoRead: ManagedAtomic<Bool>
 
         let injection = ManagedAtomicLazyReference<CharacteristicPeripheralInjection<Value>>()
@@ -173,7 +206,7 @@ public struct Characteristic<Value: Sendable>: Sendable {
 
         init(id: BTUUID, defaultNotify: Bool, autoRead: Bool, initialValue: Value?) {
             self.id = id
-            self.defaultNotify = ManagedAtomic(defaultNotify)
+            self.defaultNotify = ManagedAtomic(DefaultNotifyState(from: defaultNotify))
             self.autoRead = ManagedAtomic(autoRead)
             self.state = State(initialValue: initialValue)
         }
@@ -288,7 +321,23 @@ public struct Characteristic<Value: Sendable>: Sendable {
 
         storage.state.characteristic = service?.getCharacteristic(id: storage.id)
 
-        injection.setup(defaultNotify: storage.defaultNotify.load(ordering: .acquiring))
+        let defaultNotify: Bool
+        while true {
+            let notifyState = storage.defaultNotify.load(ordering: .acquiring)
+            let notify = notifyState.defaultNotify
+
+            let (exchanged, _) = storage.defaultNotify.compareExchange(
+                expected: notifyState,
+                desired: .collected(notify: notify),
+                ordering: .acquiringAndReleasing
+            )
+            if exchanged {
+                defaultNotify = notify
+                break
+            }
+        }
+
+        injection.setup(defaultNotify: defaultNotify)
     }
 }
 

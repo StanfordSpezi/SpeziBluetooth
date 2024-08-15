@@ -84,7 +84,6 @@ extension CurrentTimeService {
                 }
             }
             throw error
-            // TODO: Self.logger.warning("Failed to update current time: \(error)")
         }
     }
 }

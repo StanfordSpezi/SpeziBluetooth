@@ -52,18 +52,8 @@ class CharacteristicAccess: Sendable {
 }
 
 
-/*
- let access = characteristicAccesses.makeAccess(for: characteristic)
- try await access.waitCheckingCancellation()
-
- return try await withCheckedThrowingContinuation { continuation in
- access.store(.read(continuation))
- cbPeripheral.readValue(for: characteristic)
- }
- */
-
 @SpeziBluetooth
-final class CharacteristicAccesses: Sendable { // TODO: Make let!
+final class CharacteristicAccesses: Sendable {
     private var ongoingAccesses: [CBCharacteristic: CharacteristicAccess] = [:]
 
     private func makeAccess(for characteristic: CBCharacteristic) -> CharacteristicAccess {

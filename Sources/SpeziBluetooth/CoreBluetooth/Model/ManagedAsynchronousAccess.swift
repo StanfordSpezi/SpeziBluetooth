@@ -9,6 +9,7 @@
 import SpeziFoundation
 
 
+@SpeziBluetooth
 final class ManagedAsynchronousAccess<Value, E: Error> {
     private let access: AsyncSemaphore
     private var continuation: CheckedContinuation<Value, E>?
@@ -47,10 +48,7 @@ extension ManagedAsynchronousAccess where Value == Void {
 
 
 extension ManagedAsynchronousAccess where E == Error {
-    func perform( // TODO: use @SpeziBluetooth for now and move to SpeziFoundation once Swift 6 ships?
-        isolation: isolated (any Actor)? = #isolation,
-        action: () -> Void
-    ) async throws -> Value {
+    func perform(action: () -> Void) async throws -> Value {
         try await access.waitCheckingCancellation()
 
         return try await withCheckedThrowingContinuation { continuation in
@@ -71,10 +69,7 @@ extension ManagedAsynchronousAccess where E == Error {
 
 
 extension ManagedAsynchronousAccess where Value == Void, E == Never {
-    func perform(
-        isolation: isolated (any Actor)? = #isolation,
-        action: () -> Void
-    ) async throws {
+    func perform(action: () -> Void) async throws {
         try await access.waitCheckingCancellation()
 
         await withCheckedContinuation { continuation in

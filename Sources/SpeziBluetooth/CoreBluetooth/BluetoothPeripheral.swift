@@ -291,6 +291,8 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     private func discoverCharacteristics(
         for discoveredServices: [BTUUID]
     ) async throws -> [(service: GATTService, characteristics: Set<CharacteristicDescription>?)] {
+        // swiftlint:disable:previous discouraged_optional_collection
+
         // swiftlint:disable:next discouraged_optional_collection
         let discoveryJobs: [(service: GATTService, characteristics: Set<CharacteristicDescription>?)] = discoveredServices
             .reduce(into: []) { partialResult, serviceId in

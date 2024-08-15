@@ -126,8 +126,8 @@ class DiscoverySession: Sendable {
     /// The set of serviceIds we request to discover upon scanning.
     /// Returning nil means scanning for all peripherals.
     var serviceDiscoveryIds: [BTUUID]? { // swiftlint:disable:this discouraged_optional_collection
-        let discoveryIds = configuration.configuredDevices.compactMap { configuration in
-            configuration.discoveryCriteria.discoveryId
+        let discoveryIds = configuration.configuredDevices.flatMap { configuration in
+            configuration.discoveryCriteria.discoveryIds
         }
 
         return discoveryIds.isEmpty ? nil : discoveryIds
