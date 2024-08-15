@@ -321,7 +321,11 @@ public struct Characteristic<Value: Sendable>: Sendable {
 
         storage.state.characteristic = service?.getCharacteristic(id: storage.id)
 
+#if compiler(<6)
+        var defaultNotify: Bool = false
+#else
         let defaultNotify: Bool
+#endif
         while true {
             let notifyState = storage.defaultNotify.load(ordering: .acquiring)
             let notify = notifyState.defaultNotify
