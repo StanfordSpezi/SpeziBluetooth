@@ -180,7 +180,9 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
 
     /// Establish a connection to the peripheral and wait until it is connected.
     ///
-    /// Make a connection to the peripheral.
+    /// Make a connection to the peripheral. The method returns once the device is connected and fully discovered according to
+    /// the ``DeviceDescription`` (e.g., enabling notifications for certain characteristics).
+    /// If service or characteristic discovery fails, this method will throw the respective error and automatically disconnect the device.
     ///
     /// - Note: You might want to verify via the ``AdvertisementData/isConnectable`` property that the device is connectable.
     public func connect() async throws {
