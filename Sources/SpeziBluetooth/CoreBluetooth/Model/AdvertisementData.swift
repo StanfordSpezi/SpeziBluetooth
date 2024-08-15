@@ -95,4 +95,37 @@ extension AdvertisementData {
 }
 
 
+extension AdvertisementData: CustomStringConvertible {
+    public var description: String {
+        var components: [String] = []
+        if let localName {
+            components.append("localName: \"\(localName)\"")
+        }
+        if let manufacturerData {
+            components.append("manufacturerData: \"\(manufacturerData)\"")
+        }
+        if let serviceData {
+            components.append("serviceData: \(serviceData)")
+        }
+        if let serviceUUIDs {
+            components.append("serviceUUIDs: \(serviceUUIDs)")
+        }
+        if let overflowServiceUUIDs {
+            components.append("overflowServiceUUIDs: \(overflowServiceUUIDs)")
+        }
+        if let txPowerLevel {
+            components.append("txPowerLevel: \(txPowerLevel)")
+        }
+        if let isConnectable {
+            components.append("isConnectable: \(isConnectable)")
+        }
+        if let solicitedServiceUUIDs {
+            components.append("solicitedServiceUUIDs: \(solicitedServiceUUIDs)")
+        }
+
+        return "AdvertisementData(\(components.joined(separator: ", ")))"
+    }
+}
+
+
 extension AdvertisementData: Sendable, Hashable {}

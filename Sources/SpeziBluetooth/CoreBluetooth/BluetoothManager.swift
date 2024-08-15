@@ -471,7 +471,7 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
     }
 
     func connect(peripheral: BluetoothPeripheral) {
-        logger.debug("Trying to connect to \(peripheral.debugDescription) ...")
+        logger.debug("Trying to connect to \(peripheral) ...")
 
         let cancelled = discoverySession?.cancelStaleTask(for: peripheral)
 
@@ -483,7 +483,7 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
     }
 
     func disconnect(peripheral: BluetoothPeripheral) {
-        logger.debug("Disconnecting peripheral \(peripheral.debugDescription) ...")
+        logger.debug("Disconnecting peripheral \(peripheral) ...")
         // stale timer is handled in the delegate method
         centralManager.cancelPeripheralConnection(peripheral.cbPeripheral)
 
@@ -674,7 +674,7 @@ extension BluetoothManager {
                     return
                 }
 
-                logger.debug("Discovered peripheral \(peripheral.debugIdentifier) at \(rssi.intValue) dB (data: \(String(describing: data))")
+                logger.debug("Discovered peripheral \(peripheral.debugIdentifier) at \(rssi.intValue) dB with data \(data)")
 
                 let descriptor = session.configuredDevices.find(for: data, logger: logger)
 
@@ -706,7 +706,7 @@ extension BluetoothManager {
                     return
                 }
 
-                logger.debug("Peripheral \(peripheral.debugIdentifier) connected.")
+                logger.debug("Peripheral \(device) connected.")
                 await manager.storage.cbDelegateSignal(connected: true, for: peripheral.identifier)
 
                 await manager.handledConnected(device: device)
@@ -731,9 +731,9 @@ extension BluetoothManager {
                 }
 
                 if let error {
-                    logger.error("Failed to connect to \(peripheral.debugDescription): \(error)")
+                    logger.error("Failed to connect to \(device): \(error)")
                 } else {
-                    logger.error("Failed to connect to \(peripheral.debugDescription)")
+                    logger.error("Failed to connect to \(device)")
                 }
 
                 // just to make sure
@@ -757,9 +757,9 @@ extension BluetoothManager {
                 }
 
                 if let error {
-                    logger.debug("Peripheral \(peripheral.debugIdentifier) disconnected due to an error: \(error)")
+                    logger.debug("Peripheral \(device) disconnected due to an error: \(error)")
                 } else {
-                    logger.debug("Peripheral \(peripheral.debugIdentifier) disconnected.")
+                    logger.debug("Peripheral \(device) disconnected.")
                 }
 
                 manager.discardDevice(device: device, error: error)

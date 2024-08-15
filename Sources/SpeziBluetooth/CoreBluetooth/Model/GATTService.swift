@@ -105,6 +105,17 @@ public final class GATTService {
 extension GATTService: Identifiable {}
 
 
+extension GATTService: CustomStringConvertible, CustomDebugStringConvertible {
+    public var description: String {
+        "Service(id: \(id), isPrimary: \(isPrimary))"
+    }
+
+    public var debugDescription: String {
+        description
+    }
+}
+
+
 extension GATTService: Hashable {
     public static func == (lhs: GATTService, rhs: GATTService) -> Bool {
         lhs.underlyingService == rhs.underlyingService

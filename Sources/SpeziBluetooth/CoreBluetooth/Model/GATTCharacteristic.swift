@@ -117,9 +117,13 @@ extension GATTCharacteristic {}
 extension GATTCharacteristic: Identifiable {}
 
 
-extension GATTCharacteristic: CustomDebugStringConvertible {
+extension GATTCharacteristic: CustomStringConvertible, CustomDebugStringConvertible {
+    public var description: String {
+        "Characteristic(id: \(id), properties: \(properties), \(value.map { "value: \($0), " } ?? "")isNotifying, \(isNotifying))"
+    }
+
     public var debugDescription: String {
-        underlyingCharacteristic.debugIdentifier
+        description
     }
 }
 

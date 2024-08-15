@@ -23,28 +23,38 @@ final class ManagedAsynchronousAccess<Value, E: Error> {
     }
 
 #if compiler(>=6)
-    func resume(with result: sending Result<Value, E>) {
+    @discardableResult
+    func resume(with result: sending Result<Value, E>) -> Bool {
         if let continuation {
             self.continuation = nil
-            access.signal()
+            let didSignalAnyone = access.signal()
             continuation.resume(with: result)
+            return didSignalAnyone
         }
+
+        return false
     }
 
-    func resume(returning value: sending Value) {
+    @discardableResult
+    func resume(returning value: sending Value) -> Bool {
         resume(with: .success(value))
     }
 #else
     // sending keyword is new with Swift 6
-    func resume(with result: Result<Value, E>) {
+    @discardableResult
+    func resume(with result: Result<Value, E>) -> Bool {
         if let continuation {
             self.continuation = nil
-            access.signal()
+            let didSignalAnyone = access.signal()
             continuation.resume(with: result)
+            return didSignalAnyone
         }
+
+        return false
     }
 
-    func resume(returning value: Value) {
+    @discardableResult
+    func resume(returning value: Value) -> Bool {
         resume(with: .success(value))
     }
 #endif
