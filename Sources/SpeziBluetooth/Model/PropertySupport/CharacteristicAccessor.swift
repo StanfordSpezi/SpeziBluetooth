@@ -122,7 +122,7 @@ extension CharacteristicAccessor where Value: ByteDecodable {
     ///         Otherwise, the action will only run strictly if the value changes.
     ///         > Important: This parameter has no effect for notify-only characteristics. A initial value will only be read if the characteristic supports read accesses.
     ///     - action: The change handler to register.
-    public func onChange(initial: Bool = false, perform action: @escaping @Sendable @SpeziBluetooth (_ value: Value) async -> Void) {
+    public func onChange(initial: Bool = false, perform action: @escaping @Sendable (_ value: Value) async -> Void) {
         onChange(initial: initial) { @SpeziBluetooth _, newValue in
             await action(newValue)
         }
@@ -144,10 +144,7 @@ extension CharacteristicAccessor where Value: ByteDecodable {
     ///         Otherwise, the action will only run strictly if the value changes.
     ///         > Important: This parameter has no effect for notify-only characteristics. A initial value will only be read if the characteristic supports read accesses.
     ///     - action: The change handler to register, receiving both the old and new value.
-    public func onChange(
-        initial: Bool = false,
-        perform action: @escaping @Sendable @SpeziBluetooth (_ oldValue: Value, _ newValue: Value) async -> Void
-    ) {
+    public func onChange(initial: Bool = false, perform action: @escaping @Sendable (_ oldValue: Value, _ newValue: Value) async -> Void) {
         if let subscriptions = storage.testInjections.load()?.subscriptions {
             let id = subscriptions.newOnChangeSubscription(perform: action)
 

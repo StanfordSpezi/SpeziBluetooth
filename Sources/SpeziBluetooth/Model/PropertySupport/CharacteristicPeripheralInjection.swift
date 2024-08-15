@@ -99,7 +99,7 @@ class CharacteristicPeripheralInjection<Value: Sendable>: Sendable {
 
     nonisolated func newOnChangeSubscription(
         initial: Bool,
-        perform action: @escaping @Sendable @SpeziBluetooth (_ oldValue: Value, _ newValue: Value) async -> Void
+        perform action: @escaping @Sendable (_ oldValue: Value, _ newValue: Value) async -> Void
     ) {
         let id = subscriptions.newOnChangeSubscription(perform: action)
 
