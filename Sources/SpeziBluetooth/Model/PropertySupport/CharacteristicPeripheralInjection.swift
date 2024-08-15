@@ -103,8 +103,7 @@ class CharacteristicPeripheralInjection<Value: Sendable>: Sendable {
     ) {
         let id = subscriptions.newOnChangeSubscription(perform: action)
 
-        // Must be called detached, otherwise it might inherit TaskLocal values which includes Spezi moduleInitContext
-        // which would create a strong reference to the device.
+        // avoid accidentally inheriting any task local values
         Task.detached { @Sendable @SpeziBluetooth in
             await self.handleInitialCall(id: id, initial: initial, action: action)
         }
@@ -138,9 +137,7 @@ class CharacteristicPeripheralInjection<Value: Sendable>: Sendable {
 
     private func registerCharacteristicValueChanges() {
         self.valueRegistration = peripheral.registerOnChangeHandler(service: serviceId, characteristic: characteristicId) { [weak self] data in
-            Task {@SpeziBluetooth [weak self] in
-                self?.handleUpdatedValue(data)
-            }
+            self?.handleUpdatedValue(data)
         }
     }
 
@@ -199,8 +196,14 @@ extension CharacteristicPeripheralInjection: DecodableCharacteristic where Value
             state.value = value
             self.fullFillControlPointRequest(value)
 
-            self.subscriptions.notifySubscribers(with: value, ignoring: nonInitialChangeHandlers ?? [])
-            nonInitialChangeHandlers = nil
+            // The first value is not always the initial value
+            // e.g., error retrieving the initial value, or notify characteristics that don't support read!
+            if let nonInitialChangeHandlers, peripheral.isReadingInitialValue(for: characteristicId, on: serviceId) {
+                self.nonInitialChangeHandlers = nil
+                self.subscriptions.notifySubscribers(with: value, ignoring: nonInitialChangeHandlers)
+            } else {
+                self.subscriptions.notifySubscribers(with: value)
+            }
         } else {
             state.value = nil
         }

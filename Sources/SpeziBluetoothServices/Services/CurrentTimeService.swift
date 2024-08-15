@@ -54,7 +54,9 @@ extension CurrentTimeService {
     ///   - now: The `Date` which is perceived as now.
     ///   - threshold: The threshold used to decide if peripheral time should be updated.
     ///     A time difference smaller than the threshold is considered current.
-    public func synchronizeDeviceTime(now: Date = .now, threshold: Duration = .seconds(1)) {
+    /// - Throws: Throws the respective Bluetooth error if the write to the `currentTime` characteristic failed.
+    @SpeziBluetooth
+    public func synchronizeDeviceTime(now: Date = .now, threshold: Duration = .seconds(1)) async throws {
         // check if time update is necessary
         if let currentTime = currentTime,
            let deviceTime = currentTime.time.date {
@@ -67,25 +69,22 @@ extension CurrentTimeService {
         } else {
             Self.logger.debug("Unknown current time (\(String(describing: self.currentTime))). Updating time ...")
         }
-
-        // TODO: think again about this Task thingy :/
         
         // update time if it isn't present or if it is outdated
-        Task { @SpeziBluetooth in
-            let exactTime = ExactTime256(from: now)
-            do {
-                try await $currentTime.write(CurrentTime(time: exactTime))
-                Self.logger.debug("Updated device time to \(String(describing: exactTime))")
-            } catch let error as NSError {
-                if error.domain == CBATTError.errorDomain {
-                    let attError = CBATTError(_nsError: error)
-                    if attError.code == CBATTError.Code(rawValue: 0x80) {
-                        Self.logger.debug("Device ignored some date fields. Updated device time to \(String(describing: exactTime)).")
-                        return
-                    }
+        let exactTime = ExactTime256(from: now)
+        do {
+            try await $currentTime.write(CurrentTime(time: exactTime))
+            Self.logger.debug("Updated device time to \(String(describing: exactTime))")
+        } catch let error as NSError {
+            if error.domain == CBATTError.errorDomain {
+                let attError = CBATTError(_nsError: error)
+                if attError.code == CBATTError.Code(rawValue: 0x80) {
+                    Self.logger.debug("Device ignored some date fields. Updated device time to \(String(describing: exactTime)).")
+                    return
                 }
-                Self.logger.warning("Failed to update current time: \(error)")
             }
+            throw error
+            // TODO: Self.logger.warning("Failed to update current time: \(error)")
         }
     }
 }

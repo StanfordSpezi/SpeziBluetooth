@@ -84,6 +84,8 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     private var onChangeHandlers: [CharacteristicLocator: [UUID: CharacteristicOnChangeHandler]] = [:]
     /// The list of characteristics that are requested to enable notifications.
     private var notifyRequested: Set<CharacteristicLocator> = []
+    /// A set of characteristics identifier which is populated while the initial value is being read.
+    private var currentlyReadingInitialValue: Set<CharacteristicLocator> = []
 
     /// The internally managed identifier for the peripheral.
     public nonisolated let id: UUID
@@ -117,7 +119,6 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     ///
     /// Services are discovered automatically upon connection
     public var services: [GATTService]? { // swiftlint:disable:this discouraged_optional_collection
-        // TODO: make sure we do not use that internally!
         storage.services.map { Array($0.values) }
     }
 
@@ -234,7 +235,13 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     }
 
     func onChange<Value>(of keyPath: KeyPath<PeripheralStorage, Value>, perform closure: @escaping (Value) -> Void) {
+        // TODO: @SpeziBluetooth guarantee!
         storage.onChange(of: keyPath, perform: closure)
+    }
+
+    func isReadingInitialValue(for characteristicId: BTUUID, on serviceId: BTUUID) -> Bool {
+        let locator = CharacteristicLocator(serviceId: serviceId, characteristicId: characteristicId)
+        return currentlyReadingInitialValue.contains(locator)
     }
 
     func handleConnect() async {
@@ -246,9 +253,7 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
             result.insert(description.serviceId)
         }
 
-        if let serviceIds, serviceIds.isEmpty {
-            signalFullyDiscovered()
-        } else {
+        if let serviceIds, !serviceIds.isEmpty { // TODO: not all servies are getting discovered?
             do {
                 let discoveredServices = try await self.discoverServices(serviceIds)
 
@@ -256,12 +261,15 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
                 // TODO: would be nice to have the notify setup as a separate task here for better overview
                 //  => maybe move task group into here and make two methods. one for discovery and one for "set up"!
             } catch {
-                // TODO: we could forward this back to the connect action and disconnect the device! => better way to completely retry?
                 logger.error("Failed to discover initial services: \(error)")
+                connectAccess.resume(throwing: error)
+                disconnect()
+                return
             }
-
-            signalFullyDiscovered() // TODO: might propagate with an error!
         }
+
+        storage.signalFullyDiscovered()
+        connectAccess.resume() // TODO: might propagate with an error!
     }
 
     private func discoverServices(_ services: Set<BTUUID>?) async throws -> [BTUUID] { // swiftlint:disable:this discouraged_optional_collection
@@ -315,39 +323,55 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     }
 
     private func handleDiscoveredCharacteristic(_ descriptions: Set<CharacteristicDescription>, for service: GATTService) async throws {
-        // TODO: this task is never getting marked as cancelled if one of the child tasks is getting cancelled?
-
-        await withDiscardingTaskGroup { group in
+        // TODO: avoid warning
+        // swiftlint:disable:next closure_body_length
+        try await withThrowingDiscardingTaskGroup { group in
             for description in descriptions {
                 guard let characteristic = getCharacteristic(id: description.characteristicId, on: service.id) else {
                     continue
                 }
 
-                // TODO: also this behavior was different, it also auto-read all characteristics that were not described?
                 // pull initial value if none is present
                 if description.autoRead && characteristic.value == nil && characteristic.properties.contains(.read) {
                     group.addTask { @SpeziBluetooth in
-                        _ = try? await self.read(characteristic: characteristic)
-                        // TODO: print error?
+                        let locator = CharacteristicLocator(serviceId: service.id, characteristicId: characteristic.id)
+                        let (inserted, _) = self.currentlyReadingInitialValue.insert(locator)
+                        do {
+                            _ = try await self.read(characteristic: characteristic)
+                        } catch {
+                            self.logger.warning("Failed to read the initial value of \(characteristic.debugDescription): \(error)")
+                        }
+                        if inserted {
+                            self.currentlyReadingInitialValue.remove(locator)
+                        }
                     }
                 }
 
                 // TODO: this method is not called anymore but did behave differently
                 //  (e.g., you could enable notifications for characteristics that weren't discovered)
-                if characteristic.properties.supportsNotifications {
-                    if self.didRequestNotifications(serviceId: service.id, characteristicId: characteristic.id) {
-                        logger.debug("Automatically subscribing to discovered characteristic \(service.id) - \(characteristic.id)...")
-                        group.addTask { @SpeziBluetooth in
-                            // TODO: should we do _some_ retries? (Omron does 30?)
-                            _ = try? await self.setNotifications(true, for: characteristic)
-                            // TODO: we are not interested in the error right?
+                if characteristic.properties.supportsNotifications && self.didRequestNotifications(serviceId: service.id, characteristicId: characteristic.id) {
+                    group.addTask { @SpeziBluetooth in
+                        self.logger.debug("Automatically subscribing to discovered characteristic \(service.id) - \(characteristic.id)...")
+
+                        var attempts = BluetoothManager.Defaults.autoSubscribeAttempts
+                        while true {
+                            do {
+                                try await self.setNotifications(true, for: characteristic)
+                                break
+                            } catch {
+                                attempts -= 1
+                                if attempts <= 0 {
+                                    throw error
+                                }
+                            }
                         }
                     }
                 }
 
                 if description.discoverDescriptors {
                     logger.debug("Discovering descriptors for \(characteristic.debugDescription)...")
-                    // TODO: add a comment why we didn't bother to make this async currently!
+                    // Currently descriptor interactions aren't really supported by SpeziBluetooth. However, we support the initial
+                    // discovery of descriptors. Therefore, it is fine that this operation is currently not made fully async.
                     cbPeripheral.discoverDescriptors(for: characteristic.underlyingCharacteristic)
                 }
             }
@@ -361,8 +385,8 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
 
         // clear all the ongoing access
 
-        if let services {
-            self.invalidateServices(Set(services.map { $0.id }))
+        if let serviceIds = storage.services?.keys {
+            self.invalidateServices(Set(serviceIds))
         }
 
         connectAccess.cancelAll(error: error)
@@ -579,6 +603,7 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     public func read(characteristic: GATTCharacteristic) async throws -> Data {
         let characteristic = characteristic.underlyingCharacteristic
 
+        // TODO: update pattern!
         let access = characteristicAccesses.makeAccess(for: characteristic)
         try await access.waitCheckingCancellation()
 
@@ -721,13 +746,19 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
 
 // MARK: Delegate Accessors
 extension BluetoothPeripheral {
-    private func signalFullyDiscovered() {
-        storage.signalFullyDiscovered()
-
-        connectAccess.resume()
-    }
-
     private func receivedUpdatedValue(for characteristic: CBCharacteristic, result: Result<Data, Error>) {
+        if case let .success(data) = result,
+           let service = characteristic.service {
+            let locator = CharacteristicLocator(serviceId: BTUUID(from: service.uuid), characteristicId: BTUUID(from: characteristic.uuid))
+
+            for onChange in onChangeHandlers[locator, default: [:]].values {
+                guard case let .value(handler) = onChange else {
+                    continue
+                }
+                handler(data)
+            }
+        }
+
         if let access = characteristicAccesses.retrieveAccess(for: characteristic),
            case let .read(continuation) = access.value {
             if case let .failure(error) = result {
@@ -738,24 +769,6 @@ extension BluetoothPeripheral {
             continuation.resume(with: result)
         } else if case let .failure(error) = result {
             logger.debug("Received unsolicited value update error for \(characteristic.debugIdentifier): \(error)")
-        }
-
-        // notification handling
-        guard case let .success(data) = result else {
-            return
-        }
-
-        guard let service = characteristic.service else {
-            logger.warning("Received updated value for characteristic \(characteristic.debugIdentifier) without associated service!")
-            return
-        }
-
-        let locator = CharacteristicLocator(serviceId: BTUUID(from: service.uuid), characteristicId: BTUUID(from: characteristic.uuid))
-        for onChange in onChangeHandlers[locator, default: [:]].values {
-            guard case let .value(handler) = onChange else {
-                continue
-            }
-            handler(data)
         }
     }
 
@@ -1031,4 +1044,6 @@ extension BluetoothPeripheral {
             }
         }
     }
-} // swiftlint:disable:this file_length
+}
+
+// swiftlint:disable:this file_length

@@ -169,7 +169,7 @@ extension BloodPressureMeasurement.Status: CustomStringConvertible, CustomDebugS
     }
 
     public var debugDescription: String {
-        "\(Self.self)(rawValue: \(String(format:"%02X", rawValue)))"
+        "\(Self.self)(rawValue: \(String(format: "%02X", rawValue)))"
     }
 }
 

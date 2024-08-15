@@ -575,6 +575,8 @@ extension BluetoothManager {
         static let defaultMinimumRSSI = -80
         /// The default time in seconds after which we check for auto connectable devices after the initial advertisement.
         static let defaultAutoConnectDebounce: Int = 1
+        /// The amount of times we try to automatically (if enabled) subscribe to a notify characteristic.
+        static let autoSubscribeAttempts = 3
     }
 }
 
