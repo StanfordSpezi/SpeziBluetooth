@@ -58,8 +58,9 @@ struct RetrievePairedDevicesView: View {
         self._retrievedDevice = retrievedDevice
     }
 
-    
+
     @ViewBuilder
+    @MainActor
     private func deviceButtons(for pairedDeviceId: UUID) -> some View {
         AsyncButton("Unpair Device") {
             await retrievedDevice?.disconnect()
