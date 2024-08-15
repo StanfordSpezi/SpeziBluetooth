@@ -708,7 +708,6 @@ extension BluetoothManager {
                 }
 
                 logger.debug("Peripheral \(peripheral.debugIdentifier) connected.")
-                // TODO: is that correct that we move that before the handledConnected?
                 await manager.storage.cbDelegateSignal(connected: true, for: peripheral.identifier)
 
                 await manager.handledConnected(device: device)

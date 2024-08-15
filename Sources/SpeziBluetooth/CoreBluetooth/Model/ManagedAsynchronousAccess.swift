@@ -1,21 +1,24 @@
 //
-//  SomethingAccess.swift
-//  SpeziBluetooth
+// This source file is part of the Stanford Spezi open-source project
 //
-//  Created by Andreas Bauer on 14.08.24.
+// SPDX-FileCopyrightText: 2024 Stanford University and the project authors (see CONTRIBUTORS.md)
+//
+// SPDX-License-Identifier: MIT
 //
 
 import SpeziFoundation
 
-// TODO: think about name, update file name
 
-
-final class SomethingAccess<Value, E: Error> { // TODO: AsynchronousAccess, ManagedAsynchronousAccess
-    private let access = AsyncSemaphore() // TODO: init with value forwarding to semaphore!
+final class ManagedAsynchronousAccess<Value, E: Error> {
+    private let access: AsyncSemaphore
     private var continuation: CheckedContinuation<Value, E>?
 
     var isRunning: Bool {
         continuation != nil
+    }
+
+    init(_ value: Int = 1) {
+        self.access = AsyncSemaphore(value: value)
     }
 
     func resume(with result: sending Result<Value, E>) {
@@ -30,24 +33,24 @@ final class SomethingAccess<Value, E: Error> { // TODO: AsynchronousAccess, Mana
         resume(with: .failure(error))
     }
 
-    func resume(returning value: sending Value) { // TODO: void overload!
+    func resume(returning value: sending Value) {
         resume(with: .success(value))
     }
 }
 
 
-extension SomethingAccess where Value == Void {
+extension ManagedAsynchronousAccess where Value == Void {
     func resume() {
         self.resume(returning: ())
     }
 }
 
 
-extension SomethingAccess where E == Error {
+extension ManagedAsynchronousAccess where E == Error {
     func perform( // TODO: use @SpeziBluetooth for now and move to SpeziFoundation once Swift 6 ships?
         isolation: isolated (any Actor)? = #isolation,
         action: () -> Void
-    ) async throws -> Value { // TODO: name?
+    ) async throws -> Value {
         try await access.waitCheckingCancellation()
 
         return try await withCheckedThrowingContinuation { continuation in
@@ -67,7 +70,7 @@ extension SomethingAccess where E == Error {
 }
 
 
-extension SomethingAccess where Value == Void, E == Never {
+extension ManagedAsynchronousAccess where Value == Void, E == Never {
     func perform(
         isolation: isolated (any Actor)? = #isolation,
         action: () -> Void

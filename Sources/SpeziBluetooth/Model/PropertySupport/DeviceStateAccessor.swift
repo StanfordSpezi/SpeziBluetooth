@@ -60,7 +60,7 @@ extension DeviceStateAccessor {
     ///     - initial: Whether the action should be run with the initial state value. Otherwise, the action will only run
     ///     strictly if the value changes.
     ///     - action: The change handler to register.
-    public func onChange(initial: Bool = false, perform action: @escaping @Sendable (Value) async -> Void) {
+    public func onChange(initial: Bool = false, perform action: @escaping @Sendable @SpeziBluetooth (Value) async -> Void) {
         onChange(initial: true) { _, newValue in
             await action(newValue)
         }
@@ -84,7 +84,10 @@ extension DeviceStateAccessor {
     ///     - initial: Whether the action should be run with the initial state value. Otherwise, the action will only run
     ///     strictly if the value changes.
     ///     - action: The change handler to register, receiving both the old and new value.
-    public func onChange(initial: Bool = false, perform action: @escaping @Sendable (_ oldValue: Value, _ newValue: Value) async -> Void) {
+    public func onChange(
+        initial: Bool = false,
+        perform action: @escaping @Sendable @SpeziBluetooth (_ oldValue: Value, _ newValue: Value) async -> Void
+    ) {
         if let testInjections = storage.testInjections.load(),
            let subscriptions = testInjections.subscriptions {
             let id = subscriptions.newOnChangeSubscription(perform: action)

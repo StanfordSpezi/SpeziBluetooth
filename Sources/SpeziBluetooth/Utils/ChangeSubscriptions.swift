@@ -63,7 +63,9 @@ final class ChangeSubscriptions<Value: Sendable>: Sendable {
     }
 
     @discardableResult
-    nonisolated func newOnChangeSubscription(perform action: @escaping @Sendable (_ oldValue: Value, _ newValue: Value) async -> Void) -> UUID {
+    nonisolated func newOnChangeSubscription(
+        perform action: @escaping @Sendable @SpeziBluetooth (_ oldValue: Value, _ newValue: Value) async -> Void
+    ) -> UUID {
         let registration = _newSubscription()
 
         // avoid accidentally inheriting any task local values

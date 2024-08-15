@@ -110,22 +110,20 @@ extension CharacteristicAccessor where Value: ByteDecodable {
     ///
     /// Register a change handler with the characteristic that is called every time the value changes.
     ///
-    /// - Note: `onChange` handlers are bound to the lifetime of the device. If you need to control the lifetime yourself refer to using ``subscription``.
+    /// - Note: An `onChange` handler is bound to the lifetime of the device. If you need to control the lifetime yourself refer to using ``subscription``.
     ///
     /// Note that you cannot set up onChange handlers within the initializers.
     /// Use the [`configure()`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module/configure()-5pa83) to set up
     /// all your handlers.
-    /// - Important: You must capture `self` weakly only. Capturing `self` strongly causes a memory leak.
-    ///
-    /// - Note: This closure is called from the ``SpeziBluetooth/SpeziBluetooth`` global actor, if you don't pass in an async method
-    ///     that has an annotated actor isolation (e.g., `@MainActor` or actor isolated methods).
+    /// - Warning: You must capture `self` weakly only. Capturing `self` strongly causes a memory leak.
     ///
     /// - Parameters:
     ///     - initial: Whether the action should be run with the initial characteristic value.
-    ///     Otherwise, the action will only run strictly if the value changes.
+    ///         Otherwise, the action will only run strictly if the value changes.
+    ///         > Important: This parameter has no effect for notify-only characteristics. A initial value will only be read if the characteristic supports read accesses.
     ///     - action: The change handler to register.
-    public func onChange(initial: Bool = false, perform action: @escaping @Sendable (_ value: Value) async -> Void) {
-        onChange(initial: initial) { _, newValue in
+    public func onChange(initial: Bool = false, perform action: @escaping @Sendable @SpeziBluetooth (_ value: Value) async -> Void) {
+        onChange(initial: initial) { @SpeziBluetooth _, newValue in
             await action(newValue)
         }
     }
@@ -134,21 +132,22 @@ extension CharacteristicAccessor where Value: ByteDecodable {
     ///
     /// Register a change handler with the characteristic that is called every time the value changes.
     ///
-    /// - Note: `onChange` handlers are bound to the lifetime of the device. If you need to control the lifetime yourself refer to using ``subscription``.
+    /// - Note: An `onChange` handler is bound to the lifetime of the device. If you need to control the lifetime yourself refer to using ``subscription``.
     ///
     /// Note that you cannot set up onChange handlers within the initializers.
     /// Use the [`configure()`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module/configure()-5pa83) to set up
     /// all your handlers.
-    /// - Important: You must capture `self` weakly only. Capturing `self` strongly causes a memory leak.
-    ///
-    /// - Note: This closure is called from the ``SpeziBluetooth/SpeziBluetooth`` global actor, if you don't pass in an async method
-    ///     that has an annotated actor isolation (e.g., `@MainActor` or actor isolated methods).
+    /// - Warning: You must capture `self` weakly only. Capturing `self` strongly causes a memory leak.
     ///
     /// - Parameters:
     ///     - initial: Whether the action should be run with the initial characteristic value.
-    ///     Otherwise, the action will only run strictly if the value changes.
+    ///         Otherwise, the action will only run strictly if the value changes.
+    ///         > Important: This parameter has no effect for notify-only characteristics. A initial value will only be read if the characteristic supports read accesses.
     ///     - action: The change handler to register, receiving both the old and new value.
-    public func onChange(initial: Bool = false, perform action: @escaping @Sendable (_ oldValue: Value, _ newValue: Value) async -> Void) {
+    public func onChange(
+        initial: Bool = false,
+        perform action: @escaping @Sendable @SpeziBluetooth (_ oldValue: Value, _ newValue: Value) async -> Void
+    ) {
         if let subscriptions = storage.testInjections.load()?.subscriptions {
             let id = subscriptions.newOnChangeSubscription(perform: action)
 
