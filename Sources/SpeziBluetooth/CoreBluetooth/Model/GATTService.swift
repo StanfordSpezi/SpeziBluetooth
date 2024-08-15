@@ -24,7 +24,7 @@ struct GATTServiceCapture: Sendable {
 /// ## Topics
 ///
 /// ### Instance Properties
-/// - ``uuid``
+/// - ``id``
 /// - ``isPrimary``
 /// - ``characteristics``
 @Observable

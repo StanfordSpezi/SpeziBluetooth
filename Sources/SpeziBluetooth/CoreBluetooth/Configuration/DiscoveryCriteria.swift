@@ -96,7 +96,11 @@ extension DiscoveryCriteria {
     }
 
     /// Identify a device by their advertised services.
-    /// - Parameter service: The service type.
+    ///
+    /// All supplied services need to be present in the advertisement.
+    /// - Parameters:
+    ///   - service: The service type.
+    ///   - additionalService: An optional parameter pack argument to supply additional service types the accessory is expected to advertise.
     /// - Returns: A ``DiscoveryCriteria/advertisedServices(_:)-swift.enum.case`` criteria.
     public static func advertisedServices<Service: BluetoothService, each S: BluetoothService>(
         _ service: Service.Type,
@@ -116,7 +120,7 @@ extension DiscoveryCriteria {
     /// All supplied services need to be present in the advertisement.
     /// - Parameters:
     ///   - manufacturer: The Bluetooth SIG-assigned manufacturer identifier.
-    ///   - uuid: The service uuids the service advertises.
+    ///   - uuids: The service uuids the service advertises.
     /// - Returns: A ``DiscoveryCriteria/accessory(manufacturer:advertising:)-swift.enum.case`` criteria.
     public static func accessory(manufacturer: ManufacturerIdentifier, advertising uuids: BTUUID...) -> DiscoveryCriteria {
         .accessory(manufacturer: manufacturer, advertising: uuids)

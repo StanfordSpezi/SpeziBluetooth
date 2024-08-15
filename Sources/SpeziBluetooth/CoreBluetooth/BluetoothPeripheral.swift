@@ -46,6 +46,7 @@ import SpeziFoundation
 ///
 /// ### Notifications and handling changes
 /// - ``enableNotifications(_:serviceId:characteristicId:)``
+/// - ``setNotifications(_:for:)``
 /// - ``registerOnChangeHandler(service:characteristic:_:)``
 /// - ``registerOnChangeHandler(for:_:)``
 /// - ``OnChangeRegistration``
@@ -512,7 +513,7 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
 
     /// Enable or disable notifications for a given characteristic.
     ///
-    /// - Tip: It is not required that the device is connected. Notifications will be automatically enabled for the
+    /// It is not required that the device is connected. Notifications will be automatically enabled for the
     /// respective characteristic upon device discovery.
     ///
     /// - Parameters:
@@ -546,6 +547,14 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
         return notifyRequested.contains(id)
     }
 
+    /// Set notification value for a given characteristic.
+    ///
+    /// In contrast to ``enableNotifications(_:serviceId:characteristicId:)`` this method instantly sends the command to the peripheral and awaits the response.
+    /// Therefore, the device must be connected when calling this method.
+    ///
+    /// - Parameters:
+    ///   - enabled: Enable or disable notifications.
+    ///   - characteristic: The characteristic for which to enable notifications.
     public func setNotifications(_ enabled: Bool, for characteristic: GATTCharacteristic) async throws {
         try await characteristicAccesses.performNotify(for: characteristic.underlyingCharacteristic) {
             cbPeripheral.setNotifyValue(enabled, for: characteristic.underlyingCharacteristic)
@@ -580,7 +589,6 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     /// - Parameters:
     ///   - data: The value to write.
     ///   - characteristic: The characteristic to which the value is written.
-    /// - Returns: The response from the device.
     /// - Throws: Throws an `CBError` or `CBATTError` if the write fails.
     public func write(data: Data, for characteristic: GATTCharacteristic) async throws {
         try await characteristicAccesses.performWrite(for: characteristic.underlyingCharacteristic) {

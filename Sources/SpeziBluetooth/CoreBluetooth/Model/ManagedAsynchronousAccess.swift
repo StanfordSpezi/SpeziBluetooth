@@ -22,6 +22,7 @@ final class ManagedAsynchronousAccess<Value, E: Error> {
         self.access = AsyncSemaphore(value: value)
     }
 
+#if compiler(>=6)
     func resume(with result: sending Result<Value, E>) {
         if let continuation {
             self.continuation = nil
@@ -30,12 +31,26 @@ final class ManagedAsynchronousAccess<Value, E: Error> {
         }
     }
 
-    func resume(throwing error: E) {
-        resume(with: .failure(error))
-    }
-
     func resume(returning value: sending Value) {
         resume(with: .success(value))
+    }
+#else
+    // sending keyword is new with Swift 6
+    func resume(with result: Result<Value, E>) {
+        if let continuation {
+            self.continuation = nil
+            access.signal()
+            continuation.resume(with: result)
+        }
+    }
+
+    func resume(returning value: Value) {
+        resume(with: .success(value))
+    }
+#endif
+
+    func resume(throwing error: E) {
+        resume(with: .failure(error))
     }
 }
 

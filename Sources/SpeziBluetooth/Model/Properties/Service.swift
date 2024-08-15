@@ -114,8 +114,6 @@ public struct Service<S: BluetoothService> {
     @SpeziBluetooth
     func inject(bluetooth: Bluetooth, peripheral: BluetoothPeripheral, service: GATTService?) {
         let injection = storage.injection.storeIfNilThenLoad(
-            // TODO: a problem though: If someone copies a Service (struct type) they automatically extend the lifetime of the underlying device as
-            //  @Characteristic and @DeviceState @DeviceAction keep their references but @Service will be deallocated and notifies about deinit!
             ServicePeripheralInjection(bluetooth: bluetooth, peripheral: peripheral, serviceId: id, service: service, state: storage.state)
         )
         assert(injection.peripheral === peripheral, "\(#function) cannot be called more than once in the lifetime of a \(Self.self) instance")
