@@ -195,6 +195,6 @@ final class CurrentTimeTests: XCTestCase {
     func testAdjustReasonStrings() {
         let reasons: CurrentTime.AdjustReason = [.manualTimeUpdate, .externalReferenceTimeUpdate, .changeOfTimeZone, .changeOfDST]
         XCTAssertEqual(reasons.description, "[manualTimeUpdate, externalReferenceTimeUpdate, changeOfTimeZone, changeOfDST]")
-        XCTAssertEqual(reasons.debugDescription, "AdjustReasons(rawValue: 0x0F)")
+        XCTAssertEqual(reasons.debugDescription, "AdjustReason(rawValue: 0x0F)")
     }
 }
