@@ -37,7 +37,7 @@ struct GATTCharacteristicCapture: Sendable {
 /// ## Topics
 ///
 /// ### Instance Properties
-/// - ``uuid``
+/// - ``id``
 /// - ``value``
 /// - ``isNotifying``
 /// - ``properties``
@@ -58,7 +58,7 @@ public final class GATTCharacteristic {
     public private(set) var descriptors: [CBDescriptor]? // swiftlint:disable:this discouraged_optional_collection
 
     /// The Bluetooth UUID of the characteristic.
-    public var uuid: BTUUID {
+    public var id: BTUUID {
         BTUUID(data: underlyingCharacteristic.uuid.data)
     }
 
@@ -114,9 +114,16 @@ public final class GATTCharacteristic {
 extension GATTCharacteristic {}
 
 
-extension GATTCharacteristic: CustomDebugStringConvertible {
+extension GATTCharacteristic: Identifiable {}
+
+
+extension GATTCharacteristic: CustomStringConvertible, CustomDebugStringConvertible {
+    public var description: String {
+        "Characteristic(id: \(id), properties: \(properties), \(value.map { "value: \($0), " } ?? "")isNotifying, \(isNotifying))"
+    }
+
     public var debugDescription: String {
-        underlyingCharacteristic.debugIdentifier
+        description
     }
 }
 

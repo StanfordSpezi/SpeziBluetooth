@@ -28,6 +28,9 @@
 public struct DeviceActions {
     /// Connect to the Bluetooth peripheral.
     ///
+    /// Make a connection to the peripheral. The method returns once the device is connected and fully discovered.
+    /// If service or characteristic discovery fails, this action will throw the respective error and automatically disconnect the device.
+    ///
     /// This action makes a call to ``BluetoothPeripheral/connect()``.
     public var connect: BluetoothConnectAction.Type {
         BluetoothConnectAction.self

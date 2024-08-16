@@ -32,8 +32,8 @@ let package = Package(
         .library(name: "SpeziBluetooth", targets: ["SpeziBluetooth"])
     ],
     dependencies: [
-        .package(url: "https://github.com/StanfordSpezi/SpeziFoundation", from: "1.1.0"),
-        .package(url: "https://github.com/StanfordSpezi/Spezi", from: "1.6.0"),
+        .package(url: "https://github.com/StanfordSpezi/SpeziFoundation", from: "2.0.0-beta.1"),
+        .package(url: "https://github.com/StanfordSpezi/Spezi", from: "1.7.1"),
         .package(url: "https://github.com/StanfordSpezi/SpeziNetworking", from: "2.1.0"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.59.0"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.0.4"),
@@ -55,7 +55,8 @@ let package = Package(
                 .process("Resources")
             ],
             swiftSettings: [
-                swiftConcurrency
+                swiftConcurrency,
+                .enableUpcomingFeature("InferSendableFromCaptures")
             ],
             plugins: [] + swiftLintPlugin()
         ),
@@ -123,7 +124,7 @@ func swiftLintPlugin() -> [Target.PluginUsage] {
 
 func swiftLintPackage() -> [PackageDescription.Package.Dependency] {
     if ProcessInfo.processInfo.environment["SPEZI_DEVELOPMENT_SWIFTLINT"] != nil {
-        [.package(url: "https://github.com/realm/SwiftLint.git", .upToNextMinor(from: "0.55.1"))]
+        [.package(url: "https://github.com/realm/SwiftLint.git", from: "0.55.1")]
     } else {
         []
     }

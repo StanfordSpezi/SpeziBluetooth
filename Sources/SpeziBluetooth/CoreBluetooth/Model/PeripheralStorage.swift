@@ -36,7 +36,7 @@ final class PeripheralStorage: ValueObservable, Sendable {
     }
 
 
-    @SpeziBluetooth var services: [GATTService]? { // swiftlint:disable:this discouraged_optional_collection
+    @SpeziBluetooth var services: [BTUUID: GATTService]? { // swiftlint:disable:this discouraged_optional_collection
         didSet {
             _$simpleRegistrar.triggerDidChange(for: \.services, on: self)
         }

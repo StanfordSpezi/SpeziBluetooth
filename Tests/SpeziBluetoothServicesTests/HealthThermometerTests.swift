@@ -46,4 +46,12 @@ final class HealthThermometerTests: XCTestCase {
         try testIdentity(from: TemperatureType.toe)
         try testIdentity(from: TemperatureType.tympanum)
     }
+
+    func testTemperatureTypeStrings() {
+        // swiftlint:disable line_length
+        let expected = ["reserved", "armpit", "body", "ear", "finger", "gastrointestinalTract", "mouth", "rectum", "toe", "tympanum", "TemperatureType(rawValue: 23)"]
+        let values = [TemperatureType.reserved, .armpit, .body, .ear, .finger, .gastrointestinalTract, .mouth, .rectum, .toe, .tympanum, .init(rawValue: 23)]
+        // swiftlint:enable line_length
+        XCTAssertEqual(values.map { $0.description }, expected)
+    }
 }

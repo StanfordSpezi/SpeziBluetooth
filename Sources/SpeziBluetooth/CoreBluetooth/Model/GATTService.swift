@@ -24,7 +24,7 @@ struct GATTServiceCapture: Sendable {
 /// ## Topics
 ///
 /// ### Instance Properties
-/// - ``uuid``
+/// - ``id``
 /// - ``isPrimary``
 /// - ``characteristics``
 @Observable
@@ -34,7 +34,7 @@ public final class GATTService {
     private var _characteristics: [BTUUID: GATTCharacteristic]
 
     /// The Bluetooth UUID of the service.
-    public var uuid: BTUUID {
+    public var id: BTUUID {
         BTUUID(data: underlyingService.uuid.data)
     }
 
@@ -66,9 +66,7 @@ public final class GATTService {
     /// - Parameter id: The Bluetooth characteristic id.
     /// - Returns: The characteristic instance if present.
     public func getCharacteristic(id: BTUUID) -> GATTCharacteristic? {
-        characteristics.first { characteristics in
-            characteristics.uuid == id
-        }
+        _characteristics[id]
     }
 
     /// Signal from the BluetoothManager to update your stored representations.
@@ -100,6 +98,20 @@ public final class GATTService {
         }
 
         return ServiceChangeProtocol(removedCharacteristics: removedCharacteristics, updatedCharacteristics: updatedCharacteristics)
+    }
+}
+
+
+extension GATTService: Identifiable {}
+
+
+extension GATTService: CustomStringConvertible, CustomDebugStringConvertible {
+    public var description: String {
+        "Service(id: \(id), isPrimary: \(isPrimary))"
+    }
+
+    public var debugDescription: String {
+        description
     }
 }
 

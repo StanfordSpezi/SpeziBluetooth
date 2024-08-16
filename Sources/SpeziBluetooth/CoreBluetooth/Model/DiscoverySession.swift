@@ -126,8 +126,8 @@ class DiscoverySession: Sendable {
     /// The set of serviceIds we request to discover upon scanning.
     /// Returning nil means scanning for all peripherals.
     var serviceDiscoveryIds: [BTUUID]? { // swiftlint:disable:this discouraged_optional_collection
-        let discoveryIds = configuration.configuredDevices.compactMap { configuration in
-            configuration.discoveryCriteria.discoveryId
+        let discoveryIds = configuration.configuredDevices.flatMap { configuration in
+            configuration.discoveryCriteria.discoveryIds
         }
 
         return discoveryIds.isEmpty ? nil : discoveryIds
@@ -321,7 +321,7 @@ extension DiscoverySession {
             }
 
         for device in staleDevices {
-            logger.debug("Removing stale peripheral \(device.debugDescription)")
+            logger.debug("Removing stale peripheral \(device)")
             // we know it won't be connected, therefore we just need to remove it
             manager.clearDiscoveredPeripheral(forKey: device.id)
         }

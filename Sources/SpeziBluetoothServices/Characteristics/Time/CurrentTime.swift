@@ -55,6 +55,30 @@ public struct CurrentTime {
 extension CurrentTime.AdjustReason: Hashable, Sendable {}
 
 
+extension CurrentTime.AdjustReason: CustomStringConvertible, CustomDebugStringConvertible {
+    public var description: String {
+        var components: [String] = []
+        if contains(.manualTimeUpdate) {
+            components.append("manualTimeUpdate")
+        }
+        if contains(.externalReferenceTimeUpdate) {
+            components.append("externalReferenceTimeUpdate")
+        }
+        if contains(.changeOfTimeZone) {
+            components.append("changeOfTimeZone")
+        }
+        if contains(.changeOfDST) {
+            components.append("changeOfDST")
+        }
+        return "[\(components.joined(separator: ", "))]"
+    }
+
+    public var debugDescription: String {
+        "\(Self.self)(rawValue: 0x\(String(format: "%02X", rawValue)))"
+    }
+}
+
+
 extension CurrentTime: Hashable, Sendable {}
 
 

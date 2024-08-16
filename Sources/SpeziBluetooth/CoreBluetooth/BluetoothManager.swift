@@ -6,7 +6,6 @@
 // SPDX-License-Identifier: MIT
 //
 
-@preconcurrency import class CoreBluetooth.CBCentralManager // swiftlint:disable:this duplicate_imports
 import CoreBluetooth
 import NIO
 import Observation
@@ -84,15 +83,15 @@ import OSLog
 public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint:disable:this type_body_length
     private let logger = Logger(subsystem: "edu.stanford.spezi.bluetooth", category: "BluetoothManager")
 
-    private var _centralManager: CBCentralManager?
+    private var _centralManager: CBInstance<CBCentralManager>?
 
     private var centralManager: CBCentralManager {
         guard let centralManager = _centralManager else {
             let centralManager = supplyCBCentral()
-            self._centralManager = centralManager
+            self._centralManager = CBInstance(instantiatedOnDispatchQueue: centralManager)
             return centralManager
         }
-        return centralManager
+        return centralManager.cbObject
     }
 
     private lazy var centralDelegate: Delegate = { // swiftlint:disable:this weak_delegate
@@ -472,7 +471,7 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
     }
 
     func connect(peripheral: BluetoothPeripheral) {
-        logger.debug("Trying to connect to \(peripheral.debugDescription) ...")
+        logger.debug("Trying to connect to \(peripheral) ...")
 
         let cancelled = discoverySession?.cancelStaleTask(for: peripheral)
 
@@ -484,18 +483,18 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
     }
 
     func disconnect(peripheral: BluetoothPeripheral) {
-        logger.debug("Disconnecting peripheral \(peripheral.debugDescription) ...")
+        logger.debug("Disconnecting peripheral \(peripheral) ...")
         // stale timer is handled in the delegate method
         centralManager.cancelPeripheralConnection(peripheral.cbPeripheral)
 
         discoverySession?.deviceManuallyDisconnected(id: peripheral.id)
     }
 
-    private func handledConnected(device: BluetoothPeripheral) {
-        device.handleConnect()
-
+    private func handledConnected(device: BluetoothPeripheral) async {
         // we might have connected a bluetooth peripheral that was weakly referenced
         ensurePeripheralReference(device)
+        
+        await device.handleConnect()
     }
 
     private func discardDevice(device: BluetoothPeripheral, error: Error?) {
@@ -522,7 +521,7 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
         Task { @SpeziBluetooth [storage, _centralManager, isScanning, logger] in
             if isScanning {
                 storage.isScanning = false
-                _centralManager?.stopScan()
+                _centralManager?.cbObject.stopScan()
                 logger.debug("Scanning stopped")
             }
 
@@ -575,6 +574,8 @@ extension BluetoothManager {
         static let defaultMinimumRSSI = -80
         /// The default time in seconds after which we check for auto connectable devices after the initial advertisement.
         static let defaultAutoConnectDebounce: Int = 1
+        /// The amount of times we try to automatically (if enabled) subscribe to a notify characteristic.
+        static let autoSubscribeAttempts = 3
     }
 }
 
@@ -673,7 +674,7 @@ extension BluetoothManager {
                     return
                 }
 
-                logger.debug("Discovered peripheral \(peripheral.debugIdentifier) at \(rssi.intValue) dB (data: \(String(describing: data))")
+                logger.debug("Discovered peripheral \(peripheral.debugIdentifier) at \(rssi.intValue) dB with data \(data)")
 
                 let descriptor = session.configuredDevices.find(for: data, logger: logger)
 
@@ -705,10 +706,10 @@ extension BluetoothManager {
                     return
                 }
 
-                logger.debug("Peripheral \(peripheral.debugIdentifier) connected.")
-                manager.handledConnected(device: device)
-
+                logger.debug("Peripheral \(device) connected.")
                 await manager.storage.cbDelegateSignal(connected: true, for: peripheral.identifier)
+
+                await manager.handledConnected(device: device)
             }
         }
 
@@ -730,9 +731,9 @@ extension BluetoothManager {
                 }
 
                 if let error {
-                    logger.error("Failed to connect to \(peripheral.debugDescription): \(error)")
+                    logger.error("Failed to connect to \(device): \(error)")
                 } else {
-                    logger.error("Failed to connect to \(peripheral.debugDescription)")
+                    logger.error("Failed to connect to \(device)")
                 }
 
                 // just to make sure
@@ -756,9 +757,9 @@ extension BluetoothManager {
                 }
 
                 if let error {
-                    logger.debug("Peripheral \(peripheral.debugIdentifier) disconnected due to an error: \(error)")
+                    logger.debug("Peripheral \(device) disconnected due to an error: \(error)")
                 } else {
-                    logger.debug("Peripheral \(peripheral.debugIdentifier) disconnected.")
+                    logger.debug("Peripheral \(device) disconnected.")
                 }
 
                 manager.discardDevice(device: device, error: error)

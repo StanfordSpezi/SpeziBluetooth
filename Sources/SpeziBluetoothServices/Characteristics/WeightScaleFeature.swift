@@ -219,6 +219,27 @@ extension WeightScaleFeature.HeightResolution: Hashable, Sendable {}
 extension WeightScaleFeature: Hashable, Sendable {}
 
 
+extension WeightScaleFeature: CustomStringConvertible, CustomDebugStringConvertible {
+    public var description: String {
+        var options: [String] = []
+        if contains(.timeStampSupported) {
+            options.append("timeStampSupported")
+        }
+        if contains(.multipleUsersSupported) {
+            options.append("multipleUsersSupported")
+        }
+        if contains(.bmiSupported) {
+            options.append("bmiSupported")
+        }
+        return "\(Self.self)(weightResolution: \(weightResolution), heightResolution: \(heightResolution), options: \(options.joined(separator: ", ")))"
+    }
+
+    public var debugDescription: String {
+        "\(Self.self)(rawValue: 0x\(String(format: "%02X", rawValue)))"
+    }
+}
+
+
 extension WeightScaleFeature: ByteCodable {
     public init?(from byteBuffer: inout ByteBuffer) {
         guard let rawValue = UInt32(from: &byteBuffer) else {

@@ -36,7 +36,7 @@ class ServicePeripheralInjection<S: BluetoothService>: Sendable {
     private func trackServicesUpdate() {
         peripheral.onChange(of: \.services) { [weak self] services in
             guard let self = self,
-                  let service = services?.first(where: { $0.uuid == self.serviceId }) else {
+                  let service = services?[self.serviceId] else {
                 return
             }
 

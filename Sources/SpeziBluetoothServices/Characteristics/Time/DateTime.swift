@@ -173,6 +173,42 @@ extension DateTime.Month: RawRepresentable {}
 extension DateTime.Month: Hashable, Sendable {}
 
 
+extension DateTime.Month: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .unknown:
+            "unknown"
+        case .january:
+            "january"
+        case .february:
+            "february"
+        case .march:
+            "march"
+        case .april:
+            "april"
+        case .mai:
+            "mai"
+        case .june:
+            "june"
+        case .july:
+            "july"
+        case .august:
+            "august"
+        case .september:
+            "september"
+        case .october:
+            "october"
+        case .november:
+            "november"
+        case .december:
+            "december"
+        default:
+            "\(Self.self)(rawValue: \(rawValue))"
+        }
+    }
+}
+
+
 extension DateTime: Hashable, Sendable {}
 
 

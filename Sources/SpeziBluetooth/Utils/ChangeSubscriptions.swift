@@ -63,13 +63,13 @@ final class ChangeSubscriptions<Value: Sendable>: Sendable {
     }
 
     @discardableResult
-    nonisolated func newOnChangeSubscription(perform action: @escaping @Sendable (_ oldValue: Value, _ newValue: Value) async -> Void) -> UUID {
+    nonisolated func newOnChangeSubscription(
+        perform action: @escaping @Sendable (_ oldValue: Value, _ newValue: Value) async -> Void
+    ) -> UUID {
         let registration = _newSubscription()
 
-        // It's important to use a detached Task here.
-        // Otherwise it might inherit TaskLocal values which might include Spezi moduleInitContext
-        // which would create a strong reference to the device.
-        Task.detached { @SpeziBluetooth [weak self] in
+        // avoid accidentally inheriting any task local values
+        Task.detached { @Sendable @SpeziBluetooth [weak self] in
             var currentValue: Value?
 
             for await element in registration.subscription {

@@ -293,10 +293,10 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
     /// Devices might be part of `nearbyDevices` as well or just retrieved devices that are eventually connected.
     /// Values are stored weakly. All properties (like `@Characteristic`, `@DeviceState` or `@DeviceAction`) store a reference to `Bluetooth` and report once they are de-initialized
     /// to clear the respective initialized devices from this dictionary.
-    @SpeziBluetooth private var initializedDevices: OrderedDictionary<UUID, AnyWeakDeviceReference> = [:]
+    private var initializedDevices: OrderedDictionary<UUID, AnyWeakDeviceReference> = [:]
 
     @Application(\.spezi)
-    @MainActor private var spezi
+    private var spezi
 
     private nonisolated var logger: Logger {
         Self.logger
@@ -389,7 +389,7 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
             } else {
                 let advertisementData = entry.value.advertisementData
                 guard let configuration = configuration.find(for: advertisementData, logger: logger) else {
-                    logger.warning("Ignoring peripheral \(entry.value.debugDescription) that cannot be mapped to a device class.")
+                    logger.warning("Ignoring peripheral \(entry.value) that cannot be mapped to a device class.")
                     return
                 }
 
@@ -402,6 +402,7 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
         }
 
 
+        let spezi = spezi
         Task { @MainActor [newlyPreparedDevices] in
             var checkForConnected = false
 
@@ -548,6 +549,7 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
         let device = prepareDevice(id: uuid, Device.self, peripheral: peripheral)
         // We load the module with external ownership. Meaning, Spezi won't keep any strong references to the Module and deallocation of
         // the module is possible, freeing all Spezi related resources.
+        let spezi = spezi
         await spezi.loadModule(device, ownership: .external)
 
         // The semantics of retrievePeripheral is as follows: it returns a BluetoothPeripheral that is weakly allocated by the BluetoothManager.´

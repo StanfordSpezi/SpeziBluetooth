@@ -46,6 +46,7 @@ import SpeziFoundation
 ///
 /// ### Notifications and handling changes
 /// - ``enableNotifications(_:serviceId:characteristicId:)``
+/// - ``setNotifications(_:for:)``
 /// - ``registerOnChangeHandler(service:characteristic:_:)``
 /// - ``registerOnChangeHandler(for:_:)``
 /// - ``OnChangeRegistration``
@@ -66,29 +67,25 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     /// Observable state container for local state.
     private let storage: PeripheralStorage
 
-    /// Protecting concurrent access to an ongoing connect attempt.
-    private let connectAccess = AsyncSemaphore()
-    /// Continuation for a currently ongoing connect attempt.
-    private var connectContinuation: CheckedContinuation<Void, Error>?
-    /// Ongoing accessed per characteristic.
-    private var characteristicAccesses = CharacteristicAccesses()
-    /// Protecting concurrent access to an ongoing write without response.
-    private let writeWithoutResponseAccess = AsyncSemaphore()
-    /// Continuation for the current write without response access.
-    private var writeWithoutResponseContinuation: CheckedContinuation<Void, Never>?
-    /// Protecting concurrent access to an ongoing rssi read access.
-    private let rssiAccess = AsyncSemaphore()
-    /// Continuation for a currently ongoing rssi read access.
-    private var rssiContinuation: CheckedContinuation<Int, Error>?
+    /// Manage asynchronous accesses for an ongoing connection attempt.
+    private let connectAccess = ManagedAsynchronousAccess<Void, Error>()
+    /// Manage asynchronous accesses per characteristic.
+    private let characteristicAccesses = CharacteristicAccesses()
+    /// Manage asynchronous accesses for an ongoing writhe without response.
+    private let writeWithoutResponseAccess = ManagedAsynchronousAccess<Void, Never>()
+    /// Manage asynchronous accesses for the rssi read action.
+    private let rssiAccess = ManagedAsynchronousAccess<Int, Error>()
+    /// Manage asynchronous accesses for service discovery.
+    private let discoverServicesAccess = ManagedAsynchronousAccess<[BTUUID], Error>()
+    /// Manage asynchronous accesses for characteristic discovery of a given service.
+    private var discoverCharacteristicAccesses: [BTUUID: ManagedAsynchronousAccess<Void, Error>] = [:]
 
     /// On-change handler registrations for all characteristics.
     private var onChangeHandlers: [CharacteristicLocator: [UUID: CharacteristicOnChangeHandler]] = [:]
     /// The list of characteristics that are requested to enable notifications.
     private var notifyRequested: Set<CharacteristicLocator> = []
-
-
-    /// A set of service ids we are currently awaiting characteristics discovery for
-    private var servicesAwaitingCharacteristicsDiscovery: Set<BTUUID> = []
+    /// A set of characteristics identifier which is populated while the initial value is being read.
+    private var currentlyReadingInitialValue: Set<CharacteristicLocator> = []
 
     /// The internally managed identifier for the peripheral.
     public nonisolated let id: UUID
@@ -122,7 +119,7 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     ///
     /// Services are discovered automatically upon connection
     public var services: [GATTService]? { // swiftlint:disable:this discouraged_optional_collection
-        storage.services
+        storage.services.map { Array($0.values) }
     }
 
     /// The last device activity.
@@ -183,7 +180,9 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
 
     /// Establish a connection to the peripheral and wait until it is connected.
     ///
-    /// Make a connection to the peripheral.
+    /// Make a connection to the peripheral. The method returns once the device is connected and fully discovered according to
+    /// the ``DeviceDescription`` (e.g., enabling notifications for certain characteristics).
+    /// If service or characteristic discovery fails, this method will throw the respective error and automatically disconnect the device.
     ///
     /// - Note: You might want to verify via the ``AdvertisementData/isConnectable`` property that the device is connectable.
     public func connect() async throws {
@@ -192,17 +191,15 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
             return
         }
 
-        try await connectAccess.waitCheckingCancellation()
-
         try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { continuation in
-                assert(connectContinuation == nil, "connectContinuation was unexpectedly not nil")
-                connectContinuation = continuation
+            try await connectAccess.perform {
                 manager.connect(peripheral: self)
             }
         } onCancel: {
             Task { @SpeziBluetooth in
-                disconnect()
+                if connectAccess.isRunning {
+                    disconnect()
+                }
             }
         }
     }
@@ -227,9 +224,7 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     /// - Parameter id: The Bluetooth service id.
     /// - Returns: The service instance if present.
     public func getService(id: BTUUID) -> GATTService? {
-        services?.first { service in
-            service.uuid == id
-        }
+        storage.services?[id]
     }
 
     /// Retrieve a characteristic.
@@ -245,19 +240,174 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
         storage.onChange(of: keyPath, perform: closure)
     }
 
-    func handleConnect() {
+    func isReadingInitialValue(for characteristicId: BTUUID, on serviceId: BTUUID) -> Bool {
+        let locator = CharacteristicLocator(serviceId: serviceId, characteristicId: characteristicId)
+        return currentlyReadingInitialValue.contains(locator)
+    }
+
+    func handleConnect() async {
         // ensure that it is updated instantly.
         storage.update(state: PeripheralState(from: cbPeripheral.state))
 
-        logger.debug("Discovering services for \(self.cbPeripheral.debugIdentifier) ...")
+        logger.debug("Discovering services for \(self) ...")
         let serviceIds = configuration.services?.reduce(into: Set()) { result, description in
-            result.insert(description.serviceId.cbuuid)
+            result.insert(description.serviceId)
         }
-        
-        if let serviceIds, serviceIds.isEmpty {
-            signalFullyDiscovered()
+
+        do {
+            let discoveredServices = try await self.discoverServices(serviceIds)
+            let serviceDiscoveries = try await discoverCharacteristics(for: discoveredServices)
+
+            // handle auto-subscribe and discover descriptors if descriptions exist
+            try await withThrowingDiscardingTaskGroup { group in
+                for (service, descriptions) in serviceDiscoveries {
+                    group.addTask { @Sendable @SpeziBluetooth in
+                        try await self.enableNotificationsForDiscoveredCharacteristics(for: service)
+                    }
+
+                    if let descriptions {
+                        group.addTask { @Sendable @SpeziBluetooth in
+                            try await self.handleDiscoveredCharacteristic(descriptions, for: service)
+                        }
+                    }
+                }
+            }
+        } catch {
+            logger.error("Failed to discover initial services: \(error)")
+            connectAccess.resume(throwing: error)
+            disconnect()
+            return
+        }
+
+        storage.signalFullyDiscovered()
+        connectAccess.resume()
+    }
+
+    private func discoverServices(_ services: Set<BTUUID>?) async throws -> [BTUUID] { // swiftlint:disable:this discouraged_optional_collection
+        let cbServiceIds = services.map { $0.map { $0.cbuuid } }
+
+        if let services {
+            logger.debug("Discovering services for peripheral \(self): \(services)")
         } else {
-            cbPeripheral.discoverServices(serviceIds.map { Array($0) })
+            logger.debug("Discovering all services for peripheral \(self)")
+        }
+
+        return try await discoverServicesAccess.perform {
+            cbPeripheral.discoverServices(cbServiceIds)
+        }
+    }
+
+    private func discoverCharacteristics(
+        for discoveredServices: [BTUUID]
+    ) async throws -> [(service: GATTService, characteristics: Set<CharacteristicDescription>?)] {
+        // swiftlint:disable:previous discouraged_optional_collection
+
+        // swiftlint:disable:next discouraged_optional_collection
+        let discoveryJobs: [(service: GATTService, characteristics: Set<CharacteristicDescription>?)] = discoveredServices
+            .reduce(into: []) { partialResult, serviceId in
+                guard let service = getService(id: serviceId),
+                      let serviceDescription = configuration.description(for: serviceId) else {
+                    return
+                }
+
+                partialResult.append((service, serviceDescription.characteristics))
+            }
+
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for job in discoveryJobs {
+                group.addTask { @Sendable @SpeziBluetooth in
+                    let characteristicIds = job.characteristics.map { Set($0.map { $0.characteristicId }) }
+                    try await self.discoverCharacteristic(characteristicIds, for: job.service)
+                }
+            }
+
+            try await group.waitForAll()
+        }
+
+        return discoveryJobs
+    }
+
+    private func discoverCharacteristic(_ characteristics: Set<BTUUID>?, for service: GATTService) async throws {
+        // swiftlint:disable:previous discouraged_optional_collection
+        let cbCharacteristicIds = characteristics.map { Array($0.map { $0.cbuuid }) }
+
+        if let characteristics {
+            logger.debug("Discovering characteristics on \(service) for peripheral \(self): \(characteristics)")
+        } else {
+            logger.debug("Discovering all characteristics on \(service) for peripheral \(self)")
+        }
+
+        let access: ManagedAsynchronousAccess<Void, Error>
+        if let existing = discoverCharacteristicAccesses[service.id] {
+            access = existing
+        } else {
+            access = .init()
+            discoverCharacteristicAccesses[service.id] = access
+        }
+
+        try await access.perform {
+            cbPeripheral.discoverCharacteristics(cbCharacteristicIds, for: service.underlyingService)
+        }
+    }
+
+    private func handleDiscoveredCharacteristic(_ descriptions: Set<CharacteristicDescription>, for service: GATTService) async throws {
+        try await withThrowingDiscardingTaskGroup { group in
+            for description in descriptions {
+                guard let characteristic = getCharacteristic(id: description.characteristicId, on: service.id) else {
+                    continue
+                }
+
+                // pull initial value if none is present
+                if description.autoRead && characteristic.value == nil && characteristic.properties.contains(.read) {
+                    group.addTask { @Sendable  @SpeziBluetooth in
+                        let locator = CharacteristicLocator(serviceId: service.id, characteristicId: characteristic.id)
+                        let (inserted, _) = self.currentlyReadingInitialValue.insert(locator)
+                        do {
+                            _ = try await self.read(characteristic: characteristic)
+                        } catch {
+                            self.logger.warning("Failed to read the initial value of \(characteristic): \(error)")
+                        }
+                        if inserted {
+                            self.currentlyReadingInitialValue.remove(locator)
+                        }
+                    }
+                }
+
+                if description.discoverDescriptors {
+                    logger.debug("Discovering descriptors for \(characteristic)...")
+                    // Currently descriptor interactions aren't really supported by SpeziBluetooth. However, we support the initial
+                    // discovery of descriptors. Therefore, it is fine that this operation is currently not made fully async.
+                    cbPeripheral.discoverDescriptors(for: characteristic.underlyingCharacteristic)
+                }
+            }
+        }
+    }
+
+    private func enableNotificationsForDiscoveredCharacteristics(for service: GATTService) async throws {
+        try await withThrowingDiscardingTaskGroup { group in
+            for characteristic in service.characteristics {
+                guard characteristic.properties.supportsNotifications,
+                      didRequestNotifications(serviceId: service.id, characteristicId: characteristic.id) else {
+                    continue
+                }
+
+                group.addTask { @Sendable @SpeziBluetooth in
+                    self.logger.debug("Automatically subscribing to discovered characteristic \(characteristic.id) on \(service.id)...")
+
+                    var attempts = BluetoothManager.Defaults.autoSubscribeAttempts
+                    while true {
+                        do {
+                            try await self.setNotifications(true, for: characteristic)
+                            break
+                        } catch {
+                            attempts -= 1
+                            if attempts <= 0 {
+                                throw error
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -268,29 +418,21 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
 
         // clear all the ongoing access
 
-        self.servicesAwaitingCharacteristicsDiscovery.removeAll()
-
-        if let services {
-            self.invalidateServices(Set(services.map { $0.uuid }))
+        if let serviceIds = storage.services?.keys {
+            self.invalidateServices(Set(serviceIds))
         }
 
-        connectAccess.cancelAll()
+        connectAccess.cancelAll(error: error)
         writeWithoutResponseAccess.cancelAll()
-        rssiAccess.cancelAll()
+        rssiAccess.cancelAll(error: error)
+        discoverServicesAccess.cancelAll(error: error)
 
         characteristicAccesses.cancelAll(disconnectError: error)
 
-        if let connectContinuation {
-            self.connectContinuation = nil
-            connectContinuation.resume(throwing: error ?? CancellationError())
-        }
-        if let writeWithoutResponseContinuation {
-            self.writeWithoutResponseContinuation = nil
-            writeWithoutResponseContinuation.resume()
-        }
-        if let rssiContinuation {
-            self.rssiContinuation = nil
-            rssiContinuation.resume(throwing: error ?? CancellationError())
+        let discoverCharacteristicAccesses = discoverCharacteristicAccesses
+        self.discoverCharacteristicAccesses.removeAll()
+        for access in discoverCharacteristicAccesses.values {
+            access.cancelAll(error: error)
         }
     }
 
@@ -333,10 +475,10 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
         _ onChange: @escaping (Data) -> Void
     ) throws -> OnChangeRegistration {
         guard let service = characteristic.service else {
-            throw BluetoothError.notPresent(service: nil, characteristic: characteristic.uuid)
+            throw BluetoothError.notPresent(service: nil, characteristic: characteristic.id)
         }
 
-        return registerOnChangeHandler(service: service.uuid, characteristic: characteristic.uuid, onChange)
+        return registerOnChangeHandler(service: service.id, characteristic: characteristic.id, onChange)
     }
 
     /// Register a on-change handler for a characteristic.
@@ -381,9 +523,17 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
         return OnChangeRegistration(peripheral: self, locator: locator, handlerId: id)
     }
 
+    func deregisterOnChange(_ registration: OnChangeRegistration) {
+        deregisterOnChange(locator: registration.locator, handlerId: registration.handlerId)
+    }
+
+    func deregisterOnChange(locator: CharacteristicLocator, handlerId: UUID) {
+        onChangeHandlers[locator]?.removeValue(forKey: handlerId)
+    }
+
     /// Enable or disable notifications for a given characteristic.
     ///
-    /// - Tip: It is not required that the device is connected. Notifications will be automatically enabled for the
+    /// It is not required that the device is connected. Notifications will be automatically enabled for the
     /// respective characteristic upon device discovery.
     ///
     /// - Parameters:
@@ -401,7 +551,15 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
         }
 
         // if setting notify doesn't work here, we do it upon discovery of the characteristics
-        trySettingNotifyValue(enabled, serviceId: serviceId, characteristicId: characteristicId)
+        guard let characteristic = getCharacteristic(id: characteristicId, on: serviceId) else {
+            return
+        }
+
+        if characteristic.properties.supportsNotifications {
+            Task {
+                try? await setNotifications(enabled, for: characteristic)
+            }
+        }
     }
 
     func didRequestNotifications(serviceId: BTUUID, characteristicId: BTUUID) -> Bool {
@@ -409,24 +567,22 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
         return notifyRequested.contains(id)
     }
 
-    func deregisterOnChange(_ registration: OnChangeRegistration) {
-        deregisterOnChange(locator: registration.locator, handlerId: registration.handlerId)
-    }
-
-    func deregisterOnChange(locator: CharacteristicLocator, handlerId: UUID) {
-        onChangeHandlers[locator]?.removeValue(forKey: handlerId)
-    }
-
-    private func trySettingNotifyValue(_ notify: Bool, serviceId: BTUUID, characteristicId: BTUUID) {
-        guard let characteristic = getCharacteristic(id: characteristicId, on: serviceId) else {
-            return
-        }
-
-        if characteristic.properties.supportsNotifications {
-            cbPeripheral.setNotifyValue(notify, for: characteristic.underlyingCharacteristic)
+    /// Set notification value for a given characteristic.
+    ///
+    /// In contrast to ``enableNotifications(_:serviceId:characteristicId:)`` this method instantly sends the command to the peripheral and awaits the response.
+    /// Therefore, the device must be connected when calling this method.
+    ///
+    /// - Parameters:
+    ///   - enabled: Enable or disable notifications.
+    ///   - characteristic: The characteristic for which to enable notifications.
+    public func setNotifications(_ enabled: Bool, for characteristic: GATTCharacteristic) async throws {
+        try await characteristicAccesses.performNotify(for: characteristic.underlyingCharacteristic) {
+            cbPeripheral.setNotifyValue(enabled, for: characteristic.underlyingCharacteristic)
         }
     }
 
+    /// Reset all notification values back to `false`.
+    ///
     /// Call this when things either go wrong, or you're done with the connection.
     /// This cancels any subscriptions if there are any, or straight disconnects if not.
     /// (didUpdateNotificationStateForCharacteristic will cancel the connection if a subscription is involved)
@@ -453,16 +609,10 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     /// - Parameters:
     ///   - data: The value to write.
     ///   - characteristic: The characteristic to which the value is written.
-    /// - Returns: The response from the device.
     /// - Throws: Throws an `CBError` or `CBATTError` if the write fails.
     public func write(data: Data, for characteristic: GATTCharacteristic) async throws {
-        let characteristic = characteristic.underlyingCharacteristic
-        let access = characteristicAccesses.makeAccess(for: characteristic)
-        try await access.waitCheckingCancellation()
-
-        try await withCheckedThrowingContinuation { continuation in
-            access.store(.write(continuation))
-            cbPeripheral.writeValue(data, for: characteristic, type: .withResponse)
+        try await characteristicAccesses.performWrite(for: characteristic.underlyingCharacteristic) {
+            cbPeripheral.writeValue(data, for: characteristic.underlyingCharacteristic, type: .withResponse)
         }
     }
 
@@ -478,16 +628,12 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     ///   - characteristic: The characteristic to which the value is written.
     public func writeWithoutResponse(data: Data, for characteristic: GATTCharacteristic) async {
         do {
-            try await writeWithoutResponseAccess.waitCheckingCancellation()
+            try await writeWithoutResponseAccess.perform {
+                cbPeripheral.writeValue(data, for: characteristic.underlyingCharacteristic, type: .withoutResponse)
+            }
         } catch {
             // task got cancelled, so just throw away the written value
             return
-        }
-
-        await withCheckedContinuation { continuation in
-            assert(writeWithoutResponseContinuation == nil, "writeWithoutResponseAccess was unexpectedly not nil")
-            writeWithoutResponseContinuation = continuation
-            cbPeripheral.writeValue(data, for: characteristic.underlyingCharacteristic, type: .withoutResponse)
         }
     }
 
@@ -499,14 +645,8 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     /// - Returns: The value that the peripheral was returned.
     /// - Throws: Throws an `CBError` or `CBATTError` if the read fails.
     public func read(characteristic: GATTCharacteristic) async throws -> Data {
-        let characteristic = characteristic.underlyingCharacteristic
-
-        let access = characteristicAccesses.makeAccess(for: characteristic)
-        try await access.waitCheckingCancellation()
-
-        return try await withCheckedThrowingContinuation { continuation in
-            access.store(.read(continuation))
-            cbPeripheral.readValue(for: characteristic)
+        try await characteristicAccesses.performRead(for: characteristic.underlyingCharacteristic) {
+            cbPeripheral.readValue(for: characteristic.underlyingCharacteristic)
         }
     }
 
@@ -516,11 +656,7 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     /// - Returns: The read rssi value.
     /// - Throws: Throws an `CBError` or `CBATTError` if the read fails.
     public func readRSSI() async throws -> Int {
-        try await rssiAccess.waitCheckingCancellation()
-
-        return try await withCheckedThrowingContinuation { continuation in
-            assert(rssiContinuation == nil, "rssiAccess was unexpectedly not nil")
-            rssiContinuation = continuation
+        try await rssiAccess.perform {
             cbPeripheral.readRSSI()
         }
     }
@@ -545,7 +681,7 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
         }
 
         for characteristic in changeProtocol.updatedCharacteristics {
-            let locator = CharacteristicLocator(serviceId: uuid, characteristicId: characteristic.uuid)
+            let locator = CharacteristicLocator(serviceId: uuid, characteristicId: characteristic.id)
             for handler in onChangeHandlers[locator, default: [:]].values {
                 if case let .instance(onChange) = handler {
                     onChange(characteristic)
@@ -565,25 +701,18 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     }
 
     private func invalidateServices(_ ids: Set<BTUUID>) {
-        guard let services else {
+        guard storage.services != nil else {
             return
         }
 
-        for (index, service) in zip(services.indices, services).reversed() {
-            guard ids.contains(service.uuid) else {
+        for id in ids {
+            guard let service = storage.services?.removeValue(forKey: id) else {
                 continue
             }
 
-            // Note: we iterate over the zipped array in reverse such that the indices stay valid if remove elements
-
-            // the service was invalidated!
-            var services = self.services
-            services?.remove(at: index)
-            self.storage.services = services
-
             // make sure we notify subscribed handlers about removed services!
             for characteristic in service.characteristics {
-                let locator = CharacteristicLocator(serviceId: service.uuid, characteristicId: characteristic.uuid)
+                let locator = CharacteristicLocator(serviceId: service.id, characteristicId: characteristic.id)
                 for handler in onChangeHandlers[locator, default: [:]].values {
                     if case let .instance(onChange) = handler {
                         onChange(nil) // signal removed characteristic!
@@ -594,21 +723,26 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     }
 
     private func discovered(services: [CBService]) {
-        // ids of currently maintained ids
-        let existingServices = Set(self.services?.map { $0.uuid } ?? [])
+        let discoveredIds = Set(services.map { BTUUID(from: $0.uuid) })
+        let removedServiceIds = self.storage.services?.keys.filter { uuid in
+            !discoveredIds.contains(uuid)
+        }
 
-        // if we re-discover services (e.g., if ones got invalidated), services might still be present. So only add new ones
-        let addedServices = services
-            .filter { !existingServices.contains(BTUUID(from: $0.uuid)) }
-            .map {
-                // we will discover characteristics for all services after that.
-                GATTService(service: $0)
+        if let removedServiceIds {
+            invalidateServices(Set(removedServiceIds))
+        }
+
+        let discoveredServices: [BTUUID: GATTService] = services.reduce(into: [:]) { partialResult, cbService in
+            let service = GATTService(service: cbService)
+            partialResult[service.id] = service
+        }
+
+        if let services = self.storage.services {
+            storage.services = services.merging(discoveredServices) { previous, _ in
+                previous // just discard service instances that would override previous instance!
             }
-
-        if let services = self.services {
-            storage.services = services + addedServices
         } else {
-            storage.services = addedServices
+            storage.services = discoveredServices
         }
     }
 
@@ -623,7 +757,7 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
 
         self.logger.debug("Device \(id), \(name ?? "unnamed") was de-initialized...")
 
-        Task.detached { @SpeziBluetooth [storage, nearby] in
+        Task.detached { @Sendable @SpeziBluetooth [storage, nearby] in
             if nearby { // make sure signal is sent
                 storage.nearby = false
             }
@@ -636,103 +770,20 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
 
 // MARK: Delegate Accessors
 extension BluetoothPeripheral {
-    private func discovered(service: CBService) {
-        guard let characteristics = service.characteristics else {
-            logger.warning("Characteristic discovery for service \(service.uuid) resulted in an empty list.")
-            return
-        }
-
-        logger.debug("Discovered \(characteristics.count) characteristic(s) for service \(service.uuid): \(characteristics)")
-
-        // automatically subscribe to discovered characteristics for which we have a handler subscribed!
-        for characteristic in characteristics {
-            let serviceId = BTUUID(from: service.uuid)
-            let characteristicId = BTUUID(from: characteristic.uuid)
-
-            let description = configuration.description(for: serviceId)?.description(for: characteristicId)
-
-            // pull initial value if none is present
-            if description?.autoRead != false && characteristic.value == nil && characteristic.properties.contains(.read) {
-                cbPeripheral.readValue(for: characteristic)
-            }
-
-            // enable notifications if registered
-            if characteristic.properties.supportsNotifications {
-                let locator = CharacteristicLocator(serviceId: serviceId, characteristicId: characteristicId)
-
-                if notifyRequested.contains(locator) {
-                    logger.debug("Automatically subscribing to discovered characteristic \(locator)...")
-                    cbPeripheral.setNotifyValue(true, for: characteristic)
-                }
-            }
-
-            if description?.discoverDescriptors == true {
-                logger.debug("Discovering descriptors for \(characteristic.debugIdentifier)...")
-                cbPeripheral.discoverDescriptors(for: characteristic)
-            }
-        }
-    }
-
-    private func signalFullyDiscovered() {
-        storage.signalFullyDiscovered()
-
-        if let connectContinuation {
-            connectContinuation.resume()
-            self.connectContinuation = nil
-            connectAccess.signal() // balance async semaphore.
-        }
-    }
-
     private func receivedUpdatedValue(for characteristic: CBCharacteristic, result: Result<Data, Error>) {
-        if let access = characteristicAccesses.retrieveAccess(for: characteristic),
-           case let .read(continuation) = access.value {
-            if case let .failure(error) = result {
-                logger.debug("Characteristic read for \(characteristic.debugIdentifier) returned with error: \(error)")
+        if case let .success(data) = result,
+           let service = characteristic.service {
+            let locator = CharacteristicLocator(serviceId: BTUUID(from: service.uuid), characteristicId: BTUUID(from: characteristic.uuid))
+
+            for onChange in onChangeHandlers[locator, default: [:]].values {
+                guard case let .value(handler) = onChange else {
+                    continue
+                }
+                handler(data)
             }
-
-            access.consume()
-            continuation.resume(with: result)
-        } else if case let .failure(error) = result {
-            logger.debug("Received unsolicited value update error for \(characteristic.debugIdentifier): \(error)")
         }
 
-        // notification handling
-        guard case let .success(data) = result else {
-            return
-        }
-
-        guard let service = characteristic.service else {
-            logger.warning("Received updated value for characteristic \(characteristic.debugIdentifier) without associated service!")
-            return
-        }
-
-        let locator = CharacteristicLocator(serviceId: BTUUID(from: service.uuid), characteristicId: BTUUID(from: characteristic.uuid))
-        for onChange in onChangeHandlers[locator, default: [:]].values {
-            guard case let .value(handler) = onChange else {
-                continue
-            }
-            handler(data)
-        }
-    }
-
-    private func receivedWriteResponse(for characteristic: CBCharacteristic, result: Result<Void, Error>) {
-        guard let access = characteristicAccesses.retrieveAccess(for: characteristic),
-              case let .write(continuation) = access.value else {
-            switch result {
-            case .success:
-                logger.warning("Received write response for \(characteristic.debugIdentifier) without an ongoing access. Discarding write ...")
-            case let .failure(error):
-                logger.warning("Received erroneous write response for \(characteristic.debugIdentifier) without an ongoing access: \(error)")
-            }
-            return
-        }
-
-        if case let .failure(error) = result {
-            logger.debug("Characteristic write for \(characteristic.debugIdentifier) returned with error: \(error)")
-        }
-
-        access.consume()
-        continuation.resume(with: result)
+        characteristicAccesses.resumeRead(with: result, for: characteristic)
     }
 }
 
@@ -740,13 +791,17 @@ extension BluetoothPeripheral {
 extension BluetoothPeripheral: Identifiable, Sendable {}
 
 
-extension BluetoothPeripheral: CustomDebugStringConvertible {
-    public nonisolated var debugDescription: String {
+extension BluetoothPeripheral: CustomStringConvertible, CustomDebugStringConvertible {
+    public nonisolated var description: String {
         if let name {
-            "'\(name)' @ \(id)"
+            "'\(name)'@\(id)"
         } else {
             "\(id)"
         }
+    }
+
+    public nonisolated var debugDescription: String {
+        description
     }
 }
 
@@ -802,14 +857,7 @@ extension BluetoothPeripheral {
                 device.storage.rssi = rssi
 
                 let result: Result<Int, Error> = error.map { .failure($0) } ?? .success(rssi)
-
-                guard let rssiContinuation = device.rssiContinuation else {
-                    return
-                }
-
-                device.rssiContinuation = nil
-                rssiContinuation.resume(with: result)
-                assert(device.rssiAccess.signal(), "Signaled rssiAccess though no one was waiting")
+                device.rssiAccess.resume(with: result)
             }
         }
 
@@ -844,46 +892,26 @@ extension BluetoothPeripheral {
                 return
             }
 
+            let cbServices = peripheral.services.map { CBInstance(instantiatedOnDispatchQueue: $0) }
+            let result: Result<[BTUUID], Error>
+
             if let error {
                 logger.error("Error discovering services: \(error.localizedDescription)")
-                return
+                result = .failure(error)
+            } else if let services = peripheral.services {
+                logger.debug("Successfully discovered services for peripheral \(device): \(services.map { $0.uuid })")
+                result = .success(services.map { BTUUID(from: $0.uuid) })
+            } else {
+                logger.debug("Discovered zero services for peripheral \(device)")
+                result = .success([])
             }
 
-            guard let services = peripheral.services else {
-                logger.error("Discovered services but they weren't present!")
-                return
-            }
-
-            let peripheral = CBInstance(instantiatedOnDispatchQueue: peripheral)
-            let cbServices = CBInstance(instantiatedOnDispatchQueue: services)
-
-            Task { @SpeziBluetooth [logger] in
-                device.discovered(services: cbServices.cbObject)
-
-                logger.debug("Discovered \(cbServices.cbObject) services for peripheral \(device.debugDescription)")
-
-                for service in cbServices.cbObject {
-                    let serviceId = BTUUID(from: service.uuid)
-
-                    guard let serviceDescription = device.configuration.description(for: serviceId) else {
-                        continue
-                    }
-
-                    let characteristicIds = serviceDescription.characteristics?.reduce(into: Set()) { partialResult, description in
-                        partialResult.insert(description.characteristicId)
-                    }
-
-                    if let characteristicIds, characteristicIds.isEmpty {
-                        continue
-                    }
-
-                    device.servicesAwaitingCharacteristicsDiscovery.insert(serviceId)
-                    peripheral.cbObject.discoverCharacteristics(characteristicIds.map { Array($0.map { $0.cbuuid }) }, for: service)
+            Task { @SpeziBluetooth in
+                if let cbServices {
+                    device.discovered(services: cbServices.cbObject)
                 }
 
-                if device.servicesAwaitingCharacteristicsDiscovery.isEmpty {
-                    device.signalFullyDiscovered()
-                }
+                device.discoverServicesAccess.resume(with: result)
             }
         }
 
@@ -892,24 +920,31 @@ extension BluetoothPeripheral {
                 return
             }
 
+            let result: Result<Void, Error>
+            if let error {
+                logger.error("Error discovering characteristics for service \(service.uuid): \(error.localizedDescription)")
+                result = .failure(error)
+            } else {
+                if let characteristics = service.characteristics, !characteristics.isEmpty {
+                    logger.debug("Successfully discovered characteristics for service \(service.uuid): \(characteristics.map { $0.uuid })")
+                } else {
+                    logger.debug("Discovered zero characteristics for service \(service.uuid)")
+                }
+                result = .success(())
+            }
+
             let service = CBInstance(instantiatedOnDispatchQueue: service)
-            Task { @SpeziBluetooth [logger] in
+            Task { @SpeziBluetooth in
                 // update our model with latest characteristics!
                 device.synchronizeModel(for: service.cbObject)
 
-                // ensure we keep track of all discoveries, set .connected state
-                device.servicesAwaitingCharacteristicsDiscovery.remove(BTUUID(from: service.uuid))
-                if device.servicesAwaitingCharacteristicsDiscovery.isEmpty {
-                    device.signalFullyDiscovered()
+                let id = BTUUID(from: service.uuid)
+                if let access = device.discoverCharacteristicAccesses[id] {
+                    let stillRequired = access.resume(with: result)
+                    if !stillRequired { // no one was waiting for discovery on that characteristic, thus we can remove it safely
+                        device.discoverCharacteristicAccesses.removeValue(forKey: id)
+                    }
                 }
-
-                if let error {
-                    logger.error("Error discovering characteristics: \(error.localizedDescription)")
-                    return
-                }
-
-                // handle auto-subscribe and discover descriptors
-                device.discovered(service: service.cbObject)
             }
         }
 
@@ -922,7 +957,7 @@ extension BluetoothPeripheral {
                 return
             }
 
-            logger.debug("Discovered descriptors for characteristic \(characteristic.debugIdentifier): \(descriptors)")
+            logger.debug("Discovered descriptors for characteristic \(characteristic.uuid): \(descriptors)")
 
             let capture = GATTCharacteristicCapture(from: characteristic)
             let characteristic = CBInstance(instantiatedOnDispatchQueue: characteristic)
@@ -940,11 +975,12 @@ extension BluetoothPeripheral {
             let capture = GATTCharacteristicCapture(from: characteristic)
             let characteristic = CBInstance(instantiatedOnDispatchQueue: characteristic)
 
-            Task { @SpeziBluetooth in
+            Task { @SpeziBluetooth [logger] in
                 // make sure value is propagated beforehand
                 device.synchronizeModel(for: characteristic.cbObject, capture: capture)
 
                 if let error {
+                    logger.debug("Characteristic read for \(characteristic.uuid) returned with error: \(error)")
                     device.receivedUpdatedValue(for: characteristic.cbObject, result: .failure(error))
                 } else if let value = capture.value {
                     device.receivedUpdatedValue(for: characteristic.cbObject, result: .success(value))
@@ -960,11 +996,22 @@ extension BluetoothPeripheral {
             let capture = GATTCharacteristicCapture(from: characteristic)
             let characteristic = CBInstance(instantiatedOnDispatchQueue: characteristic)
 
-            Task { @SpeziBluetooth in
+            Task { @SpeziBluetooth [logger] in
                 device.synchronizeModel(for: characteristic.cbObject, capture: capture)
 
-                let result: Result<Void, Error> = error.map { .failure($0) } ?? .success(())
-                device.receivedWriteResponse(for: characteristic.cbObject, result: result)
+                let result: Result<Void, Error>
+                if let error {
+                    result = .failure(error)
+                    logger.warning("Received erroneous write response for \(characteristic.uuid) without an ongoing access: \(error)")
+                } else {
+                    result = .success(())
+                    logger.debug("Characteristic write for \(characteristic.uuid) returned with error: \(error)")
+                }
+
+                let didHandle = device.characteristicAccesses.resumeWrite(with: result, for: characteristic.cbObject)
+                if !didHandle {
+                    logger.warning("Write response for \(characteristic.uuid) was received without an ongoing access!")
+                }
             }
         }
 
@@ -974,13 +1021,7 @@ extension BluetoothPeripheral {
             }
 
             Task { @SpeziBluetooth in
-                guard let writeWithoutResponseContinuation = device.writeWithoutResponseContinuation else {
-                    return
-                }
-
-                device.writeWithoutResponseContinuation = nil
-                writeWithoutResponseContinuation.resume()
-                assert(device.writeWithoutResponseAccess.signal(), "Signaled writeWithoutResponseAccess though no one was waiting")
+                device.writeWithoutResponseAccess.resume()
             }
         }
 
@@ -989,9 +1030,13 @@ extension BluetoothPeripheral {
                 return
             }
 
-            if let error = error {
+
+            let result: Result<Void, Error>
+            if let error {
                 logger.error("Error changing notification state for \(characteristic.uuid): \(error)")
-                return
+                result = .failure(error)
+            } else {
+                result = .success(())
             }
 
             let capture = GATTCharacteristicCapture(from: characteristic)
@@ -1000,12 +1045,21 @@ extension BluetoothPeripheral {
             Task { @SpeziBluetooth [logger] in
                 device.synchronizeModel(for: characteristic.cbObject, capture: capture)
 
-                if capture.isNotifying {
-                    logger.log("Notification began on \(characteristic.debugIdentifier)")
-                } else {
-                    logger.log("Notification stopped on \(characteristic.debugIdentifier).")
+                if error == nil {
+                    if capture.isNotifying {
+                        logger.log("Notification began on \(characteristic.uuid)")
+                    } else {
+                        logger.log("Notification stopped on \(characteristic.uuid).")
+                    }
+                }
+
+                let didHandle = device.characteristicAccesses.resumeNotify(with: result, for: characteristic.cbObject)
+                if !didHandle {
+                    logger.warning("Notification state update for \(characteristic.uuid) was received without an ongoing access!")
                 }
             }
         }
     }
-} // swiftlint:disable:this file_length
+}
+
+// swiftlint:disable:this file_length

@@ -110,22 +110,20 @@ extension CharacteristicAccessor where Value: ByteDecodable {
     ///
     /// Register a change handler with the characteristic that is called every time the value changes.
     ///
-    /// - Note: `onChange` handlers are bound to the lifetime of the device. If you need to control the lifetime yourself refer to using ``subscription``.
+    /// - Note: An `onChange` handler is bound to the lifetime of the device. If you need to control the lifetime yourself refer to using ``subscription``.
     ///
     /// Note that you cannot set up onChange handlers within the initializers.
     /// Use the [`configure()`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module/configure()-5pa83) to set up
     /// all your handlers.
-    /// - Important: You must capture `self` weakly only. Capturing `self` strongly causes a memory leak.
-    ///
-    /// - Note: This closure is called from the ``SpeziBluetooth/SpeziBluetooth`` global actor, if you don't pass in an async method
-    ///     that has an annotated actor isolation (e.g., `@MainActor` or actor isolated methods).
+    /// - Warning: You must capture `self` weakly only. Capturing `self` strongly causes a memory leak.
     ///
     /// - Parameters:
     ///     - initial: Whether the action should be run with the initial characteristic value.
-    ///     Otherwise, the action will only run strictly if the value changes.
+    ///         Otherwise, the action will only run strictly if the value changes.
+    ///         > Important: This parameter has no effect for notify-only characteristics. A initial value will only be read if the characteristic supports read accesses.
     ///     - action: The change handler to register.
     public func onChange(initial: Bool = false, perform action: @escaping @Sendable (_ value: Value) async -> Void) {
-        onChange(initial: initial) { _, newValue in
+        onChange(initial: initial) { @SpeziBluetooth _, newValue in
             await action(newValue)
         }
     }
@@ -134,19 +132,17 @@ extension CharacteristicAccessor where Value: ByteDecodable {
     ///
     /// Register a change handler with the characteristic that is called every time the value changes.
     ///
-    /// - Note: `onChange` handlers are bound to the lifetime of the device. If you need to control the lifetime yourself refer to using ``subscription``.
+    /// - Note: An `onChange` handler is bound to the lifetime of the device. If you need to control the lifetime yourself refer to using ``subscription``.
     ///
     /// Note that you cannot set up onChange handlers within the initializers.
     /// Use the [`configure()`](https://swiftpackageindex.com/stanfordspezi/spezi/documentation/spezi/module/configure()-5pa83) to set up
     /// all your handlers.
-    /// - Important: You must capture `self` weakly only. Capturing `self` strongly causes a memory leak.
-    ///
-    /// - Note: This closure is called from the ``SpeziBluetooth/SpeziBluetooth`` global actor, if you don't pass in an async method
-    ///     that has an annotated actor isolation (e.g., `@MainActor` or actor isolated methods).
+    /// - Warning: You must capture `self` weakly only. Capturing `self` strongly causes a memory leak.
     ///
     /// - Parameters:
     ///     - initial: Whether the action should be run with the initial characteristic value.
-    ///     Otherwise, the action will only run strictly if the value changes.
+    ///         Otherwise, the action will only run strictly if the value changes.
+    ///         > Important: This parameter has no effect for notify-only characteristics. A initial value will only be read if the characteristic supports read accesses.
     ///     - action: The change handler to register, receiving both the old and new value.
     public func onChange(initial: Bool = false, perform action: @escaping @Sendable (_ oldValue: Value, _ newValue: Value) async -> Void) {
         if let subscriptions = storage.testInjections.load()?.subscriptions {
@@ -182,13 +178,30 @@ extension CharacteristicAccessor where Value: ByteDecodable {
     /// Enable or disable characteristic notifications.
     /// - Parameter enabled: Flag indicating if notifications should be enabled.
     public func enableNotifications(_ enabled: Bool = true) async {
-        guard let injection = storage.injection.load() else { // load always reads with acquire order
-            // this value will be populated to the injection once it is set up
-            storage.defaultNotify.store(enabled, ordering: .releasing)
-            return
-        }
+        while true {
+            guard let injection = storage.injection.load() else { // load always reads with acquire order
+                // We use the `defaultNotify` storage to temporary store the enableNotifications value.
+                // This value will be populated to the injection once it is set up
 
-        await injection.enableNotifications(enabled)
+                let state = storage.defaultNotify.load(ordering: .acquiring)
+                if state.completed {
+                    continue // retry loading the injection, it should be present now
+                }
+
+                let (exchanged, _) = storage.defaultNotify.compareExchange(
+                    expected: state,
+                    desired: .init(from: enabled),
+                    ordering: .acquiringAndReleasing
+                )
+                if !exchanged {
+                    continue // retry, value changed while we were setting it
+                }
+                return
+            }
+
+            await injection.enableNotifications(enabled)
+            break
+        }
     }
 
 

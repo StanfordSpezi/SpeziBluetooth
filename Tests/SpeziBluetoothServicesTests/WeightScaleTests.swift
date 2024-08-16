@@ -93,4 +93,18 @@ final class WeightMeasurementTests: XCTestCase {
         XCTAssertFalse(features2.contains(.multipleUsersSupported))
         XCTAssertFalse(features2.contains(.timeStampSupported))
     }
+
+    func testWeightScaleFeatureStrings() {
+        let features: WeightScaleFeature = [
+            .bmiSupported,
+            .multipleUsersSupported,
+            .timeStampSupported
+        ]
+
+        XCTAssertEqual(
+            features.description,
+            "WeightScaleFeature(weightResolution: WeightResolution(rawValue: 0), heightResolution: HeightResolution(rawValue: 0), options: timeStampSupported, multipleUsersSupported, bmiSupported)"
+        ) // swiftlint:disable:previous line_length
+        XCTAssertEqual(features.debugDescription, "WeightScaleFeature(rawValue: 0x07)")
+    }
 }

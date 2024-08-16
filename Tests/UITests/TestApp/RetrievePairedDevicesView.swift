@@ -21,7 +21,7 @@ struct RetrievePairedDevicesView: View {
     @State private var viewState: ViewState = .idle
 
     var body: some View {
-        Group { // swiftlint:disable:this closure_body_length
+        Group {
             if let pairedDeviceId {
                 List {
                     Section {
@@ -33,30 +33,8 @@ struct RetrievePairedDevicesView: View {
                                 Text(retrievedDevice.state.description)
                             }
                         }
-                        AsyncButton("Unpair Device") {
-                            await retrievedDevice?.disconnect()
-                            retrievedDevice = nil
-                            self.pairedDeviceId = nil
-                        }
-                        if let retrievedDevice {
-                            let state = retrievedDevice.state
 
-                            if state == .disconnected || state == .connecting {
-                                AsyncButton("Connect Device", state: $viewState) {
-                                    try await retrievedDevice.connect()
-                                }
-                            }
-
-                            if state == .connecting || state == .connected || state == .disconnecting {
-                                AsyncButton("Disconnect Device") {
-                                    await retrievedDevice.disconnect()
-                                }
-                            }
-                        } else {
-                            AsyncButton("Retrieve Device") {
-                                retrievedDevice = await bluetooth.retrieveDevice(for: pairedDeviceId)
-                            }
-                        }
+                        deviceButtons(for: pairedDeviceId)
                     }
 
                     if let retrievedDevice, case .connected = retrievedDevice.state {
@@ -78,6 +56,37 @@ struct RetrievePairedDevicesView: View {
     init(pairedDeviceId: Binding<UUID?>, retrievedDevice: Binding<TestDevice?>) {
         self._pairedDeviceId = pairedDeviceId
         self._retrievedDevice = retrievedDevice
+    }
+
+
+    @ViewBuilder
+    @MainActor
+    private func deviceButtons(for pairedDeviceId: UUID) -> some View {
+        AsyncButton("Unpair Device") {
+            await retrievedDevice?.disconnect()
+            retrievedDevice = nil
+            self.pairedDeviceId = nil
+        }
+        if let retrievedDevice {
+            let state = retrievedDevice.state
+
+            if state == .disconnected || state == .connecting {
+                AsyncButton("Connect Device", state: $viewState) {
+                    try await retrievedDevice.connect()
+                }
+            }
+
+            if state == .connecting || state == .connected || state == .disconnecting {
+                AsyncButton("Disconnect Device") {
+                    await retrievedDevice.disconnect()
+                }
+            }
+        } else {
+            AsyncButton("Retrieve Device") {
+                let bluetooth = bluetooth
+                retrievedDevice = await bluetooth.retrieveDevice(for: pairedDeviceId)
+            }
+        }
     }
 }
 

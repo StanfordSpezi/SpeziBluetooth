@@ -151,7 +151,7 @@ extension BluetoothManagerStorage {
                     guard let self = self else {
                         return
                     }
-                    Task.detached { @SpeziBluetooth in
+                    Task.detached { @Sendable @SpeziBluetooth in
                         self.unsubscribe(for: id)
                     }
                 }

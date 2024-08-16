@@ -67,6 +67,45 @@ public struct BloodPressureFeature: OptionSet {
 extension BloodPressureFeature: Hashable, Sendable {}
 
 
+extension BloodPressureFeature: CustomStringConvertible, CustomDebugStringConvertible {
+    public var description: String {
+        var components: [String] = []
+        if contains(.bodyMovementDetectionSupported) {
+            components.append("bodyMovementDetectionSupported")
+        }
+        if contains(.cuffFitDetectionSupported) {
+            components.append("cuffFitDetectionSupported")
+        }
+        if contains(.irregularPulseDetectionSupported) {
+            components.append("irregularPulseDetectionSupported")
+        }
+        if contains(.pulseRateRangeDetectionSupported) {
+            components.append("pulseRateRangeDetectionSupported")
+        }
+        if contains(.measurementPositionDetectionSupported) {
+            components.append("measurementPositionDetectionSupported")
+        }
+        if contains(.multipleBondsSupported) {
+            components.append("multipleBondsSupported")
+        }
+        if contains(.e2eCrcSupported) {
+            components.append("e2eCrcSupported")
+        }
+        if contains(.userDataServiceSupported) {
+            components.append("userDataServiceSupported")
+        }
+        if contains(.userFacingTimeSupported) {
+            components.append("userFacingTimeSupported")
+        }
+        return "[\(components.joined(separator: ", "))]"
+    }
+
+    public var debugDescription: String {
+        "\(Self.self)(rawValue: 0x\(String(format: "%02X", rawValue)))"
+    }
+}
+
+
 extension BloodPressureFeature: ByteCodable {
     public init?(from byteBuffer: inout ByteBuffer) {
         guard let rawValue = UInt16(from: &byteBuffer) else {

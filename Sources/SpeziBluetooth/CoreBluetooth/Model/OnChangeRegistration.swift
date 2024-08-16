@@ -43,7 +43,7 @@ public final class OnChangeRegistration {
         let locator = locator
         let handlerId = handlerId
 
-        Task.detached { @SpeziBluetooth in
+        Task.detached { @Sendable @SpeziBluetooth in
             peripheral?.deregisterOnChange(locator: locator, handlerId: handlerId)
         }
     }

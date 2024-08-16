@@ -52,6 +52,36 @@ extension TemperatureType: RawRepresentable {}
 extension TemperatureType: Hashable, Sendable {}
 
 
+extension TemperatureType: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .reserved:
+            "reserved"
+        case .armpit:
+            "armpit"
+        case .body:
+            "body"
+        case .ear:
+            "ear"
+        case .finger:
+            "finger"
+        case .gastrointestinalTract:
+            "gastrointestinalTract"
+        case .mouth:
+            "mouth"
+        case .rectum:
+            "rectum"
+        case .toe:
+            "toe"
+        case .tympanum:
+            "tympanum"
+        default:
+            "\(Self.self)(rawValue: \(rawValue))"
+        }
+    }
+}
+
+
 extension TemperatureType: ByteCodable {
     public init?(from byteBuffer: inout ByteBuffer) {
         guard let value = UInt8(from: &byteBuffer) else {
