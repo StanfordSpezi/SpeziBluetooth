@@ -81,4 +81,42 @@ final class BloodPressureTests: XCTestCase {
         try testIdentity(from: features2)
         try testIdentity(from: features3)
     }
+
+    func testBloodPressureFeatureStrings() {
+        let features: BloodPressureFeature = [
+            .bodyMovementDetectionSupported,
+            .cuffFitDetectionSupported,
+            .irregularPulseDetectionSupported,
+            .pulseRateRangeDetectionSupported,
+            .measurementPositionDetectionSupported,
+            .multipleBondsSupported,
+            .e2eCrcSupported,
+            .userDataServiceSupported,
+            .userFacingTimeSupported
+        ]
+
+        XCTAssertEqual(
+            features.description,
+            "[bodyMovementDetectionSupported, cuffFitDetectionSupported, irregularPulseDetectionSupported, pulseRateRangeDetectionSupported, measurementPositionDetectionSupported, multipleBondsSupported, e2eCrcSupported, userDataServiceSupported, userFacingTimeSupported]"
+        ) // swiftlint:disable:previous line_length
+
+        XCTAssertEqual(features.debugDescription, "BloodPressureFeature(rawValue: 0x1FF)")
+    }
+
+    func testBloodPressureStatusStrings() {
+        let status: BloodPressureMeasurement.Status = [
+            .bodyMovementDetected,
+            .looseCuffFit,
+            .irregularPulse,
+            .pulseRateExceedsUpperLimit,
+            .pulseRateBelowLowerLimit,
+            .improperMeasurementPosition
+        ]
+
+        XCTAssertEqual(
+            status.description,
+            "[bodyMovementDetected, looseCuffFit, irregularPulse, pulseRateExceedsUpperLimit, pulseRateBelowLowerLimit, improperMeasurementPosition]"
+        )
+        XCTAssertEqual(status.debugDescription, "Status(rawValue: 0x3F)")
+    }
 }

@@ -55,7 +55,7 @@ public struct CurrentTime {
 extension CurrentTime.AdjustReason: Hashable, Sendable {}
 
 
-extension CurrentTime.AdjustReason: CustomStringConvertible {
+extension CurrentTime.AdjustReason: CustomStringConvertible, CustomDebugStringConvertible {
     public var description: String {
         var components: [String] = []
         if contains(.manualTimeUpdate) {
@@ -71,6 +71,10 @@ extension CurrentTime.AdjustReason: CustomStringConvertible {
             components.append("changeOfDST")
         }
         return "[\(components.joined(separator: ", "))]"
+    }
+
+    public var debugDescription: String {
+        "\(Self.self)(rawValue: 0x\(String(format: "%02X", rawValue)))"
     }
 }
 

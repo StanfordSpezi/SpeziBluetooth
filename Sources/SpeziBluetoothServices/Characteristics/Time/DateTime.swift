@@ -203,7 +203,7 @@ extension DateTime.Month: CustomStringConvertible {
         case .december:
             "december"
         default:
-            "\(Self.self)(rawValue: \(rawValue)"
+            "\(Self.self)(rawValue: \(rawValue))"
         }
     }
 }

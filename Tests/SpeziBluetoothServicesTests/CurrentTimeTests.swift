@@ -100,6 +100,20 @@ final class CurrentTimeTests: XCTestCase {
         try testIdentity(from: DayOfWeek(rawValue: 26)) // test a reserved value
     }
 
+    func testDayOfWeekStrings() throws {
+        let expected = ["unknown", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "DayOfWeek(rawValue: 26)"]
+        let values = [DayOfWeek.unknown, .monday, .tuesday, .wednesday, .thursday, .friday, .saturday, .sunday, DayOfWeek(rawValue: 26)]
+        XCTAssertEqual(values.map { $0.description }, expected)
+    }
+
+    func testMonthStrings() throws {
+        // swiftlint:disable line_length
+        let expected = ["unknown", "january", "february", "march", "april", "mai", "june", "july", "august", "september", "october", "november", "december", "Month(rawValue: 23)"]
+        let values = [DateTime.Month.unknown, .january, .february, .march, .april, .mai, .june, .july, .august, .september, .october, .november, .december, .init(rawValue: 23)]
+        // swiftlint:enable line_length
+        XCTAssertEqual(values.map { $0.description }, expected)
+    }
+
     func testDayDateTime() throws {
         let dateTime = DateTime(year: 2005, month: .december, day: 27, hours: 12, minutes: 31, seconds: 40)
         try testIdentity(from: DayDateTime(dateTime: dateTime, dayOfWeek: .tuesday))
@@ -176,5 +190,11 @@ final class CurrentTimeTests: XCTestCase {
         let exactTime = try XCTUnwrap(ExactTime256(from: components))
         XCTAssertEqual(exactTime.seconds, 27)
         XCTAssertEqual(exactTime.fractions256, 17)
+    }
+
+    func testAdjustReasonStrings() {
+        let reasons: CurrentTime.AdjustReason = [.manualTimeUpdate, .externalReferenceTimeUpdate, .changeOfTimeZone, .changeOfDST]
+        XCTAssertEqual(reasons.description, "[manualTimeUpdate, externalReferenceTimeUpdate, changeOfTimeZone, changeOfDST]")
+        XCTAssertEqual(reasons.debugDescription, "AdjustReasons(rawValue: 0x0F)")
     }
 }
