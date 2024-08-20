@@ -38,7 +38,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.59.0"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.0.4"),
         .package(url: "https://github.com/apple/swift-atomics.git", from: "1.2.0"),
-        .package(url: "https://github.com/StanfordBDHG/XCTestExtensions.git", from: "0.4.11")
+        .package(url: "https://github.com/StanfordBDHG/XCTestExtensions.git", from: "1.0.0")
     ] + swiftLintPackage(),
     targets: [
         .target(
