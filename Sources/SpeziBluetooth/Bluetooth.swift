@@ -549,7 +549,6 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
         let device = prepareDevice(id: uuid, Device.self, peripheral: peripheral)
         // We load the module with external ownership. Meaning, Spezi won't keep any strong references to the Module and deallocation of
         // the module is possible, freeing all Spezi related resources.
-        let spezi = spezi
         await spezi.loadModule(device, ownership: .external)
 
         // The semantics of retrievePeripheral is as follows: it returns a BluetoothPeripheral that is weakly allocated by the BluetoothManager.´

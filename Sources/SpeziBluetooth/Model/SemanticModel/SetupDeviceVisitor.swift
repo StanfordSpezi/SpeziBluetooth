@@ -70,6 +70,9 @@ private struct SetupDeviceVisitor: DeviceVisitor {
             didInjectAnything: didInjectAnything
         )
         service.wrappedValue.accept(&visitor)
+
+        // call configure once the service is fully set up
+        service.wrappedValue.configure()
     }
 
     func visit<Action: _BluetoothPeripheralAction>(_ action: DeviceAction<Action>) {
