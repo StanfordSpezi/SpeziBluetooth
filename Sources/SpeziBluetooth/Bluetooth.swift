@@ -599,6 +599,7 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
 }
 
 
+@_spi(APISupport)
 extension Bluetooth: BluetoothScanner {
     /// Support for the auto connect modifier.
     @_documentation(visibility: internal)
@@ -607,7 +608,7 @@ extension Bluetooth: BluetoothScanner {
     }
 
     @SpeziBluetooth
-    func scanNearbyDevices(_ state: BluetoothModuleDiscoveryState) {
+    public func scanNearbyDevices(_ state: BluetoothModuleDiscoveryState) {
         scanNearbyDevices(
             minimumRSSI: state.minimumRSSI,
             advertisementStaleInterval: state.advertisementStaleInterval,
@@ -616,7 +617,7 @@ extension Bluetooth: BluetoothScanner {
     }
 
     @SpeziBluetooth
-    func updateScanningState(_ state: BluetoothModuleDiscoveryState) {
+    public func updateScanningState(_ state: BluetoothModuleDiscoveryState) {
         let managerState = BluetoothManagerDiscoveryState(
             configuredDevices: discoveryConfiguration,
             minimumRSSI: state.minimumRSSI,
