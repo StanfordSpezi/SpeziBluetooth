@@ -549,7 +549,6 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
         let device = prepareDevice(id: uuid, Device.self, peripheral: peripheral)
         // We load the module with external ownership. Meaning, Spezi won't keep any strong references to the Module and deallocation of
         // the module is possible, freeing all Spezi related resources.
-        let spezi = spezi
         await spezi.loadModule(device, ownership: .external)
 
         // The semantics of retrievePeripheral is as follows: it returns a BluetoothPeripheral that is weakly allocated by the BluetoothManager.´
@@ -600,6 +599,7 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
 }
 
 
+@_spi(APISupport)
 extension Bluetooth: BluetoothScanner {
     /// Support for the auto connect modifier.
     @_documentation(visibility: internal)
@@ -608,7 +608,7 @@ extension Bluetooth: BluetoothScanner {
     }
 
     @SpeziBluetooth
-    func scanNearbyDevices(_ state: BluetoothModuleDiscoveryState) {
+    public func scanNearbyDevices(_ state: BluetoothModuleDiscoveryState) {
         scanNearbyDevices(
             minimumRSSI: state.minimumRSSI,
             advertisementStaleInterval: state.advertisementStaleInterval,
@@ -617,7 +617,7 @@ extension Bluetooth: BluetoothScanner {
     }
 
     @SpeziBluetooth
-    func updateScanningState(_ state: BluetoothModuleDiscoveryState) {
+    public func updateScanningState(_ state: BluetoothModuleDiscoveryState) {
         let managerState = BluetoothManagerDiscoveryState(
             configuredDevices: discoveryConfiguration,
             minimumRSSI: state.minimumRSSI,

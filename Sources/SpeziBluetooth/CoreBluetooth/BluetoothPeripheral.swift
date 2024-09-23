@@ -1005,7 +1005,7 @@ extension BluetoothPeripheral {
                     logger.warning("Received erroneous write response for \(characteristic.uuid) without an ongoing access: \(error)")
                 } else {
                     result = .success(())
-                    logger.debug("Characteristic write for \(characteristic.uuid) returned with error: \(error)")
+                    logger.debug("Characteristic write for \(characteristic.uuid) returned successfully.")
                 }
 
                 let didHandle = device.characteristicAccesses.resumeWrite(with: result, for: characteristic.cbObject)

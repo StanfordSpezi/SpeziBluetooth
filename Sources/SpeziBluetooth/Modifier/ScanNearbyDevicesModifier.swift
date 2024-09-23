@@ -109,7 +109,15 @@ private struct ScanNearbyDevicesModifier<Scanner: BluetoothScanner>: ViewModifie
 
 
 extension View {
-    func scanNearbyDevices<Scanner: BluetoothScanner>(enabled: Bool, scanner: Scanner, state: Scanner.ScanningState) -> some View {
+    /// Scan for nearby Bluetooth devices with a custom bluetooth scanner.
+    /// - Parameters:
+    ///   - enabled: Flag indicating if nearby device scanning is enabled.
+    ///   - scanner: The bluetooth scanner.
+    ///   - state: The current scanning state passed to the bluetooth scanner. ``BluetoothScanner/updateScanningState(_:)`` will be called if the contents of
+    ///     this parameter changes.
+    /// - Returns: The modified view.
+    @_spi(APISupport)
+    public func scanNearbyDevices<Scanner: BluetoothScanner>(enabled: Bool, scanner: Scanner, state: Scanner.ScanningState) -> some View {
         modifier(ScanNearbyDevicesModifier(enabled: enabled, scanner: scanner, state: state))
     }
 

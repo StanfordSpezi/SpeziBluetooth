@@ -17,7 +17,8 @@ private func optionalMax<Value: Comparable>(_ lhs: Value?, _ rhs: Value?) -> Val
 }
 
 
-struct BluetoothManagerDiscoveryState: BluetoothScanningState {
+@_spi(APISupport)
+public struct BluetoothManagerDiscoveryState: BluetoothScanningState {
     /// The device descriptions describing how nearby devices are discovered.
     let configuredDevices: Set<DiscoveryDescription>
     /// The minimum rssi that is required for a device to be considered discovered.
@@ -35,7 +36,7 @@ struct BluetoothManagerDiscoveryState: BluetoothScanningState {
         self.autoConnect = autoConnect
     }
 
-    func merging(with other: BluetoothManagerDiscoveryState) -> BluetoothManagerDiscoveryState {
+    public func merging(with other: BluetoothManagerDiscoveryState) -> BluetoothManagerDiscoveryState {
         BluetoothManagerDiscoveryState(
             configuredDevices: configuredDevices.union(other.configuredDevices),
             minimumRSSI: optionalMax(minimumRSSI, other.minimumRSSI),
@@ -44,7 +45,7 @@ struct BluetoothManagerDiscoveryState: BluetoothScanningState {
         )
     }
 
-    func updateOptions(minimumRSSI: Int?, advertisementStaleInterval: TimeInterval?) -> BluetoothManagerDiscoveryState {
+    public func updateOptions(minimumRSSI: Int?, advertisementStaleInterval: TimeInterval?) -> BluetoothManagerDiscoveryState {
         BluetoothManagerDiscoveryState(
             configuredDevices: configuredDevices,
             minimumRSSI: optionalMax(self.minimumRSSI, minimumRSSI),
@@ -56,7 +57,8 @@ struct BluetoothManagerDiscoveryState: BluetoothScanningState {
 
 
 /// Intermediate storage object that is later translated to a BluetoothManagerDiscoveryState.
-struct BluetoothModuleDiscoveryState: BluetoothScanningState {
+@_spi(APISupport)
+public struct BluetoothModuleDiscoveryState: BluetoothScanningState {
     /// The minimum rssi that is required for a device to be considered discovered.
     let minimumRSSI: Int?
     /// The time interval after which an advertisement is considered stale and the device is removed.
@@ -71,7 +73,7 @@ struct BluetoothModuleDiscoveryState: BluetoothScanningState {
         self.autoConnect = autoConnect
     }
 
-    func merging(with other: BluetoothModuleDiscoveryState) -> BluetoothModuleDiscoveryState {
+    public func merging(with other: BluetoothModuleDiscoveryState) -> BluetoothModuleDiscoveryState {
         BluetoothModuleDiscoveryState(
             minimumRSSI: optionalMax(minimumRSSI, other.minimumRSSI),
             advertisementStaleInterval: optionalMax(advertisementStaleInterval, other.advertisementStaleInterval),
@@ -79,7 +81,7 @@ struct BluetoothModuleDiscoveryState: BluetoothScanningState {
         )
     }
 
-    func updateOptions(minimumRSSI: Int?, advertisementStaleInterval: TimeInterval?) -> BluetoothModuleDiscoveryState {
+    public func updateOptions(minimumRSSI: Int?, advertisementStaleInterval: TimeInterval?) -> BluetoothModuleDiscoveryState {
         BluetoothModuleDiscoveryState(
             minimumRSSI: optionalMax(self.minimumRSSI, minimumRSSI),
             advertisementStaleInterval: optionalMax(self.advertisementStaleInterval, advertisementStaleInterval),

@@ -27,7 +27,28 @@
 ///     var firmwareRevision: String?
 /// }
 /// ```
+///
+/// ## Topics
+///
+/// ### Bluetooth UUID
+/// - ``id``
+///
+/// ### Configuration
+/// - ``configure()``
 public protocol BluetoothService {
     /// The Bluetooth service id.
     static var id: BTUUID { get }
+    
+    /// Configure the bluetooth service.
+    ///
+    /// Use this method to perform initial configuration of the service (e.g., set up `onChange` handlers).
+    /// This method is called by the ``Bluetooth`` module, once the device is getting configured.
+    @SpeziBluetooth
+    func configure()
+}
+
+
+extension BluetoothService {
+    /// Empty default configure method.
+    public func configure() {}
 }
