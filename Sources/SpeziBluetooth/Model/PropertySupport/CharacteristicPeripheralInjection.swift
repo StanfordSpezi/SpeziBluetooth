@@ -323,7 +323,7 @@ extension CharacteristicPeripheralInjection where Value: ControlPointCharacteris
             throw error
         }
 
-        async let _ = withTimeout(of: timeout) { @SpeziBluetooth in
+        async let _ = withTimeout(of: timeout) { @Sendable @SpeziBluetooth in
             transaction.signalTimeout()
         }
 

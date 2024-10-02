@@ -1,4 +1,4 @@
-// swift-tools-version:5.9
+// swift-tools-version:6.0
 
 //
 // This source file is part of the Stanford Spezi open source project
@@ -12,29 +12,26 @@ import class Foundation.ProcessInfo
 import PackageDescription
 
 
-#if swift(<6)
-let swiftConcurrency: SwiftSetting = .enableExperimentalFeature("StrictConcurrency")
-#else
-let swiftConcurrency: SwiftSetting = .enableUpcomingFeature("StrictConcurrency")
-#endif
-
-
 let package = Package(
     name: "SpeziBluetooth",
     defaultLocalization: "en",
     platforms: [
         .iOS(.v17),
         .macCatalyst(.v17),
-        .macOS(.v14)
+        .macOS(.v14),
+        .visionOS(.v1),
+        .watchOS(.v10), // TODO: add SPM tests on these new targets! vision, watch, tv
+        .tvOS(.v17)
     ],
     products: [
         .library(name: "SpeziBluetoothServices", targets: ["SpeziBluetoothServices"]),
         .library(name: "SpeziBluetooth", targets: ["SpeziBluetooth"])
     ],
     dependencies: [
-        .package(url: "https://github.com/StanfordSpezi/SpeziFoundation", from: "2.0.0-beta.1"),
-        .package(url: "https://github.com/StanfordSpezi/Spezi", from: "1.7.1"),
-        .package(url: "https://github.com/StanfordSpezi/SpeziNetworking", from: "2.1.0"),
+        .package(url: "https://github.com/StanfordSpezi/SpeziFoundation.git", branch: "feature/concurrency-infrastructure"),
+        .package(url: "https://github.com/StanfordSpezi/Spezi.git", from: "1.7.1"),
+        .package(url: "https://github.com/StanfordSpezi/SpeziViews.git", branch: "feature/additional-infrastructure"),
+        .package(url: "https://github.com/StanfordSpezi/SpeziNetworking.git", from: "2.1.0"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.59.0"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.0.4"),
         .package(url: "https://github.com/apple/swift-atomics.git", from: "1.2.0"),
@@ -45,6 +42,7 @@ let package = Package(
             name: "SpeziBluetooth",
             dependencies: [
                 .product(name: "Spezi", package: "Spezi"),
+                .product(name: "SpeziViews", package: "SpeziViews"),
                 .product(name: "NIO", package: "swift-nio"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "SpeziFoundation", package: "SpeziFoundation"),
@@ -55,8 +53,7 @@ let package = Package(
                 .process("Resources")
             ],
             swiftSettings: [
-                swiftConcurrency,
-                .enableUpcomingFeature("InferSendableFromCaptures")
+                .swiftLanguageMode(.v5) // see https://github.com/swiftlang/swift/issues/76005
             ],
             plugins: [] + swiftLintPlugin()
         ),
@@ -67,9 +64,6 @@ let package = Package(
                 .product(name: "ByteCoding", package: "SpeziNetworking"),
                 .product(name: "SpeziNumerics", package: "SpeziNetworking")
             ],
-            swiftSettings: [
-                swiftConcurrency
-            ],
             plugins: [] + swiftLintPlugin()
         ),
         .executableTarget(
@@ -79,9 +73,6 @@ let package = Package(
                 .target(name: "SpeziBluetoothServices"),
                 .product(name: "ByteCoding", package: "SpeziNetworking")
             ],
-            swiftSettings: [
-                swiftConcurrency
-            ],
             plugins: [] + swiftLintPlugin()
         ),
         .testTarget(
@@ -89,9 +80,6 @@ let package = Package(
             dependencies: [
                 .target(name: "SpeziBluetooth"),
                 .target(name: "SpeziBluetoothServices")
-            ],
-            swiftSettings: [
-                swiftConcurrency
             ],
             plugins: [] + swiftLintPlugin()
         ),
@@ -103,9 +91,6 @@ let package = Package(
                 .product(name: "XCTByteCoding", package: "SpeziNetworking"),
                 .product(name: "NIO", package: "swift-nio"),
                 .product(name: "XCTestExtensions", package: "XCTestExtensions")
-            ],
-            swiftSettings: [
-                swiftConcurrency
             ],
             plugins: [] + swiftLintPlugin()
         )

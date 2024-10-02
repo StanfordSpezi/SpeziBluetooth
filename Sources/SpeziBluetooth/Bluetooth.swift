@@ -93,8 +93,8 @@ import Spezi
 /// Once you have the `Bluetooth` module configured within your Spezi app, you can access the module within your
 /// [`Environment`](https://developer.apple.com/documentation/swiftui/environment).
 ///
-/// You can use the ``SwiftUI/View/scanNearbyDevices(enabled:with:minimumRSSI:advertisementStaleInterval:autoConnect:)``
-///  and ``SwiftUI/View/autoConnect(enabled:with:minimumRSSI:advertisementStaleInterval:)``
+/// You can use the ``SwiftUICore/View/scanNearbyDevices(enabled:with:minimumRSSI:advertisementStaleInterval:autoConnect:)``
+///  and ``SwiftUICore/View/autoConnect(enabled:with:minimumRSSI:advertisementStaleInterval:)``
 /// modifiers to scan for nearby devices and/or auto connect to the first available device. Otherwise, you can also manually start and stop scanning for nearby devices
 /// using ``scanNearbyDevices(minimumRSSI:advertisementStaleInterval:autoConnect:)`` and ``stopScanning()``.
 ///
@@ -231,7 +231,7 @@ import Spezi
 /// - ``powerOn()``
 /// - ``powerOff()``
 @SpeziBluetooth
-public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
+public final class Bluetooth: Module, EnvironmentAccessible, @unchecked Sendable {
     @Observable
     class Storage {
         var nearbyDevices: OrderedDictionary<UUID, any BluetoothDevice> = [:]
@@ -284,7 +284,7 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
     /// Subscribe to changes of the `state` property.
     ///
     /// Creates an `AsyncStream` that yields all **future** changes to the ``state`` property.
-    public var stateSubscription: AsyncStream<BluetoothState> {
+    public nonisolated var stateSubscription: AsyncStream<BluetoothState> {
         bluetoothManager.stateSubscription
     }
 
@@ -342,7 +342,6 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
     ///
     /// - Note : The underlying `CBCentralManager` is lazily allocated and deallocated once it isn't needed anymore.
     ///     This is used to delay Bluetooth permission and power prompts to the latest possible moment avoiding unexpected interruptions.
-    @SpeziBluetooth
     public func powerOn() {
         bluetoothManager.powerOn()
     }
@@ -353,12 +352,14 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
     ///
     /// - Note : The underlying `CBCentralManager` is lazily allocated and deallocated once it isn't needed anymore.
     ///     This is used to delay Bluetooth permission and power prompts to the latest possible moment avoiding unexpected interruptions.
-    @SpeziBluetooth
     public func powerOff() {
         bluetoothManager.powerOff()
     }
 
-    @SpeziBluetooth
+    public func registerStateHandler(_ eventHandler: @escaping (BluetoothState) -> Void) -> StateRegistration {
+        bluetoothManager.registerStateHandler(eventHandler)
+    }
+
     private func observeDiscoveredDevices() {
         bluetoothManager.onChange(of: \.discoveredPeripherals) { [weak self] discoveredDevices in
             guard let self = self else {
@@ -374,7 +375,6 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
         // And we don't care about the rest.
     }
 
-    @SpeziBluetooth
     private func handleUpdatedNearbyDevicesChange(_ discoveredDevices: OrderedDictionary<UUID, BluetoothPeripheral>) {
         var newlyPreparedDevices: Set<UUID> = [] // track for which device instances we need to call Spezi/loadModule(...)
 
@@ -388,7 +388,8 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
                 device = persistedDevice
             } else {
                 let advertisementData = entry.value.advertisementData
-                guard let configuration = configuration.find(for: advertisementData, logger: logger) else {
+                let name = entry.value.name
+                guard let configuration = configuration.find(name: name, advertisementData: advertisementData, logger: logger) else {
                     logger.warning("Ignoring peripheral \(entry.value) that cannot be mapped to a device class.")
                     return
                 }
@@ -437,12 +438,10 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
 
 
     @_spi(Internal)
-    @SpeziBluetooth
     public func _initializedDevicesCount() -> Int { // swiftlint:disable:this identifier_name
         initializedDevices.count
     }
 
-    @SpeziBluetooth
     private func observePeripheralState(of uuid: UUID) {
         // We must make sure that we don't capture the `peripheral` within the `onChange` closure as otherwise
         // this would require a reference cycle within the `BluetoothPeripheral` class.
@@ -461,7 +460,6 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
         }
     }
 
-    @SpeziBluetooth
     private func handlePeripheralStateChange() {
         // check for active connected device
         let connectedDevices = bluetoothManager.knownPeripherals
@@ -517,7 +515,6 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
     ///   - uuid: The Bluetooth peripheral identifier.
     ///   - device: The device type to use for the peripheral.
     /// - Returns: The retrieved device. Returns nil if the Bluetooth Central could not be powered on (e.g., not authorized) or if no peripheral with the requested identifier was found.
-    @SpeziBluetooth
     public func retrieveDevice<Device: BluetoothDevice>(
         for uuid: UUID,
         as device: Device.Type = Device.self
@@ -569,7 +566,7 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
     /// The first connected device can be accessed through the
     /// [Environment(_:)](https://developer.apple.com/documentation/swiftui/environment/init(_:)-8slkf) in your SwiftUI view.
     ///
-    /// - Tip: Scanning for nearby devices can easily be managed via the ``SwiftUI/View/scanNearbyDevices(enabled:with:minimumRSSI:advertisementStaleInterval:autoConnect:)``
+    /// - Tip: Scanning for nearby devices can easily be managed via the ``SwiftUICore/View/scanNearbyDevices(enabled:with:minimumRSSI:advertisementStaleInterval:autoConnect:)``
     ///     modifier.
     ///
     /// - Parameters:
@@ -578,7 +575,6 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
     ///     if we don't hear back from the device. Minimum is 1 second.
     ///   - autoConnect: If enabled, the bluetooth manager will automatically connect to
     ///     the nearby device if only one is found for a given time threshold.
-    @SpeziBluetooth
     public func scanNearbyDevices(
         minimumRSSI: Int? = nil,
         advertisementStaleInterval: TimeInterval? = nil,
@@ -593,7 +589,6 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
     }
 
     /// Stop scanning for nearby bluetooth devices.
-    @SpeziBluetooth
     public func stopScanning() {
         bluetoothManager.stopScanning()
     }
@@ -607,7 +602,6 @@ extension Bluetooth: BluetoothScanner {
         bluetoothManager.hasConnectedDevices
     }
 
-    @SpeziBluetooth
     func scanNearbyDevices(_ state: BluetoothModuleDiscoveryState) {
         scanNearbyDevices(
             minimumRSSI: state.minimumRSSI,
@@ -616,7 +610,6 @@ extension Bluetooth: BluetoothScanner {
         )
     }
 
-    @SpeziBluetooth
     func updateScanningState(_ state: BluetoothModuleDiscoveryState) {
         let managerState = BluetoothManagerDiscoveryState(
             configuredDevices: discoveryConfiguration,
@@ -632,7 +625,6 @@ extension Bluetooth: BluetoothScanner {
 // MARK: - Device Handling
 
 extension Bluetooth {
-    @SpeziBluetooth
     func prepareDevice<Device: BluetoothDevice>(id uuid: UUID, _ device: Device.Type, peripheral: BluetoothPeripheral) -> Device {
         let device = device.init()
         
@@ -666,7 +658,6 @@ extension Bluetooth {
     }
 
 
-    @SpeziBluetooth
     private func _notifyDeviceDeinit(for uuid: UUID) {
         #if DEBUG || TEST
         Task { @MainActor in
