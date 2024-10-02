@@ -356,7 +356,7 @@ public final class Bluetooth: Module, EnvironmentAccessible, @unchecked Sendable
         bluetoothManager.powerOff()
     }
 
-    public func registerStateHandler(_ eventHandler: @escaping (BluetoothState) -> Void) -> StateChangeHandlerRegistration {
+    public func registerStateHandler(_ eventHandler: @escaping (BluetoothState) -> Void) -> StateRegistration {
         bluetoothManager.registerStateHandler(eventHandler)
     }
 
