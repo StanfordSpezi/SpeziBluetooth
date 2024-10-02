@@ -125,6 +125,8 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
     /// Subscribe to changes of the `state` property.
     ///
     /// Creates an `AsyncStream` that yields all **future** changes to the ``state`` property.
+    ///
+    /// - Note: If you need to instantly react to state changes, you can use the ``registerStateHandler(_:)`` method.
     public nonisolated var stateSubscription: AsyncStream<BluetoothState> {
         storage.stateSubscription
     }
@@ -224,6 +226,10 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
     public func powerOff() {
         keepPoweredOn = false
         checkForCentralDeinit()
+    }
+
+    public func registerStateHandler(_ eventHandler: @escaping (BluetoothState) -> Void) -> StateChangeHandlerRegistration {
+        storage.subscribe(eventHandler) // TODO: naming? note to state subscription
     }
 
     /// Scan for nearby bluetooth devices.
@@ -556,7 +562,7 @@ extension BluetoothManager: BluetoothScanner {
         storage.maHasConnectedDevices
     }
 
-    @SpeziBluetooth var sbHasConnectedDevices: Bool {
+    var sbHasConnectedDevices: Bool {
         storage.hasConnectedDevices // support for DiscoverySession
     }
 
