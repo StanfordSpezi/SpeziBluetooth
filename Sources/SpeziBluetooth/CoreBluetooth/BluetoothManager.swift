@@ -253,7 +253,8 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
         scanNearbyDevices(state)
     }
 
-    func scanNearbyDevices(_ state: BluetoothManagerDiscoveryState) {
+    @_spi(APISupport)
+    public func scanNearbyDevices(_ state: BluetoothManagerDiscoveryState) {
         guard discoverySession == nil else {
             return // already scanning!
         }
@@ -534,6 +535,7 @@ public class BluetoothManager: Observable, Sendable, Identifiable { // swiftlint
 }
 
 
+@_spi(APISupport)
 extension BluetoothManager: BluetoothScanner {
     /// Default id based on `ObjectIdentifier`.
     public nonisolated var id: ObjectIdentifier {
@@ -550,7 +552,7 @@ extension BluetoothManager: BluetoothScanner {
         storage.hasConnectedDevices // support for DiscoverySession
     }
 
-    func updateScanningState(_ state: BluetoothManagerDiscoveryState) {
+    public func updateScanningState(_ state: BluetoothManagerDiscoveryState) {
         guard let discoverySession else {
             return
         }

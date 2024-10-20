@@ -9,7 +9,8 @@
 import Foundation
 
 
-protocol BluetoothScanningState: Equatable, Sendable {
+@_spi(APISupport)
+public protocol BluetoothScanningState: Equatable, Sendable {
     /// Merge with another state. Order should not matter in the operation.
     /// - Parameter other: The other state to merge with
     func merging(with other: Self) -> Self
@@ -19,7 +20,8 @@ protocol BluetoothScanningState: Equatable, Sendable {
 
 
 /// Any kind of Bluetooth Scanner.
-protocol BluetoothScanner: Identifiable, Sendable where ID: Hashable {
+@_spi(APISupport)
+public protocol BluetoothScanner: Identifiable, Sendable where ID: Hashable {
     /// Captures state required to start scanning.
     associatedtype ScanningState: BluetoothScanningState
 
