@@ -8,6 +8,29 @@
 
 import CoreBluetooth
 import Foundation
+import SpeziFoundation
+
+
+struct CharacteristicAccessorCapture: Sendable {
+    let isNotifying: Bool
+    let properties: CBCharacteristicProperties
+
+    fileprivate init(isNotifying: Bool, properties: CBCharacteristicProperties) {
+        self.isNotifying = isNotifying
+        self.properties = properties
+    }
+}
+
+
+struct CharacteristicAccessorCapture: Sendable {
+    let isNotifying: Bool
+    let properties: CBCharacteristicProperties
+
+    fileprivate init(isNotifying: Bool, properties: CBCharacteristicProperties) {
+        self.isNotifying = isNotifying
+        self.properties = properties
+    }
+}
 
 
 struct CharacteristicAccessorCapture: Sendable {

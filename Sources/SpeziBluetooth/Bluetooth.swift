@@ -94,8 +94,8 @@ import Spezi
 /// Once you have the `Bluetooth` module configured within your Spezi app, you can access the module within your
 /// [`Environment`](https://developer.apple.com/documentation/swiftui/environment).
 ///
-/// You can use the ``SwiftUI/View/scanNearbyDevices(enabled:with:minimumRSSI:advertisementStaleInterval:autoConnect:)``
-///  and ``SwiftUI/View/autoConnect(enabled:with:minimumRSSI:advertisementStaleInterval:)``
+/// You can use the ``SwiftUICore/View/scanNearbyDevices(enabled:with:minimumRSSI:advertisementStaleInterval:autoConnect:)``
+///  and ``SwiftUICore/View/autoConnect(enabled:with:minimumRSSI:advertisementStaleInterval:)``
 /// modifiers to scan for nearby devices and/or auto connect to the first available device. Otherwise, you can also manually start and stop scanning for nearby devices
 /// using ``scanNearbyDevices(minimumRSSI:advertisementStaleInterval:autoConnect:)`` and ``stopScanning()``.
 ///
@@ -362,6 +362,11 @@ public final class Bluetooth: Module, EnvironmentAccessible, @unchecked Sendable
     }
 
     @SpeziBluetooth
+    public func registerStateHandler(_ eventHandler: @escaping (BluetoothState) -> Void) -> StateRegistration {
+        bluetoothManager.registerStateHandler(eventHandler)
+    }
+
+    @SpeziBluetooth
     private func observeDiscoveredDevices() {
         bluetoothManager.onChange(of: \.discoveredPeripherals) { [weak self] discoveredDevices in
             guard let self = self else {
@@ -391,7 +396,8 @@ public final class Bluetooth: Module, EnvironmentAccessible, @unchecked Sendable
                 device = persistedDevice
             } else {
                 let advertisementData = entry.value.advertisementData
-                guard let configuration = configuration.find(for: advertisementData, logger: logger) else {
+                let name = entry.value.name
+                guard let configuration = configuration.find(name: name, advertisementData: advertisementData, logger: logger) else {
                     logger.warning("Ignoring peripheral \(entry.value) that cannot be mapped to a device class.")
                     return
                 }
@@ -571,7 +577,7 @@ public final class Bluetooth: Module, EnvironmentAccessible, @unchecked Sendable
     /// The first connected device can be accessed through the
     /// [Environment(_:)](https://developer.apple.com/documentation/swiftui/environment/init(_:)-8slkf) in your SwiftUI view.
     ///
-    /// - Tip: Scanning for nearby devices can easily be managed via the ``SwiftUI/View/scanNearbyDevices(enabled:with:minimumRSSI:advertisementStaleInterval:autoConnect:)``
+    /// - Tip: Scanning for nearby devices can easily be managed via the ``SwiftUICore/View/scanNearbyDevices(enabled:with:minimumRSSI:advertisementStaleInterval:autoConnect:)``
     ///     modifier.
     ///
     /// - Parameters:
