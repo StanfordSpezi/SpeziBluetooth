@@ -36,12 +36,21 @@ final class ManagedAtomicMainActorBuffered<Value: AtomicValue & Sendable>: Senda
         _ newValue: Value,
         mutation: sending @MainActor @escaping (@MainActor () -> Void) -> Void
     ) {
-        Task { @MainActor in
-            let valueMutation = { @MainActor in
-                self.mainActorValue = newValue
+        if Thread.isMainThread {
+            MainActor.assumeIsolated {
+                let valueMutation = { @MainActor in
+                    self.mainActorValue = newValue
+                }
+                mutation(valueMutation)
             }
+        } else {
+            Task { @MainActor in
+                let valueMutation = { @MainActor in
+                    self.mainActorValue = newValue
+                }
 
-            mutation(valueMutation)
+                mutation(valueMutation)
+            }
         }
     }
 

@@ -46,12 +46,20 @@ final class MainActorBuffered<Value: Sendable>: Sendable {
     }
 
     private func _store(_ newValue: Value, mutation: sending @MainActor @escaping (@MainActor () -> Void) -> Void) {
-        Task { @MainActor in
+        if Thread.isMainThread {
+            MainActor.assumeIsolated {
+                let valueMutation = { @MainActor in
+                    self.mainActorValue = newValue
+                }
+                mutation(valueMutation)
+            }
+        } else {
             let valueMutation = { @MainActor in
                 self.mainActorValue = newValue
             }
-
-            mutation(valueMutation)
+            Task { @MainActor in
+                mutation(valueMutation)
+            }
         }
     }
 
