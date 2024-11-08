@@ -44,9 +44,11 @@ jobs:
       runsonlabels: '["macOS", "self-hosted", "bluetooth"]'
       path: 'Tests/UITests'
       swiftVersion: 6
+      setupsigning: true
       artifactname: TestApp-macOS.xcresult
       resultBundle: TestApp-macOS.xcresult
       customcommand: "set -o pipefail && xcodebuild test -scheme 'TestApp' -configuration 'Test' -destination 'platform=macOS,arch=arm64,variant=Mac Catalyst' -derivedDataPath '.derivedData' -resultBundlePath 'TestApp-macOS.xcresult' -skipPackagePluginValidation -skipMacroValidation | xcbeautify"
+    secrets: inherit
   uploadcoveragereport:
     name: Upload Coverage Report
     needs: [packageios, ios, macos]
