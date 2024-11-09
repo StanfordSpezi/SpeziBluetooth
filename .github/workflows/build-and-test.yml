@@ -44,7 +44,7 @@ jobs:
       runsonlabels: '["macOS", "self-hosted", "bluetooth"]'
       path: 'Tests/UITests'
       swiftVersion: 6
-      setupsigning: true
+      setupsigning: false
       artifactname: TestApp-macOS.xcresult
       resultBundle: TestApp-macOS.xcresult
       customcommand: "set -o pipefail && xcodebuild test -scheme 'TestApp' -configuration 'Test' -destination 'platform=macOS,arch=arm64,variant=Mac Catalyst' -derivedDataPath '.derivedData' -resultBundlePath 'TestApp-macOS.xcresult' -skipPackagePluginValidation -skipMacroValidation | xcbeautify"
