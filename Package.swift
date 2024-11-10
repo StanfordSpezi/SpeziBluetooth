@@ -1,4 +1,4 @@
-// swift-tools-version:5.9
+// swift-tools-version:6.0
 
 //
 // This source file is part of the Stanford Spezi open source project
@@ -10,13 +10,6 @@
 
 import class Foundation.ProcessInfo
 import PackageDescription
-
-
-#if swift(<6)
-let swiftConcurrency: SwiftSetting = .enableExperimentalFeature("StrictConcurrency")
-#else
-let swiftConcurrency: SwiftSetting = .enableUpcomingFeature("StrictConcurrency")
-#endif
 
 
 let package = Package(
@@ -54,10 +47,6 @@ let package = Package(
             resources: [
                 .process("Resources")
             ],
-            swiftSettings: [
-                swiftConcurrency,
-                .enableUpcomingFeature("InferSendableFromCaptures")
-            ],
             plugins: [] + swiftLintPlugin()
         ),
         .target(
@@ -66,9 +55,6 @@ let package = Package(
                 .target(name: "SpeziBluetooth"),
                 .product(name: "ByteCoding", package: "SpeziNetworking"),
                 .product(name: "SpeziNumerics", package: "SpeziNetworking")
-            ],
-            swiftSettings: [
-                swiftConcurrency
             ],
             plugins: [] + swiftLintPlugin()
         ),
@@ -79,9 +65,6 @@ let package = Package(
                 .target(name: "SpeziBluetoothServices"),
                 .product(name: "ByteCoding", package: "SpeziNetworking")
             ],
-            swiftSettings: [
-                swiftConcurrency
-            ],
             plugins: [] + swiftLintPlugin()
         ),
         .testTarget(
@@ -89,9 +72,6 @@ let package = Package(
             dependencies: [
                 .target(name: "SpeziBluetooth"),
                 .target(name: "SpeziBluetoothServices")
-            ],
-            swiftSettings: [
-                swiftConcurrency
             ],
             plugins: [] + swiftLintPlugin()
         ),
@@ -103,9 +83,6 @@ let package = Package(
                 .product(name: "XCTByteCoding", package: "SpeziNetworking"),
                 .product(name: "NIO", package: "swift-nio"),
                 .product(name: "XCTestExtensions", package: "XCTestExtensions")
-            ],
-            swiftSettings: [
-                swiftConcurrency
             ],
             plugins: [] + swiftLintPlugin()
         )
