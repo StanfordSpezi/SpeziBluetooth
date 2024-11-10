@@ -22,7 +22,6 @@ jobs:
     with:
       runsonlabels: '["macOS", "self-hosted", "spezi"]'
       scheme: SpeziBluetooth-Package
-      swiftVersion: 6
       artifactname: SpeziBluetooth-Package.xcresult
       resultBundle: SpeziBluetooth-Package.xcresult
   ios:
@@ -32,7 +31,6 @@ jobs:
       runsonlabels: '["macOS", "self-hosted", "spezi"]'
       path: 'Tests/UITests'
       scheme: TestApp
-      swiftVersion: 6
       artifactname: TestApp-iOS.xcresult
       resultBundle: TestApp-iOS.xcresult
   macos:
@@ -43,7 +41,6 @@ jobs:
     with:
       runsonlabels: '["macOS", "self-hosted", "bluetooth"]'
       path: 'Tests/UITests'
-      swiftVersion: 6
       setupsigning: true
       artifactname: TestApp-macOS.xcresult
       resultBundle: TestApp-macOS.xcresult
