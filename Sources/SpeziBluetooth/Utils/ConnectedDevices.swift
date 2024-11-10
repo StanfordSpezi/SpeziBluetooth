@@ -30,10 +30,10 @@ import SwiftUI
 ///     }
 /// }
 /// ```
-@Observable
-public final class ConnectedDevices<Device: BluetoothDevice> {
-    private let devices: [Device]
+public final class ConnectedDevices<Device: BluetoothDevice>: Observable {
+    let devices: [Device]
 
+    @MainActor
     init(_ devices: [Device] = []) {
         self.devices = devices
     }

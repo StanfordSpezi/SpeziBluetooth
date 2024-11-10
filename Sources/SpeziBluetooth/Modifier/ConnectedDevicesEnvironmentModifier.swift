@@ -13,6 +13,8 @@ private struct ConnectedDeviceEnvironmentModifier<Device: BluetoothDevice>: View
     @Environment(ConnectedDevicesModel.self)
     var connectedDevices
 
+    @State private var devicesList = ConnectedDevices<Device>()
+
     init() {}
 
 
@@ -23,11 +25,9 @@ private struct ConnectedDeviceEnvironmentModifier<Device: BluetoothDevice>: View
             device as? Device
         }
 
-        let devicesList = ConnectedDevices(connectedDevicesList)
-
         content
             .environment(firstConnectedDevice)
-            .environment(devicesList)
+            .environment(ConnectedDevices(connectedDevicesList))
     }
 }
 
@@ -39,8 +39,12 @@ struct ConnectedDevicesEnvironmentModifier: ViewModifier {
     var connectedDevices
 
 
-    init(configuredDeviceTypes: [any BluetoothDevice.Type]) {
+    nonisolated init(configuredDeviceTypes: [any BluetoothDevice.Type]) {
         self.configuredDeviceTypes = configuredDeviceTypes
+    }
+
+    nonisolated init(from configuration: Set<DeviceDiscoveryDescriptor>) {
+        self.init(configuredDeviceTypes: configuration.deviceTypes)
     }
 
 
