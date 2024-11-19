@@ -61,7 +61,7 @@ extension DeviceStateAccessor {
     ///     strictly if the value changes.
     ///     - action: The change handler to register.
     public func onChange(initial: Bool = false, perform action: @escaping @Sendable (Value) async -> Void) {
-        onChange(initial: true) { _, newValue in
+        onChange(initial: initial) { _, newValue in
             await action(newValue)
         }
     }
