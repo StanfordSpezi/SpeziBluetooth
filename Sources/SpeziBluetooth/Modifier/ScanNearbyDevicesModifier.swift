@@ -147,8 +147,8 @@ extension View {
     ///     if we don't hear back from the device. Minimum is 1 second. Supply `nil` to use default the default value or a value from the environment.
     ///   - autoConnect: If enabled, the bluetooth manager will automatically connect to the nearby device if only one is found.
     /// - Returns: The modified view.
-    public func scanNearbyDevices( // swiftlint:disable:this function_default_parameter_at_end
-        enabled: Bool = true,
+    public func scanNearbyDevices(
+        enabled: Bool = true, // swiftlint:disable:this function_default_parameter_at_end
         with bluetooth: Bluetooth,
         minimumRSSI: Int? = nil,
         advertisementStaleInterval: TimeInterval? = nil,
@@ -185,8 +185,8 @@ extension View {
     ///     if we don't hear back from the device. Minimum is 1 second. Supply `nil` to use default the default value or a value from the environment.
     ///   - autoConnect: If enabled, the bluetooth manager will automatically connect to the nearby device if only one is found.
     /// - Returns: The modified view.
-    public func scanNearbyDevices( // swiftlint:disable:this function_default_parameter_at_end
-        enabled: Bool = true,
+    public func scanNearbyDevices(
+        enabled: Bool = true, // swiftlint:disable:this function_default_parameter_at_end
         with bluetoothManager: BluetoothManager,
         discovery: Set<DiscoveryDescription>,
         minimumRSSI: Int? = nil,
