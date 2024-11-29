@@ -9,6 +9,7 @@
 import ByteCoding
 import Foundation
 import NIO
+import SpeziNumerics
 
 
 /// A temperature measurement.
@@ -38,7 +39,7 @@ public struct TemperatureMeasurement {
     /// The temperature value encoded as a `medfloat32`.
     ///
     /// The unit of this value is defined by the ``unit-swift.property`` property.
-    public let temperature: UInt32
+    public let temperature: MedFloat32
     /// The unit of the temperature value .
     ///
     /// This property defined the unit of the ``temperature`` property.
@@ -56,7 +57,7 @@ public struct TemperatureMeasurement {
     ///   - unit: The unit of the temperature measurement.
     ///   - timeStamp: The timestamp of the measurement.
     ///   - temperatureType: The type of the measurement.
-    public init(temperature: UInt32, unit: Unit, timeStamp: DateTime? = nil, temperatureType: TemperatureType? = nil) {
+    public init(temperature: MedFloat32, unit: Unit, timeStamp: DateTime? = nil, temperatureType: TemperatureType? = nil) {
         self.temperature = temperature
         self.unit = unit
         self.timeStamp = timeStamp
@@ -86,8 +87,8 @@ extension TemperatureMeasurement.Flags: ByteCodable {
 
 extension TemperatureMeasurement: ByteCodable {
     public init?(from byteBuffer: inout ByteBuffer) {
-        guard let flags = Flags(from: &byteBuffer),
-              let temperature = UInt32(from: &byteBuffer) else {
+         guard let flags = Flags(from: &byteBuffer),
+              let temperature = MedFloat32(from: &byteBuffer) else {
             return nil
         }
 

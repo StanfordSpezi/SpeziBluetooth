@@ -24,6 +24,7 @@ final class BluetoothServicesTests: XCTestCase {
         _ = BloodPressureService()
         _ = BatteryService()
         _ = CurrentTimeService()
+        _ = PulseOximeterService()
     }
 
     func testUUID() {

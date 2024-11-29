@@ -8,6 +8,7 @@
 
 import CoreBluetooth
 import NIO
+import SpeziNumerics
 @_spi(TestingSupport)
 @testable import SpeziBluetooth
 @_spi(TestingSupport)
@@ -23,15 +24,15 @@ final class HealthThermometerTests: XCTestCase {
     }
 
     func testTemperatureMeasurement() throws {
-        let data: UInt32 = 0xAFAFAFAF // 4 bytes for the medfloat
+        let temp = MedFloat32(bitPattern: 0xAFAFAFAF) // 4 bytes for the medfloat
         let time = DateTime(hours: 13, minutes: 12, seconds: 12)
 
-        try testIdentity(from: TemperatureMeasurement(temperature: data, unit: .celsius))
-        try testIdentity(from: TemperatureMeasurement(temperature: data, unit: .fahrenheit))
+        try testIdentity(from: TemperatureMeasurement(temperature: temp, unit: .celsius))
+        try testIdentity(from: TemperatureMeasurement(temperature: temp, unit: .fahrenheit))
 
-        try testIdentity(from: TemperatureMeasurement(temperature: data, unit: .celsius, timeStamp: time, temperatureType: .ear))
-        try testIdentity(from: TemperatureMeasurement(temperature: data, unit: .celsius, temperatureType: .ear))
-        try testIdentity(from: TemperatureMeasurement(temperature: data, unit: .celsius, timeStamp: time))
+        try testIdentity(from: TemperatureMeasurement(temperature: temp, unit: .celsius, timeStamp: time, temperatureType: .ear))
+        try testIdentity(from: TemperatureMeasurement(temperature: temp, unit: .celsius, temperatureType: .ear))
+        try testIdentity(from: TemperatureMeasurement(temperature: temp, unit: .celsius, timeStamp: time))
     }
 
     func testTemperatureType() throws {
