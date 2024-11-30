@@ -12,8 +12,7 @@ import NIOCore
 import SpeziNumerics
 
 
-/// A PLX Continuous Measurement, as defined by the Bluetooth specification.
-/// - See: https://www.bluetooth.com/specifications/specs/plxs-html/
+/// A PLX Continuous Measurement, as defined in the [Bluetooth specification](https://www.bluetooth.com/specifications/specs/plxs-html/).
 public struct PLXContinuousMeasurement: ByteCodable, Hashable, Sendable, Codable {
     struct Flags: OptionSet, ByteCodable, Sendable, Codable, Hashable {
         let rawValue: UInt8

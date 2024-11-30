@@ -37,6 +37,12 @@ which natively integrates with SpeziBluetooth-defined services.
 - ``ExactTime256``
 - ``CurrentTime``
 
+### Pulse Oximetry
+
+- ``PLXContinuousMeasurement``
+- ``PLXSpotCheckMeasurement``
+- ``PLXFeatures``
+
 ### Blood Pressure
 
 - ``BloodPressureMeasurement``

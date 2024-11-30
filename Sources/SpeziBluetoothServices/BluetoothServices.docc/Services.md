@@ -29,3 +29,4 @@ Below is a list of reusable Bluetooth service implementations of standardized Bl
 - ``BloodPressureService``
 - ``HealthThermometerService``
 - ``WeightScaleService``
+- ``PulseOximeterService``

@@ -12,10 +12,26 @@ import NIOCore
 import SpeziNumerics
 
 
+/// The features supported by a Bluetooth-enabled Pulse Oximeter.
 public struct PLXFeatures: ByteCodable, Hashable, Sendable, Codable {
+    /// The measurement-status-fields supported by this device.
+    /// - Note: Even though this is the same type as ``PLXContinuousMeasurement.MeasurementStatus``
+    ///     used for continuous measurements, in the ``PLXFeatures``-context, the fields here are interpreted as indicating
+    ///     whether the device supports the field, and not whether the field's described thing is currently true.
+    ///     E.g.: `MeasurementStatus.measurementIsOngoing` being present on `PLXFeatures.measurementStatusSupport`
+    ///     only means that the device can report, when taking a measurement, whether the measurement is still ongoing.
+    ///     It does not mean that there is a measurement ongoing right now.
     public typealias MeasurementStatusSupport = PLXContinuousMeasurement.MeasurementStatus
+    /// The device- and sensor-status-fields supported by this device.
+    /// - Note: Even though this is the same type as ``PLXContinuousMeasurement.DeviceAndSensorStatus``
+    ///     used for continuous measurements, in the ``PLXFeatures``-context, the fields here are interpreted as indicating
+    ///     whether the device supports the field, and not whether the field's described thing is currently true.
+    ///     E.g.: `DeviceAndSensorStatus.erraticSignalDetected` being present on `PLXFeatures.deviceAndSensorStatusSupport`
+    ///     only means that the device can report, when taking a measurement, whether an erratic signal was detected.
+    ///     It does not mean that there is an erratic signal right now.
     public typealias DeviceAndSensorStatusSupport = PLXContinuousMeasurement.DeviceAndSensorStatus
     
+    /// The features supported by the device.
     public struct SupportedFeatures: OptionSet, ByteCodable, Hashable, Sendable, Codable {
         public let rawValue: UInt16
         public init(rawValue: UInt16) {

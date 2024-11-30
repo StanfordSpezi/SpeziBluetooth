@@ -21,5 +21,5 @@ with standardized services and characteristics.
 
 ### Articles
 
-- <doc:Characteristics>
 - <doc:Services>
+- <doc:Characteristics>
