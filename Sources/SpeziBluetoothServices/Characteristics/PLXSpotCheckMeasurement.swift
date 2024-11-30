@@ -12,8 +12,7 @@ import NIOCore
 import SpeziNumerics
 
 
-/// A PLX Spot-check Measurement, as defined by the Bluetooth specification.
-/// - See: https://www.bluetooth.com/specifications/specs/plxs-html/
+/// A PLX Spot-check Measurement, as defined in the [Bluetooth specification](https://www.bluetooth.com/specifications/specs/plxs-html/).
 public struct PLXSpotCheckMeasurement: ByteCodable, Hashable, Sendable, Codable {
     public typealias MeasurementStatus = PLXContinuousMeasurement.MeasurementStatus
     public typealias DeviceAndSensorStatus = PLXContinuousMeasurement.DeviceAndSensorStatus
