@@ -6,17 +6,19 @@
 // SPDX-License-Identifier: MIT
 //
 
-import NIO
+import ByteCodingTesting
+import NIOCore
 @_spi(TestingSupport)
 @testable import SpeziBluetooth
 @_spi(TestingSupport)
 @testable import SpeziBluetoothServices
-import XCTByteCoding
-import XCTest
+import Testing
 
 
-final class BluetoothServicesTests: XCTestCase {
-    func testServices() async throws {
+@Suite("Bluetooth Services")
+struct BluetoothServicesTests {
+    @Test("Services init")
+    func testServices() {
         _ = TestService()
         _ = HealthThermometerService()
         _ = DeviceInformationService()
@@ -27,10 +29,12 @@ final class BluetoothServicesTests: XCTestCase {
         _ = PulseOximeterService()
     }
 
+    @Test("BT UUID")
     func testUUID() {
-        XCTAssertEqual(BTUUID.toCustomShort(.testService), "F001")
+        #expect(BTUUID.toCustomShort(.testService) == "F001")
     }
 
+    @Test("Event Log")
     func testEventLog() throws {
         try testIdentity(from: EventLog.none)
         try testIdentity(from: EventLog.subscribedToNotification(.eventLogCharacteristic))

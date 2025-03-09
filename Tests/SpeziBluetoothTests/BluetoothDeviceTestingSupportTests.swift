@@ -6,10 +6,11 @@
 // SPDX-License-Identifier: MIT
 //
 
+import Foundation
 @_spi(TestingSupport)
 import SpeziBluetooth
 import SpeziBluetoothServices
-import XCTest
+import Testing
 
 final class MockDevice: BluetoothDevice, @unchecked Sendable {
     @DeviceState(\.id)
@@ -35,35 +36,39 @@ final class MockDevice: BluetoothDevice, @unchecked Sendable {
 }
 
 
-final class BluetoothDeviceTestingSupportTests: XCTestCase {
+@Suite("Device Testing Support")
+struct BluetoothDeviceTestingSupportTests {
     @MainActor
     class Results<Value> {
         var received: [Value] = []
     }
 
+    @Test("Automatic DeviceState Injection")
     func testDeviceStateInjectionArtificialValue() {
         let device = MockDevice()
 
-        XCTAssertNil(device.name)
-        XCTAssertEqual(device.state, .disconnected)
-        XCTAssertEqual(device.advertisementData, .init()) // empty
-        XCTAssertEqual(device.rssi, Int(UInt8.max))
-        XCTAssertFalse(device.nearby)
+        #expect(device.name == nil)
+        #expect(device.state == .disconnected)
+        #expect(device.advertisementData == .init()) // empty
+        #expect(device.rssi == Int(UInt8.max))
+        #expect(!device.nearby)
 
         let now = Date.now
-        XCTAssert(device.lastActivity >= now)
+        #expect(device.lastActivity >= now)
     }
 
+    @Test("Manual DeviceState Injection")
     func testDeviceStateValueInjection() {
         let device = MockDevice()
 
         let id = UUID()
         device.$id.inject(id)
 
-        XCTAssertEqual(device.id, id)
+        #expect(device.id == id)
     }
 
     @MainActor
+    @Test("DeviceState onChange Injection")
     func testDeviceStateOnChangeInjection() async throws {
         let device = MockDevice()
 
@@ -83,33 +88,33 @@ final class BluetoothDeviceTestingSupportTests: XCTestCase {
 
         try await Task.sleep(for: .milliseconds(200))
 
-        XCTAssertEqual(results.received, [id1, id2])
+        #expect(results.received == [id1, id2])
     }
 
     func testDeviceActionInjection() async throws {
         let device = MockDevice()
 
-        let expectation = XCTestExpectation(description: "closure")
+        try await confirmation { confirmation in
+            device.$connect.inject {
+                try? await Task.sleep(for: .milliseconds(10))
+                confirmation()
+            }
 
-        device.$connect.inject {
-            try? await Task.sleep(for: .milliseconds(10))
-            expectation.fulfill()
+            try await device.connect()
         }
-
-        try await device.connect()
-
-        await fulfillment(of: [expectation], timeout: 0.1)
     }
 
+    @Test("Characteristic Value Injection")
     func testCharacteristicInjection() {
         let device = MockDevice()
 
         device.deviceInformation.$manufacturerName.inject("Hello World")
 
-        XCTAssertEqual(device.deviceInformation.manufacturerName, "Hello World")
+        #expect(device.deviceInformation.manufacturerName == "Hello World")
     }
 
     @MainActor
+    @Test("Characteristic onChange Injection")
     func testCharacteristicOnChangeInjection() async throws {
         let device = MockDevice()
 
@@ -135,9 +140,10 @@ final class BluetoothDeviceTestingSupportTests: XCTestCase {
 
         try await Task.sleep(for: .milliseconds(50))
 
-        XCTAssertEqual(results.received, [value1, value2, value3])
+        #expect(results.received == [value1, value2, value3])
     }
 
+    @Test("Characteristic Peripheral Simulation")
     func testCharacteristicPeripheralSimulation() async throws {
         let device = MockDevice()
         let service = device.deviceInformation
@@ -150,13 +156,13 @@ final class BluetoothDeviceTestingSupportTests: XCTestCase {
         service.$manufacturerName.inject(value1)
 
         let read = try await service.$manufacturerName.read()
-        XCTAssertEqual(read, value1)
+        #expect(read == value1)
 
         try await service.$manufacturerName.write(value2)
-        XCTAssertEqual(service.manufacturerName, value2)
+        #expect(service.manufacturerName == value2)
 
         try await service.$manufacturerName.writeWithoutResponse(value3)
-        XCTAssertEqual(service.manufacturerName, value3)
+        #expect(service.manufacturerName == value3)
     }
 
     func testCharacteristicClosureInjection() async throws {
@@ -167,29 +173,39 @@ final class BluetoothDeviceTestingSupportTests: XCTestCase {
         let value2 = "Manufacturer2"
         let value3 = "Manufacturer3"
 
-        let writeExpectation = XCTestExpectation(description: "write")
-        let writeWithoutResponseExpectation = XCTestExpectation(description: "writeWithoutResponse")
-
         service.$manufacturerName.onRead {
             value1
         }
-        service.$manufacturerName.onWrite { value, type in
-            switch type {
-            case .withResponse:
-                XCTAssertEqual(value, value2)
-                writeExpectation.fulfill()
-            case .withoutResponse:
-                XCTAssertEqual(value, value3)
-                writeWithoutResponseExpectation.fulfill()
-            }
-        }
 
         let read = try await service.$manufacturerName.read()
-        XCTAssertEqual(read, value1)
+        #expect(read == value1)
 
-        try await service.$manufacturerName.write(value2)
-        try await service.$manufacturerName.writeWithoutResponse(value3)
+        try await confirmation { confirmation in
+            service.$manufacturerName.onWrite { value, type in
+                guard case .withResponse = type else {
+                    Issue.record("Unexpected response type: \(type)")
+                    return
+                }
 
-        await fulfillment(of: [writeExpectation, writeWithoutResponseExpectation], timeout: 0.1)
+                #expect(value == value2)
+                confirmation()
+            }
+
+            try await service.$manufacturerName.write(value2)
+        }
+
+        try await confirmation { confirmation in
+            service.$manufacturerName.onWrite { value, type in
+                guard case .withoutResponse = type else {
+                    Issue.record("Unexpected response type: \(type)")
+                    return
+                }
+
+                #expect(value == value3)
+                confirmation()
+            }
+
+            try await service.$manufacturerName.writeWithoutResponse(value3)
+        }
     }
 }

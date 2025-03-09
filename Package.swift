@@ -25,20 +25,19 @@ let package = Package(
         .library(name: "SpeziBluetooth", targets: ["SpeziBluetooth"])
     ],
     dependencies: [
-        .package(url: "https://github.com/StanfordSpezi/SpeziFoundation", from: "2.0.0-beta.1"),
-        .package(url: "https://github.com/StanfordSpezi/Spezi", from: "1.7.1"),
-        .package(url: "https://github.com/StanfordSpezi/SpeziNetworking", from: "2.1.0"),
+        .package(url: "https://github.com/StanfordSpezi/SpeziFoundation.git", from: "2.1.1"),
+        .package(url: "https://github.com/StanfordSpezi/Spezi.git", from: "1.7.1"),
+        .package(url: "https://github.com/StanfordSpezi/SpeziNetworking.git", branch: "feature/swift-testing"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.59.0"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.0.4"),
-        .package(url: "https://github.com/apple/swift-atomics.git", from: "1.2.0"),
-        .package(url: "https://github.com/StanfordBDHG/XCTestExtensions.git", from: "1.0.0")
+        .package(url: "https://github.com/apple/swift-atomics.git", from: "1.2.0")
     ] + swiftLintPackage(),
     targets: [
         .target(
             name: "SpeziBluetooth",
             dependencies: [
                 .product(name: "Spezi", package: "Spezi"),
-                .product(name: "NIO", package: "swift-nio"),
+                .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "SpeziFoundation", package: "SpeziFoundation"),
                 .product(name: "ByteCoding", package: "SpeziNetworking"),
@@ -80,9 +79,8 @@ let package = Package(
             dependencies: [
                 .target(name: "SpeziBluetooth"),
                 .target(name: "SpeziBluetoothServices"),
-                .product(name: "XCTByteCoding", package: "SpeziNetworking"),
-                .product(name: "NIO", package: "swift-nio"),
-                .product(name: "XCTestExtensions", package: "XCTestExtensions")
+                .product(name: "NIOCore", package: "swift-nio"),
+                .product(name: "ByteCodingTesting", package: "SpeziNetworking")
             ],
             plugins: [] + swiftLintPlugin()
         )

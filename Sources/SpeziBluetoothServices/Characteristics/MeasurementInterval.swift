@@ -7,7 +7,7 @@
 //
 
 import ByteCoding
-import NIO
+import NIOCore
 
 
 /// Represents the time between measurements.

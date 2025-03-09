@@ -6,21 +6,22 @@
 // SPDX-License-Identifier: MIT
 //
 
+import ByteCodingTesting
 import CoreBluetooth
-import NIO
+import NIOCore
 @_spi(TestingSupport)
 @testable import SpeziBluetooth
 @_spi(TestingSupport)
 @testable import SpeziBluetoothServices
-import XCTByteCoding
-import XCTest
-import XCTestExtensions
+import Testing
 
 
 typealias RACP = RecordAccessControlPoint<RecordAccessGenericOperand>
 
 
-final class RecordAccessControlPointTests: XCTestCase {
+@Suite("RecordAccessControlPoint Service")
+struct RecordAccessControlPointTests {
+    @Test("Report Stored Records")
     func testRACPReportStoredRecords() throws {
         try testIdentity(from: RACP.reportStoredRecords(.allRecords))
         try testIdentity(from: RACP.reportStoredRecords(.lastRecord))
@@ -33,6 +34,7 @@ final class RecordAccessControlPointTests: XCTestCase {
         try testIdentity(from: RACP.reportStoredRecords(.withinInclusiveRangeOf(.userFacingTime(min: 12, max: 412))))
     }
 
+    @Test("Delete Stored Records")
     func testRACPDeleteStoredRecords() throws {
         try testIdentity(from: RACP.deleteStoredRecords(.allRecords))
         try testIdentity(from: RACP.deleteStoredRecords(.lastRecord))
@@ -45,10 +47,12 @@ final class RecordAccessControlPointTests: XCTestCase {
         try testIdentity(from: RACP.deleteStoredRecords(.withinInclusiveRangeOf(.userFacingTime(min: 12, max: 412))))
     }
 
+    @Test("Abort")
     func testRACPAbort() throws {
         try testIdentity(from: RACP.abort())
     }
 
+    @Test("Report Number of Stored Records")
     func testRACPReportNumberOfStoredRecords() throws {
         try testIdentity(from: RACP.reportNumberOfStoredRecords(.allRecords))
         try testIdentity(from: RACP.reportNumberOfStoredRecords(.lastRecord))
@@ -61,6 +65,7 @@ final class RecordAccessControlPointTests: XCTestCase {
         try testIdentity(from: RACP.reportNumberOfStoredRecords(.withinInclusiveRangeOf(.userFacingTime(min: 12, max: 412))))
     }
 
+    @Test("General Response")
     func testRACPGeneralResponse() throws {
         try testIdentity(from: RACP(
             opCode: .responseCode,
@@ -69,6 +74,7 @@ final class RecordAccessControlPointTests: XCTestCase {
         ))
     }
 
+    @Test("Report Stored Records Request")
     func testRACPReportRecordsRequest() async throws {
         @Characteristic(id: "2A52")
         var controlPoint: RACP?
@@ -79,6 +85,7 @@ final class RecordAccessControlPointTests: XCTestCase {
         try await $controlPoint.reportStoredRecords(.allRecords)
     }
 
+    @Test("Delete Stored Records Request")
     func testRACPDeleteStoredRecordsRequest() async throws {
         @Characteristic(id: "2A52")
         var controlPoint: RACP?
@@ -89,6 +96,7 @@ final class RecordAccessControlPointTests: XCTestCase {
         try await $controlPoint.deleteStoredRecords(.allRecords)
     }
 
+    @Test("Abort Request")
     func testRACPAbortRequest() async throws {
         @Characteristic(id: "2A52")
         var controlPoint: RACP?
@@ -103,33 +111,44 @@ final class RecordAccessControlPointTests: XCTestCase {
         $controlPoint.onRequest { _ in
             RACP(opCode: .abortOperation, operator: .null)
         }
-        try await XCTAssertThrowsErrorAsync(await $controlPoint.abort())
+        await #expect(throws: RecordAccessResponseFormatError.self) {
+            try await $controlPoint.abort()
+        }
 
         // unexpected response operator
         $controlPoint.onRequest { _ in
             RACP(opCode: .responseCode, operator: .allRecords)
         }
-        try await XCTAssertThrowsErrorAsync(await $controlPoint.abort())
+        await #expect(throws: RecordAccessResponseFormatError.self) {
+            try await $controlPoint.abort()
+        }
 
         // unexpected general response operand format
         $controlPoint.onRequest { _ in
             RACP(opCode: .responseCode, operator: .null, operand: .numberOfRecords(1234))
         }
-        try await XCTAssertThrowsErrorAsync(await $controlPoint.abort())
+        await #expect(throws: RecordAccessResponseFormatError.self) {
+            try await $controlPoint.abort()
+        }
 
         // non matching request opcode
         $controlPoint.onRequest { _ in
             RACP(opCode: .responseCode, operator: .null, operand: .generalResponse(.init(requestOpCode: .reportStoredRecords, response: .success)))
         }
-        try await XCTAssertThrowsErrorAsync(await $controlPoint.abort())
+        await #expect(throws: RecordAccessResponseFormatError.self) {
+            try await $controlPoint.abort()
+        }
 
         // erroneous request
         $controlPoint.onRequest { _ in
             RACP(opCode: .responseCode, operator: .null, operand: .generalResponse(.init(requestOpCode: .abortOperation, response: .invalidOperand)))
         }
-        try await XCTAssertThrowsErrorAsync(await $controlPoint.abort())
+        await #expect(throws: RecordAccessResponseCode.invalidOperand) {
+            try await $controlPoint.abort()
+        }
     }
 
+    @Test("Report Number of Stored Records Request")
     func testRACPReportNumberOfStoredRecordsRequest() async throws {
         @Characteristic(id: "2A52")
         var controlPoint: RACP?
@@ -138,31 +157,39 @@ final class RecordAccessControlPointTests: XCTestCase {
             RACP(opCode: .numberOfStoredRecordsResponse, operator: .null, operand: .numberOfRecords(1234))
         }
         let count = try await $controlPoint.reportNumberOfStoredRecords(.allRecords)
-        XCTAssertEqual(count, 1234)
+        #expect(count == 1234)
 
         // unexpected response opcode
         $controlPoint.onRequest { _ in
             RACP(opCode: .abortOperation, operator: .null)
         }
-        try await XCTAssertThrowsErrorAsync(await $controlPoint.reportNumberOfStoredRecords(.allRecords))
+        await #expect(throws: RecordAccessResponseFormatError.self) {
+            try await $controlPoint.reportNumberOfStoredRecords(.allRecords)
+        }
 
         // unexpected response operator
         $controlPoint.onRequest { _ in
             RACP(opCode: .responseCode, operator: .allRecords)
         }
-        try await XCTAssertThrowsErrorAsync(await $controlPoint.reportNumberOfStoredRecords(.allRecords))
+        await #expect(throws: RecordAccessResponseFormatError.self) {
+            try await $controlPoint.reportNumberOfStoredRecords(.allRecords)
+        }
 
         // unexpected general response operand format
         $controlPoint.onRequest { _ in
             RACP(opCode: .responseCode, operator: .null, operand: .filterCriteria(.sequenceNumber(123)))
         }
-        try await XCTAssertThrowsErrorAsync(await $controlPoint.reportNumberOfStoredRecords(.allRecords))
+        await #expect(throws: RecordAccessResponseFormatError.self) {
+            try await $controlPoint.reportNumberOfStoredRecords(.allRecords)
+        }
 
         // non matching request opcode
         $controlPoint.onRequest { _ in
             RACP(opCode: .responseCode, operator: .null, operand: .generalResponse(.init(requestOpCode: .reportStoredRecords, response: .success)))
         }
-        try await XCTAssertThrowsErrorAsync(await $controlPoint.reportNumberOfStoredRecords(.allRecords))
+        await #expect(throws: RecordAccessResponseFormatError.self) {
+            try await $controlPoint.reportNumberOfStoredRecords(.allRecords)
+        }
 
         // erroneous request
         $controlPoint.onRequest { _ in
@@ -172,12 +199,16 @@ final class RecordAccessControlPointTests: XCTestCase {
                 operand: .generalResponse(.init(requestOpCode: .reportNumberOfStoredRecords, response: .invalidOperand))
             )
         }
-        try await XCTAssertThrowsErrorAsync(await $controlPoint.reportNumberOfStoredRecords(.allRecords))
+        await #expect(throws: RecordAccessResponseCode.invalidOperand) {
+            try await $controlPoint.reportNumberOfStoredRecords(.allRecords)
+        }
 
         // invalid operator
         $controlPoint.onRequest { _ in
             RACP(opCode: .numberOfStoredRecordsResponse, operator: .allRecords, operand: .numberOfRecords(1234))
         }
-        try await XCTAssertThrowsErrorAsync(await $controlPoint.reportNumberOfStoredRecords(.allRecords))
+        await #expect(throws: RecordAccessResponseFormatError.self) {
+            try await $controlPoint.reportNumberOfStoredRecords(.allRecords)
+        }
     }
 }

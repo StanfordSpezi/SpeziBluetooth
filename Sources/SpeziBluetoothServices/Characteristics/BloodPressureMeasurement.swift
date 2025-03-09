@@ -8,7 +8,7 @@
 
 import ByteCoding
 import Foundation
-import NIO
+import NIOCore
 import SpeziNumerics
 
 

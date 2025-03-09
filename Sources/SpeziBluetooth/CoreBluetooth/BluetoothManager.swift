@@ -7,7 +7,7 @@
 //
 
 import CoreBluetooth
-import NIO
+import NIOCore
 import Observation
 import OrderedCollections
 import OSLog
