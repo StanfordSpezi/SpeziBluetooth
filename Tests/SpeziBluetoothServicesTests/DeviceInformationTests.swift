@@ -6,17 +6,19 @@
 // SPDX-License-Identifier: MIT
 //
 
+import ByteCodingTesting
 import CoreBluetooth
-import NIO
+import NIOCore
 @_spi(TestingSupport)
 @testable import SpeziBluetooth
 @_spi(TestingSupport)
 @testable import SpeziBluetoothServices
-import XCTByteCoding
-import XCTest
+import Testing
 
 
-final class DeviceInformationTests: XCTestCase {
+@Suite("DeviceInformation Service")
+struct DeviceInformationTests {
+    @Test("PnPID")
     func testPnPID() throws {
         try testIdentity(from: VendorIDSource.bluetoothSIGAssigned)
         try testIdentity(from: VendorIDSource.usbImplementersForumAssigned)

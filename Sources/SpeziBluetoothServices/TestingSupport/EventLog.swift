@@ -9,7 +9,7 @@
 @_spi(TestingSupport)
 import ByteCoding
 import CoreBluetooth
-import NIO
+import NIOCore
 @_spi(TestingSupport)
 import SpeziBluetooth
 

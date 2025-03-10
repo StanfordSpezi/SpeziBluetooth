@@ -6,17 +6,19 @@
 // SPDX-License-Identifier: MIT
 //
 
+import ByteCodingTesting
 import CoreBluetooth
-import NIO
+import NIOCore
 @_spi(TestingSupport)
 @testable import SpeziBluetooth
 @_spi(TestingSupport)
 @testable import SpeziBluetoothServices
-import XCTByteCoding
-import XCTest
+import Testing
 
 
-final class WeightMeasurementTests: XCTestCase {
+@Suite("WeightMeasurement Service")
+struct WeightMeasurementTests {
+    @Test("WeightMeasurement")
     func testWeightMeasurement() throws {
         let time = DateTime(hours: 13, minutes: 12, seconds: 12)
 
@@ -26,6 +28,7 @@ final class WeightMeasurementTests: XCTestCase {
         try testIdentity(from: WeightMeasurement(weight: 123, unit: .si, additionalInfo: .init(bmi: 230, height: 1760)))
     }
 
+    @Test("WeightMeasurement Resolutions")
     func testWeightMeasurementResolutions() throws {
         func weightOf(_ weight: UInt16, resolution: WeightScaleFeature.WeightResolution, unit: WeightMeasurement.Unit = .si) -> Double {
             WeightMeasurement(weight: weight, unit: unit)
@@ -37,35 +40,36 @@ final class WeightMeasurementTests: XCTestCase {
                 .height(of: resolution)
         }
 
-        XCTAssertEqual(weightOf(120, resolution: .unspecified), 0.6)
-        XCTAssertEqual(weightOf(120, resolution: .resolution5g), 0.6)
-        XCTAssertEqual(weightOf(120, resolution: .resolution10g), 1.2)
-        XCTAssertEqual(weightOf(120, resolution: .resolution20g), 2.4)
-        XCTAssertEqual(weightOf(120, resolution: .resolution50g), 6)
-        XCTAssertEqual(weightOf(120, resolution: .resolution100g), 12)
-        XCTAssertEqual(weightOf(120, resolution: .resolution200g), 24)
-        XCTAssertEqual(weightOf(120, resolution: .resolution500g), 60)
+        #expect(weightOf(120, resolution: .unspecified) == 0.6)
+        #expect(weightOf(120, resolution: .resolution5g) == 0.6)
+        #expect(weightOf(120, resolution: .resolution10g) == 1.2)
+        #expect(weightOf(120, resolution: .resolution20g) == 2.4)
+        #expect(weightOf(120, resolution: .resolution50g) == 6)
+        #expect(weightOf(120, resolution: .resolution100g) == 12)
+        #expect(weightOf(120, resolution: .resolution200g) == 24)
+        #expect(weightOf(120, resolution: .resolution500g) == 60)
 
-        XCTAssertEqual(weightOf(120, resolution: .unspecified, unit: .imperial), 1.2)
-        XCTAssertEqual(weightOf(120, resolution: .resolution5g, unit: .imperial), 1.2)
-        XCTAssertEqual(weightOf(120, resolution: .resolution10g, unit: .imperial), 2.4)
-        XCTAssertEqual(weightOf(120, resolution: .resolution20g, unit: .imperial), 6)
-        XCTAssertEqual(weightOf(120, resolution: .resolution50g, unit: .imperial), 12)
-        XCTAssertEqual(weightOf(120, resolution: .resolution100g, unit: .imperial), 24)
-        XCTAssertEqual(weightOf(120, resolution: .resolution200g, unit: .imperial), 60)
-        XCTAssertEqual(weightOf(120, resolution: .resolution500g, unit: .imperial), 120)
+        #expect(weightOf(120, resolution: .unspecified, unit: .imperial) == 1.2)
+        #expect(weightOf(120, resolution: .resolution5g, unit: .imperial) == 1.2)
+        #expect(weightOf(120, resolution: .resolution10g, unit: .imperial) == 2.4)
+        #expect(weightOf(120, resolution: .resolution20g, unit: .imperial) == 6)
+        #expect(weightOf(120, resolution: .resolution50g, unit: .imperial) == 12)
+        #expect(weightOf(120, resolution: .resolution100g, unit: .imperial) == 24)
+        #expect(weightOf(120, resolution: .resolution200g, unit: .imperial) == 60)
+        #expect(weightOf(120, resolution: .resolution500g, unit: .imperial) == 120)
 
-        XCTAssertEqual(heightOf(1700, resolution: .unspecified), 1.7)
-        XCTAssertEqual(heightOf(1700, resolution: .resolution1mm), 1.7)
-        XCTAssertEqual(heightOf(1700, resolution: .resolution5mm), 8.5)
-        XCTAssertEqual(heightOf(1700, resolution: .resolution10mm), 17)
+        #expect(heightOf(1700, resolution: .unspecified) == 1.7)
+        #expect(heightOf(1700, resolution: .resolution1mm) == 1.7)
+        #expect(heightOf(1700, resolution: .resolution5mm) == 8.5)
+        #expect(heightOf(1700, resolution: .resolution10mm) == 17)
 
-        XCTAssertEqual(heightOf(60, resolution: .unspecified, unit: .imperial), 6)
-        XCTAssertEqual(heightOf(60, resolution: .resolution1mm, unit: .imperial), 6)
-        XCTAssertEqual(heightOf(60, resolution: .resolution5mm, unit: .imperial), 30)
-        XCTAssertEqual(heightOf(60, resolution: .resolution10mm, unit: .imperial), 60)
+        #expect(heightOf(60, resolution: .unspecified, unit: .imperial) == 6)
+        #expect(heightOf(60, resolution: .resolution1mm, unit: .imperial) == 6)
+        #expect(heightOf(60, resolution: .resolution5mm, unit: .imperial) == 30)
+        #expect(heightOf(60, resolution: .resolution10mm, unit: .imperial) == 60)
     }
 
+    @Test("WeightScaleFeature")
     func testWeightScaleFeature() throws {
         let features: WeightScaleFeature = [
             .bmiSupported,
@@ -73,9 +77,9 @@ final class WeightMeasurementTests: XCTestCase {
             .timeStampSupported
         ]
 
-        XCTAssertTrue(features.contains(.bmiSupported))
-        XCTAssertTrue(features.contains(.multipleUsersSupported))
-        XCTAssertTrue(features.contains(.timeStampSupported))
+        #expect(features.contains(.bmiSupported))
+        #expect(features.contains(.multipleUsersSupported))
+        #expect(features.contains(.timeStampSupported))
 
         try testIdentity(from: features)
         try testIdentity(from: WeightScaleFeature(weightResolution: .resolution20g, heightResolution: .resolution10mm))
@@ -87,13 +91,14 @@ final class WeightMeasurementTests: XCTestCase {
         ))
 
         let features2 = WeightScaleFeature(weightResolution: .resolution20g, heightResolution: .resolution5mm, options: .bmiSupported)
-        XCTAssertEqual(features2.weightResolution, .resolution20g)
-        XCTAssertEqual(features2.heightResolution, .resolution5mm)
-        XCTAssertTrue(features2.contains(.bmiSupported))
-        XCTAssertFalse(features2.contains(.multipleUsersSupported))
-        XCTAssertFalse(features2.contains(.timeStampSupported))
+        #expect(features2.weightResolution == .resolution20g)
+        #expect(features2.heightResolution == .resolution5mm)
+        #expect(features2.contains(.bmiSupported))
+        #expect(!features2.contains(.multipleUsersSupported))
+        #expect(!features2.contains(.timeStampSupported))
     }
 
+    @Test("WeightScaleFeature Description")
     func testWeightScaleFeatureStrings() {
         let features: WeightScaleFeature = [
             .bmiSupported,
@@ -101,10 +106,8 @@ final class WeightMeasurementTests: XCTestCase {
             .timeStampSupported
         ]
 
-        XCTAssertEqual(
-            features.description,
-            "WeightScaleFeature(weightResolution: WeightResolution(rawValue: 0), heightResolution: HeightResolution(rawValue: 0), options: timeStampSupported, multipleUsersSupported, bmiSupported)"
-        ) // swiftlint:disable:previous line_length
-        XCTAssertEqual(features.debugDescription, "WeightScaleFeature(rawValue: 0x07)")
+        #expect(features.description == "WeightScaleFeature(weightResolution: WeightResolution(rawValue: 0), heightResolution: HeightResolution(rawValue: 0), options: timeStampSupported, multipleUsersSupported, bmiSupported)")
+        // swiftlint:disable:previous line_length
+        #expect(features.debugDescription == "WeightScaleFeature(rawValue: 0x07)")
     }
 }

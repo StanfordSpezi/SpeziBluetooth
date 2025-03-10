@@ -7,7 +7,7 @@
 //
 
 import ByteCoding
-import NIO
+import NIOCore
 
 
 /// The location of a temperature measurement.

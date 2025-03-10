@@ -6,22 +6,25 @@
 // SPDX-License-Identifier: MIT
 //
 
+import ByteCodingTesting
 import CoreBluetooth
-import NIO
+import NIOCore
 @_spi(TestingSupport)
 @testable import SpeziBluetooth
 @_spi(TestingSupport)
 @testable import SpeziBluetoothServices
-import XCTByteCoding
-import XCTest
+import Testing
 
 
-final class HealthThermometerTests: XCTestCase {
+@Suite("HealthThermometer Service")
+struct HealthThermometerTests {
+    @Test("MeasurementInterval")
     func testMeasurementInterval() throws {
         try testIdentity(from: MeasurementInterval.noPeriodicMeasurement)
         try testIdentity(from: MeasurementInterval.duration(24))
     }
 
+    @Test("TemperatureMeasurement")
     func testTemperatureMeasurement() throws {
         let data: UInt32 = 0xAFAFAFAF // 4 bytes for the medfloat
         let time = DateTime(hours: 13, minutes: 12, seconds: 12)
@@ -34,6 +37,7 @@ final class HealthThermometerTests: XCTestCase {
         try testIdentity(from: TemperatureMeasurement(temperature: data, unit: .celsius, timeStamp: time))
     }
 
+    @Test("TemperatureType")
     func testTemperatureType() throws {
         try testIdentity(from: TemperatureType.reserved)
         try testIdentity(from: TemperatureType.armpit)
@@ -47,11 +51,12 @@ final class HealthThermometerTests: XCTestCase {
         try testIdentity(from: TemperatureType.tympanum)
     }
 
+    @Test("TemperatureType Description")
     func testTemperatureTypeStrings() {
         // swiftlint:disable line_length
         let expected = ["reserved", "armpit", "body", "ear", "finger", "gastrointestinalTract", "mouth", "rectum", "toe", "tympanum", "TemperatureType(rawValue: 23)"]
         let values = [TemperatureType.reserved, .armpit, .body, .ear, .finger, .gastrointestinalTract, .mouth, .rectum, .toe, .tympanum, .init(rawValue: 23)]
         // swiftlint:enable line_length
-        XCTAssertEqual(values.map { $0.description }, expected)
+        #expect(values.map { $0.description } == expected)
     }
 }

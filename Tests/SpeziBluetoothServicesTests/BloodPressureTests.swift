@@ -6,17 +6,19 @@
 // SPDX-License-Identifier: MIT
 //
 
+import ByteCodingTesting
 import CoreBluetooth
-import NIO
+import NIOCore
 @_spi(TestingSupport)
 @testable import SpeziBluetooth
 @_spi(TestingSupport)
 @testable import SpeziBluetoothServices
-import XCTByteCoding
-import XCTest
+import Testing
 
 
-final class BloodPressureTests: XCTestCase {
+@Suite("Blood Pressure Service")
+struct BloodPressureTests {
+    @Test("Blood Pressure Measurement")
     func testBloodPressureMeasurement() throws {
         let time = DateTime(hours: 13, minutes: 12, seconds: 12)
 
@@ -35,6 +37,7 @@ final class BloodPressureTests: XCTestCase {
         ))
     }
 
+    @Test("Immediate Cuff Pressure")
     func testIntermediateCuffPressure() throws {
         let time = DateTime(hours: 13, minutes: 12, seconds: 12)
 
@@ -51,6 +54,7 @@ final class BloodPressureTests: XCTestCase {
         ))
     }
 
+    @Test("Blood Pressure Feature")
     func testBloodPressureFeature() throws {
         let features: BloodPressureFeature = [
             .bodyMovementDetectionSupported,
@@ -64,15 +68,15 @@ final class BloodPressureTests: XCTestCase {
             .userFacingTimeSupported
         ]
 
-        XCTAssertTrue(features.contains(.bodyMovementDetectionSupported))
-        XCTAssertTrue(features.contains(.cuffFitDetectionSupported))
-        XCTAssertTrue(features.contains(.irregularPulseDetectionSupported))
-        XCTAssertTrue(features.contains(.pulseRateRangeDetectionSupported))
-        XCTAssertTrue(features.contains(.measurementPositionDetectionSupported))
-        XCTAssertTrue(features.contains(.multipleBondsSupported))
-        XCTAssertTrue(features.contains(.e2eCrcSupported))
-        XCTAssertTrue(features.contains(.userDataServiceSupported))
-        XCTAssertTrue(features.contains(.userFacingTimeSupported))
+        #expect(features.contains(.bodyMovementDetectionSupported))
+        #expect(features.contains(.cuffFitDetectionSupported))
+        #expect(features.contains(.irregularPulseDetectionSupported))
+        #expect(features.contains(.pulseRateRangeDetectionSupported))
+        #expect(features.contains(.measurementPositionDetectionSupported))
+        #expect(features.contains(.multipleBondsSupported))
+        #expect(features.contains(.e2eCrcSupported))
+        #expect(features.contains(.userDataServiceSupported))
+        #expect(features.contains(.userFacingTimeSupported))
 
         let features2: BloodPressureFeature = [BloodPressureFeature.bodyMovementDetectionSupported, .irregularPulseDetectionSupported]
         let features3: BloodPressureFeature = [BloodPressureFeature.bodyMovementDetectionSupported, .userFacingTimeSupported]
@@ -82,6 +86,7 @@ final class BloodPressureTests: XCTestCase {
         try testIdentity(from: features3)
     }
 
+    @Test("Blood Pressure Feature Strings")
     func testBloodPressureFeatureStrings() {
         let features: BloodPressureFeature = [
             .bodyMovementDetectionSupported,
@@ -95,14 +100,12 @@ final class BloodPressureTests: XCTestCase {
             .userFacingTimeSupported
         ]
 
-        XCTAssertEqual(
-            features.description,
-            "[bodyMovementDetectionSupported, cuffFitDetectionSupported, irregularPulseDetectionSupported, pulseRateRangeDetectionSupported, measurementPositionDetectionSupported, multipleBondsSupported, e2eCrcSupported, userDataServiceSupported, userFacingTimeSupported]"
-        ) // swiftlint:disable:previous line_length
-
-        XCTAssertEqual(features.debugDescription, "BloodPressureFeature(rawValue: 0x1FF)")
+        // swiftlint:disable:next line_length
+        #expect(features.description == "[bodyMovementDetectionSupported, cuffFitDetectionSupported, irregularPulseDetectionSupported, pulseRateRangeDetectionSupported, measurementPositionDetectionSupported, multipleBondsSupported, e2eCrcSupported, userDataServiceSupported, userFacingTimeSupported]")
+        #expect(features.debugDescription == "BloodPressureFeature(rawValue: 0x1FF)")
     }
 
+    @Test("Blood Pressure Status Strings")
     func testBloodPressureStatusStrings() {
         let status: BloodPressureMeasurement.Status = [
             .bodyMovementDetected,
@@ -113,10 +116,8 @@ final class BloodPressureTests: XCTestCase {
             .improperMeasurementPosition
         ]
 
-        XCTAssertEqual(
-            status.description,
-            "[bodyMovementDetected, looseCuffFit, irregularPulse, pulseRateExceedsUpperLimit, pulseRateBelowLowerLimit, improperMeasurementPosition]"
-        )
-        XCTAssertEqual(status.debugDescription, "Status(rawValue: 0x3F)")
+        // swiftlint:disable:next line_length
+        #expect(status.description == "[bodyMovementDetected, looseCuffFit, irregularPulse, pulseRateExceedsUpperLimit, pulseRateBelowLowerLimit, improperMeasurementPosition]")
+        #expect(status.debugDescription == "Status(rawValue: 0x3F)")
     }
 }

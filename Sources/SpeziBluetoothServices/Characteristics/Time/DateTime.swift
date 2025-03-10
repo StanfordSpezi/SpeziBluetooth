@@ -8,7 +8,7 @@
 
 import ByteCoding
 import Foundation
-import NIO
+import NIOCore
 
 
 /// Date and time information.

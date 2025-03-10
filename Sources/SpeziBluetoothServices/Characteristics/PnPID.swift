@@ -7,7 +7,7 @@
 //
 
 import ByteCoding
-import NIO
+import NIOCore
 
 
 /// Bluetooth Vendor ID Source.
