@@ -27,7 +27,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/StanfordSpezi/SpeziFoundation.git", from: "2.1.1"),
         .package(url: "https://github.com/StanfordSpezi/Spezi.git", from: "1.7.1"),
-        .package(url: "https://github.com/StanfordSpezi/SpeziNetworking.git", branch: "feature/swift-testing"),
+        .package(url: "https://github.com/StanfordSpezi/SpeziNetworking.git", from: "2.3.0"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.59.0"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.0.4"),
         .package(url: "https://github.com/apple/swift-atomics.git", from: "1.2.0")
