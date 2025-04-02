@@ -11,13 +11,13 @@ import OrderedCollections
 
 
 @Observable
-class ConnectedDevicesModel {
+@MainActor
+class ConnectedDevicesModel: Sendable {
     /// We track the connected device for every BluetoothDevice type and index by peripheral identifier.
-    @MainActor private var connectedDevices: [ObjectIdentifier: OrderedDictionary<UUID, any BluetoothDevice>] = [:]
+    private var connectedDevices: [ObjectIdentifier: OrderedDictionary<UUID, any BluetoothDevice>] = [:]
 
-    init() {}
+    nonisolated init() {}
 
-    @MainActor
     func update(with devices: [UUID: any BluetoothDevice]) {
         // remove devices that disconnected
         for (identifier, var devicesById) in connectedDevices {
@@ -43,7 +43,6 @@ class ConnectedDevicesModel {
         }
     }
 
-    @MainActor
     subscript(_ identifier: ObjectIdentifier) -> [(any BluetoothDevice)] {
         guard let values = connectedDevices[identifier]?.values else {
             return []

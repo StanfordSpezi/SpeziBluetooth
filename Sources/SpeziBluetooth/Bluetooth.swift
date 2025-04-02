@@ -9,6 +9,7 @@
 import OrderedCollections
 import OSLog
 @_spi(APISupport)
+@_spi(Spezi)
 import Spezi
 
 
@@ -230,8 +231,7 @@ import Spezi
 /// ### Manually Manage Powered State
 /// - ``powerOn()``
 /// - ``powerOff()``
-@SpeziBluetooth
-public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
+public final class Bluetooth: Module, EnvironmentAccessible, @unchecked Sendable {
     @Observable
     class Storage {
         @MainActor var nearbyDevices: OrderedDictionary<UUID, any BluetoothDevice> = [:]
@@ -249,9 +249,9 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
     public nonisolated let configuration: Set<DeviceDiscoveryDescriptor>
 
     // sadly Swifts "lazy var" won't work here with strict concurrency as it doesn't isolate the underlying lazy storage
-    private var _lazy_discoveryConfiguration: Set<DiscoveryDescription>?
+    @SpeziBluetooth private var _lazy_discoveryConfiguration: Set<DiscoveryDescription>?
     // swiftlint:disable:previous discouraged_optional_collection identifier_name
-    private var discoveryConfiguration: Set<DiscoveryDescription> {
+    @SpeziBluetooth private var discoveryConfiguration: Set<DiscoveryDescription> {
         guard let discoveryConfiguration = _lazy_discoveryConfiguration else {
             let discovery = configuration.parseDiscoveryDescription()
             self._lazy_discoveryConfiguration = discovery
@@ -286,7 +286,7 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
     /// Subscribe to changes of the `state` property.
     ///
     /// Creates an `AsyncStream` that yields all **future** changes to the ``state`` property.
-    public var stateSubscription: AsyncStream<BluetoothState> {
+    public nonisolated var stateSubscription: AsyncStream<BluetoothState> {
         bluetoothManager.stateSubscription
     }
 
@@ -295,7 +295,7 @@ public final class Bluetooth: Module, EnvironmentAccessible, Sendable {
     /// Devices might be part of `nearbyDevices` as well or just retrieved devices that are eventually connected.
     /// Values are stored weakly. All properties (like `@Characteristic`, `@DeviceState` or `@DeviceAction`) store a reference to `Bluetooth` and report once they are de-initialized
     /// to clear the respective initialized devices from this dictionary.
-    private var initializedDevices: OrderedDictionary<UUID, AnyWeakDeviceReference> = [:]
+    @SpeziBluetooth private var initializedDevices: OrderedDictionary<UUID, AnyWeakDeviceReference> = [:]
 
     @Application(\.spezi)
     private var spezi
