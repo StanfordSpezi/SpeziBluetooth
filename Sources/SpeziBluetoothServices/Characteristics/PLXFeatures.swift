@@ -15,7 +15,7 @@ import SpeziNumerics
 /// The features supported by a Bluetooth-enabled Pulse Oximeter.
 public struct PLXFeatures: ByteCodable, Hashable, Sendable, Codable {
     /// The measurement-status-fields supported by this device.
-    /// - Note: Even though this is the same type as ``PLXContinuousMeasurement.MeasurementStatus``
+    /// - Note: Even though this is the same type as ``PLXContinuousMeasurement/MeasurementStatus-swift.struct``
     ///     used for continuous measurements, in the ``PLXFeatures``-context, the fields here are interpreted as indicating
     ///     whether the device supports the field, and not whether the field's described thing is currently true.
     ///     E.g.: `MeasurementStatus.measurementIsOngoing` being present on `PLXFeatures.measurementStatusSupport`
@@ -23,7 +23,7 @@ public struct PLXFeatures: ByteCodable, Hashable, Sendable, Codable {
     ///     It does not mean that there is a measurement ongoing right now.
     public typealias MeasurementStatusSupport = PLXContinuousMeasurement.MeasurementStatus
     /// The device- and sensor-status-fields supported by this device.
-    /// - Note: Even though this is the same type as ``PLXContinuousMeasurement.DeviceAndSensorStatus``
+    /// - Note: Even though this is the same type as ``PLXContinuousMeasurement/DeviceAndSensorStatus-swift.struct``
     ///     used for continuous measurements, in the ``PLXFeatures``-context, the fields here are interpreted as indicating
     ///     whether the device supports the field, and not whether the field's described thing is currently true.
     ///     E.g.: `DeviceAndSensorStatus.erraticSignalDetected` being present on `PLXFeatures.deviceAndSensorStatusSupport`
