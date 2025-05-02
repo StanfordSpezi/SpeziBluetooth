@@ -130,6 +130,9 @@ public final class AccessorySetupKit {
     @_spi(Internal)
     public func activate() async {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            // While documentation specifies "The `dispatch` the session uses to deliver events to eventHandler.", that's wrong.
+            // Even if you dispatch a different queue than `main` the `eventHandler` closure will still be dispatched on the main actor, fun right.
+            // At least this was the logic on all version of iOS 18 up to 18.4.
             self.session.activate(on: .main) { [weak self] event in
                 if let self {
                     MainActor.assumeIsolated {
