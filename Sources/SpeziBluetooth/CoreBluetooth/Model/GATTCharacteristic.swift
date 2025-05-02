@@ -22,34 +22,11 @@ struct CharacteristicAccessorCapture: Sendable {
 }
 
 
-struct CharacteristicAccessorCapture: Sendable {
-    let isNotifying: Bool
-    let properties: CBCharacteristicProperties
-
-    fileprivate init(isNotifying: Bool, properties: CBCharacteristicProperties) {
-        self.isNotifying = isNotifying
-        self.properties = properties
-    }
-}
-
-
-struct CharacteristicAccessorCapture: Sendable {
-    let isNotifying: Bool
-    let properties: CBCharacteristicProperties
-
-    fileprivate init(isNotifying: Bool, properties: CBCharacteristicProperties) {
-        self.isNotifying = isNotifying
-        self.properties = properties
-    }
-}
-
-
 struct GATTCharacteristicCapture: Sendable {
     let isNotifying: Bool
     let value: Data?
     let properties: CBCharacteristicProperties
     let descriptors: CBInstance<[CBDescriptor]>?
-
     init(from characteristic: CBCharacteristic) {
         self.isNotifying = characteristic.isNotifying
         self.value = characteristic.value

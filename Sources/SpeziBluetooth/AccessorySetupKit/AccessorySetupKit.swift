@@ -11,6 +11,7 @@ import AccessorySetupKit
 #endif
 import Foundation
 import Spezi
+import Synchronization
 
 
 /// Enable privacy-preserving discovery and configuration of accessories through Apple's AccessorySetupKit.
@@ -43,7 +44,7 @@ import Spezi
 /// ### Determine Support
 /// - ``supportedProtocols``
 /// - ``SupportedProtocol``
-@SpeziBluetooth
+@MainActor
 @available(iOS 18.0, *)
 public final class AccessorySetupKit {
     @MainActor
@@ -56,6 +57,11 @@ public final class AccessorySetupKit {
         nonisolated init() {}
     }
 
+    fileprivate struct Handlers {
+        var accessoryChangeHandlers: [UUID: @MainActor (AccessoryEvent) -> Void] = [:]
+        var accessoryChangeSubscriptions: [UUID: AsyncStream<AccessoryEvent>.Continuation] = [:]
+    }
+
     @Application(\.logger)
     private var logger
 
@@ -63,6 +69,8 @@ public final class AccessorySetupKit {
     private let session = ASAccessorySession()
 #endif
     private let state = State()
+
+    private var invalidated = false
 
     /// Determine if the accessory picker is currently being presented.
     @MainActor public var pickerPresented: Bool {
@@ -77,9 +85,7 @@ public final class AccessorySetupKit {
         return session.accessories
     }
 
-    private nonisolated(unsafe) var accessoryChangeHandlers: [UUID: @SpeziBluetooth (AccessoryEvent) -> Void] = [:]
-    private nonisolated(unsafe) var accessoryChangeSubscriptions: [UUID: AsyncStream<AccessoryEvent>.Continuation] = [:]
-    private let subscriptionLock = NSLock()
+    private let handlers: Mutex<Handlers> = Mutex(.init())
 
     /// Subscribe to accessory events.
     ///
@@ -89,16 +95,16 @@ public final class AccessorySetupKit {
         AsyncStream { continuation in
             let id = UUID()
 
-            subscriptionLock.withLock {
-                accessoryChangeSubscriptions[id] = continuation
+            handlers.withLock {
+                $0.accessoryChangeSubscriptions[id] = continuation
             }
 
             continuation.onTermination = { [weak self] _ in
                 guard let self else {
                     return
                 }
-                subscriptionLock.withLock {
-                    _ = self.accessoryChangeSubscriptions.removeValue(forKey: id)
+                handlers.withLock {
+                    _ = $0.accessoryChangeSubscriptions.removeValue(forKey: id)
                 }
             }
         }
@@ -114,17 +120,37 @@ public final class AccessorySetupKit {
     public func configure() {
         Task { @SpeziBluetooth in
 #if canImport(AccessorySetupKit) && !targetEnvironment(macCatalyst) && !os(macOS)
-            self.session.activate(on: SpeziBluetooth.shared.dispatchQueue) { [weak self] event in
-                guard let self else {
-                    return
-                }
-                SpeziBluetooth.assumeIsolated {
-                    self.handleSessionEvent(event: event)
-                }
-            }
+            await self.activate()
 #endif
         }
     }
+
+#if canImport(AccessorySetupKit) && !targetEnvironment(macCatalyst) && !os(macOS)
+    @MainActor
+    @_spi(Internal)
+    public func activate() async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            self.session.activate(on: .main) { [weak self] event in
+                if let self {
+                    MainActor.assumeIsolated {
+                        self.handleSessionEvent(event: event)
+                    }
+                }
+
+                continuation.resume()
+            }
+        }
+    }
+
+    @MainActor
+    @_spi(Internal)
+    public func invalidate() {
+        guard !invalidated else {
+            return
+        }
+        self.session.invalidate()
+    }
+#endif
 
 
     /// Register an event handler for `AccessoryEvent`s.
@@ -135,11 +161,11 @@ public final class AccessorySetupKit {
     @available(watchOS, unavailable)
     @available(macOS, unavailable)
     @available(macCatalyst, unavailable)
-    public nonisolated func registerHandler(eventHandler: @SpeziBluetooth @escaping (AccessoryEvent) -> Void) -> AccessoryEventRegistration {
+    public nonisolated func registerHandler(eventHandler: @MainActor @escaping (AccessoryEvent) -> Void) -> AccessoryEventRegistration {
 #if canImport(AccessorySetupKit) && !targetEnvironment(macCatalyst) && !os(macOS)
         let id = UUID()
-        subscriptionLock.withLock {
-            accessoryChangeHandlers[id] = eventHandler
+        handlers.withLock {
+            $0.accessoryChangeHandlers[id] = eventHandler
         }
         return AccessoryEventRegistration(id: id, setupKit: self)
 #else
@@ -149,8 +175,8 @@ public final class AccessorySetupKit {
 
     nonisolated func cancelHandler(for id: UUID) {
 #if canImport(AccessorySetupKit) && !targetEnvironment(macCatalyst) && !os(macOS)
-        subscriptionLock.withLock {
-            _ = accessoryChangeHandlers.removeValue(forKey: id)
+        handlers.withLock {
+            _ = $0.accessoryChangeHandlers.removeValue(forKey: id)
         }
 #endif
     }
@@ -242,8 +268,8 @@ public final class AccessorySetupKit {
     }
 
     private func callHandler(with event: AccessoryEvent) {
-        let (subscriptions, handlers) = subscriptionLock.withLock {
-            (Array(accessoryChangeSubscriptions.values), Array(accessoryChangeHandlers.values))
+        let (subscriptions, handlers) = handlers.withLock {
+            (Array($0.accessoryChangeSubscriptions.values), Array($0.accessoryChangeHandlers.values))
         }
 
         for subscription in subscriptions {
@@ -267,7 +293,7 @@ public final class AccessorySetupKit {
             state.withMutation(keyPath: \.accessories) {}
             callHandler(with: .available)
         case .invalidated:
-            break
+            self.invalidated = true
         case .migrationComplete:
             break
         case .accessoryAdded:
