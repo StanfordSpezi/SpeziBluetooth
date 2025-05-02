@@ -57,10 +57,12 @@ public final class AccessorySetupKit {
         nonisolated init() {}
     }
 
+#if canImport(AccessorySetupKit) && !targetEnvironment(macCatalyst) && !os(macOS)
     fileprivate struct Handlers {
         var accessoryChangeHandlers: [UUID: @MainActor (AccessoryEvent) -> Void] = [:]
         var accessoryChangeSubscriptions: [UUID: AsyncStream<AccessoryEvent>.Continuation] = [:]
     }
+#endif
 
     @Application(\.logger)
     private var logger
