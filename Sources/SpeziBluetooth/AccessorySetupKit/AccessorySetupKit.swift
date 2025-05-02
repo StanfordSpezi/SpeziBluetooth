@@ -128,6 +128,7 @@ public final class AccessorySetupKit {
     }
 
 #if canImport(AccessorySetupKit) && !targetEnvironment(macCatalyst) && !os(macOS)
+    /// Manually active the underlying session.
     @MainActor
     @_spi(Internal)
     public func activate() async {
@@ -146,7 +147,8 @@ public final class AccessorySetupKit {
             }
         }
     }
-
+    
+    /// Manually invalidate the underlying session.
     @MainActor
     @_spi(Internal)
     public func invalidate() {

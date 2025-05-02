@@ -18,15 +18,17 @@ public struct PLXSpotCheckMeasurement: ByteCodable, Hashable, Sendable, Codable 
     public typealias DeviceAndSensorStatus = PLXContinuousMeasurement.DeviceAndSensorStatus
     
     struct Flags: OptionSet, ByteCodable, Hashable, Codable {
-        let rawValue: UInt8
-        init(rawValue: UInt8) {
-            self.rawValue = rawValue
-        }
         static let hasTimestamp = Self(rawValue: 1 << 0)
         static let hasMeasurementStatus = Self(rawValue: 1 << 1)
         static let hasDeviceAndSensorStatus = Self(rawValue: 1 << 2)
         static let hasPulseAmplitudeIndex = Self(rawValue: 1 << 3)
         static let deviceClockIsNotSet = Self(rawValue: 1 << 4)
+
+        let rawValue: UInt8
+        
+        init(rawValue: UInt8) {
+            self.rawValue = rawValue
+        }
     }
     
     /// The measured blood oxygen saturation

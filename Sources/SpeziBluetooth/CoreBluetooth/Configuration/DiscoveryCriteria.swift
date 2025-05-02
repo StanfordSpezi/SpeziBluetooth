@@ -176,9 +176,9 @@ extension DiscoveryCriteria {
     ///         The substring is matched against the ``AdvertisementData/localName`` if it is present.
     ///         If it is not present, the substring will be matched against the GAP device name.
     /// - Returns: The `DiscoveryCriteria` identifying an accessory with the specified criteria.
-    public static func accessory( // swiftlint:disable:this function_default_parameter_at_end
+    public static func accessory(
         advertising uuid: BTUUID,
-        serviceData: DataDescriptor? = nil,
+        serviceData: DataDescriptor? = nil, // swiftlint:disable:this function_default_parameter_at_end
         manufacturer: ManufacturerIdentifier,
         manufacturerData: DataDescriptor? = nil,
         nameSubstring: String? = nil
@@ -222,9 +222,9 @@ extension DiscoveryCriteria {
     ///         The substring is matched against the ``AdvertisementData/localName`` if it is present.
     ///         If it is not present, the substring will be matched against the GAP device name.
     /// - Returns: The `DiscoveryCriteria` identifying an accessory with the specified criteria.
-    public static func accessory<Service: BluetoothService>( // swiftlint:disable:this function_default_parameter_at_end
+    public static func accessory<Service: BluetoothService>(
         advertising service: Service.Type,
-        serviceData: DataDescriptor? = nil,
+        serviceData: DataDescriptor? = nil, // swiftlint:disable:this function_default_parameter_at_end
         manufacturer: ManufacturerIdentifier,
         manufacturerData: DataDescriptor? = nil,
         nameSubstring: String? = nil
@@ -273,9 +273,9 @@ extension DiscoveryCriteria {
     /// - Returns: The `DiscoveryCriteria` identifying an accessory with the specified criteria.
     @available(iOS 18, *)
     @available(macCatalyst, unavailable)
-    public static func accessory( // swiftlint:disable:this function_default_parameter_at_end
+    public static func accessory(
         advertising uuid: BTUUID,
-        serviceData: DataDescriptor? = nil,
+        serviceData: DataDescriptor? = nil, // swiftlint:disable:this function_default_parameter_at_end
         manufacturer: ManufacturerIdentifier,
         manufacturerData: DataDescriptor? = nil,
         nameSubstring: String? = nil,
@@ -335,9 +335,9 @@ extension DiscoveryCriteria {
     /// - Returns: The `DiscoveryCriteria` identifying an accessory with the specified criteria.
     @available(iOS 18, *)
     @available(macCatalyst, unavailable)
-    public static func accessory<Service: BluetoothService>( // swiftlint:disable:this function_default_parameter_at_end
+    public static func accessory<Service: BluetoothService>(
         advertising service: Service.Type,
-        serviceData: DataDescriptor? = nil,
+        serviceData: DataDescriptor? = nil, // swiftlint:disable:this function_default_parameter_at_end
         manufacturer: ManufacturerIdentifier,
         manufacturerData: DataDescriptor? = nil,
         nameSubstring: String? = nil,
@@ -395,10 +395,10 @@ extension DiscoveryCriteria {
     ///         If it is not present, the substring will be matched against the GAP device name.
     ///   - uuids: The service uuids the service advertises.
     /// - Returns: The `DiscoveryCriteria` identifying an accessory with the specified criteria.
-    public static func accessory( // swiftlint:disable:this function_default_parameter_at_end
+    public static func accessory(
         manufacturer: ManufacturerIdentifier,
         manufacturerData: DataDescriptor? = nil,
-        nameSubstring: String? = nil,
+        nameSubstring: String? = nil, // swiftlint:disable:this function_default_parameter_at_end
         advertising uuids: BTUUID...
     ) -> DiscoveryCriteria {
         .accessory(manufacturer: manufacturer, manufacturerData: manufacturerData, nameSubstring: nameSubstring, advertising: uuids)
@@ -415,10 +415,10 @@ extension DiscoveryCriteria {
     ///         If it is not present, the substring will be matched against the GAP device name.
     ///   - uuids: The service uuids the service advertises.
     /// - Returns: The `DiscoveryCriteria` identifying an accessory with the specified criteria.
-    public static func accessory( // swiftlint:disable:this function_default_parameter_at_end
+    public static func accessory(
         manufacturer: ManufacturerIdentifier,
         manufacturerData: DataDescriptor? = nil,
-        nameSubstring: String? = nil,
+        nameSubstring: String? = nil, // swiftlint:disable:this function_default_parameter_at_end
         advertising uuids: [BTUUID]
     ) -> DiscoveryCriteria {
         var aspects: [DescriptorAspect] = uuids.map { .service(uuid: $0) }.reversed()
@@ -444,10 +444,10 @@ extension DiscoveryCriteria {
     ///   - service: The service type.
     ///   - additionalService: An optional parameter pack argument to supply additional service types the accessory is expected to advertise.
     /// - Returns: The `DiscoveryCriteria` identifying an accessory with the specified criteria.
-    public static func accessory<Service: BluetoothService, each S: BluetoothService>( // swiftlint:disable:this function_default_parameter_at_end
+    public static func accessory<Service: BluetoothService, each S: BluetoothService>(
         manufacturer: ManufacturerIdentifier,
         manufacturerData: DataDescriptor? = nil,
-        nameSubstring: String? = nil,
+        nameSubstring: String? = nil, // swiftlint:disable:this function_default_parameter_at_end
         advertising service: Service.Type,
         _ additionalService: repeat (each S).Type
     ) -> DiscoveryCriteria {

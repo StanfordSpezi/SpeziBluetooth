@@ -33,6 +33,15 @@ public struct PLXFeatures: ByteCodable, Hashable, Sendable, Codable {
     
     /// The features supported by the device.
     public struct SupportedFeatures: OptionSet, ByteCodable, Hashable, Sendable, Codable {
+        public static let hasMeasurementStatusSupport = Self(rawValue: 1 << 0)
+        public static let hasDeviceAndSensorStatusSupport = Self(rawValue: 1 << 1)
+        public static let hasSpotCheckMeasurementsStorage = Self(rawValue: 1 << 2)
+        public static let hasSpotCheckTimestampSupport = Self(rawValue: 1 << 3)
+        public static let hasSpO2PRFastSupport = Self(rawValue: 1 << 4)
+        public static let hasSpO2PRSlowSupport = Self(rawValue: 1 << 5)
+        public static let hasPulseAmplitudeIndexSupport = Self(rawValue: 1 << 6)
+        public static let supportsMultipleBonds = Self(rawValue: 1 << 7)
+
         public let rawValue: UInt16
         public init(rawValue: UInt16) {
             self.rawValue = rawValue
@@ -48,15 +57,6 @@ public struct PLXFeatures: ByteCodable, Hashable, Sendable, Codable {
         public func encode(to byteBuffer: inout ByteBuffer) {
             byteBuffer.writeInteger(rawValue, endianness: .little)
         }
-        
-        public static let hasMeasurementStatusSupport = Self(rawValue: 1 << 0)
-        public static let hasDeviceAndSensorStatusSupport = Self(rawValue: 1 << 1)
-        public static let hasSpotCheckMeasurementsStorage = Self(rawValue: 1 << 2)
-        public static let hasSpotCheckTimestampSupport = Self(rawValue: 1 << 3)
-        public static let hasSpO2PRFastSupport = Self(rawValue: 1 << 4)
-        public static let hasSpO2PRSlowSupport = Self(rawValue: 1 << 5)
-        public static let hasPulseAmplitudeIndexSupport = Self(rawValue: 1 << 6)
-        public static let supportsMultipleBonds = Self(rawValue: 1 << 7)
     }
     
     

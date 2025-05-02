@@ -16,11 +16,11 @@ import NIOCore
 /// Refer to GATT Specification Supplement, 3.216 Temperature Measurement.
 public struct TemperatureMeasurement {
     fileprivate struct Flags: OptionSet {
-        let rawValue: UInt8
-
         static let fahrenheitUnit = Flags(rawValue: 1 << 0)
         static let timeStampPresent = Flags(rawValue: 1 << 1)
         static let temperatureTypePresent = Flags(rawValue: 1 << 2)
+
+        let rawValue: UInt8
 
         init(rawValue: UInt8) {
             self.rawValue = rawValue

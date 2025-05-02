@@ -15,22 +15,17 @@ import SpeziNumerics
 /// A PLX Continuous Measurement, as defined in the [Bluetooth specification](https://www.bluetooth.com/specifications/specs/plxs-html/).
 public struct PLXContinuousMeasurement: ByteCodable, Hashable, Sendable, Codable {
     struct Flags: OptionSet, ByteCodable, Sendable, Codable, Hashable {
-        let rawValue: UInt8
-        
         static let hasSpO2PRFast = Self(rawValue: 1 << 0)
         static let hasSpO2PRSlow = Self(rawValue: 1 << 1)
         static let hasMeasurementStatus = Self(rawValue: 1 << 2)
         static let hasDeviceAndSensorStatus = Self(rawValue: 1 << 3)
         static let hasPulseAmplitudeIndex = Self(rawValue: 1 << 4)
+
+        let rawValue: UInt8
     }
     
     /// Information about the status of the measurement.
     public struct MeasurementStatus: OptionSet, PrimitiveByteCodable, Sendable, Codable, Hashable {
-        public let rawValue: UInt16
-        public init(rawValue: UInt16) {
-            self.rawValue = rawValue
-        }
-        
         public static let measurementIsOngoing = Self(rawValue: 1 << 5)
         public static let earlyEstimatedData = Self(rawValue: 1 << 6)
         public static let validatedData = Self(rawValue: 1 << 7)
@@ -42,15 +37,15 @@ public struct PLXContinuousMeasurement: ByteCodable, Hashable, Sendable, Codable
         public static let measurementUnavailable = Self(rawValue: 1 << 13)
         public static let questionableMeasurementDetected = Self(rawValue: 1 << 14)
         public static let invalidMeasurementDetected = Self(rawValue: 1 << 15)
+
+        public let rawValue: UInt16
+        public init(rawValue: UInt16) {
+            self.rawValue = rawValue
+        }
     }
     
     /// Device-level information about the sensor.
     public struct DeviceAndSensorStatus: OptionSet, ByteCodable, Sendable, Codable, Hashable {
-        public let rawValue: UInt32
-        public init(rawValue: UInt32) {
-            self.rawValue = rawValue
-        }
-        
         public static let extendedDisplayUpdateOngoing = Self(rawValue: 1 << 0)
         public static let equipmentMalfunctionDetected = Self(rawValue: 1 << 1)
         public static let signalProcessingIrregularityDetected = Self(rawValue: 1 << 2)
@@ -68,7 +63,13 @@ public struct PLXContinuousMeasurement: ByteCodable, Hashable, Sendable, Codable
         public static let sensorMalfunctioning = Self(rawValue: 1 << 14)
         public static let sensorDisconnected = Self(rawValue: 1 << 15)
         public static let reservedForFutureUse = Self(rawValue: 0xFFFF0000)
+
+        public let rawValue: UInt32
         
+        public init(rawValue: UInt32) {
+            self.rawValue = rawValue
+        }
+
         public init?(from byteBuffer: inout ByteBuffer) {
             guard let bytes = byteBuffer.readBytes(length: 3) else {
                 return nil
