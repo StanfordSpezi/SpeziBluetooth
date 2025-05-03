@@ -22,8 +22,8 @@ jobs:
     with:
       runsonlabels: '["macOS", "self-hosted", "spezi"]'
       scheme: SpeziBluetooth-Package
-      artifactname: SpeziBluetooth-Package.xcresult
-      resultBundle: SpeziBluetooth-Package.xcresult
+      resultBundle: SpeziBluetooth-iOS.xcresult
+      artifactname: SpeziBluetooth-iOS.xcresult
   buildandtest_visionos:
     name: Build and Test Swift Package visionOS
     uses: StanfordSpezi/.github/.github/workflows/xcodebuild-or-fastlane.yml@v2
