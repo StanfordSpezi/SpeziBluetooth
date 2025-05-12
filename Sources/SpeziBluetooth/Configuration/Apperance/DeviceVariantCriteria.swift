@@ -35,7 +35,7 @@ public struct DeviceVariantCriteria {
         self.init([aspect])
     }
 
-    init(from criteria: [DeviceVariantCriteria]) {
+    package init(from criteria: [DeviceVariantCriteria]) {
         aspects = criteria.flatMap { $0.aspects }
     }
     

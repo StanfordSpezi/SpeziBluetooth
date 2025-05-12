@@ -64,7 +64,7 @@ extension DescriptorAspect {
                 false
             }
         case let .service(uuid, serviceData):
-            guard advertisementData.serviceUUIDs?.contains(uuid) ?? advertisementData.overflowServiceUUIDs?.contains(uuid) ?? false else {
+            guard advertisementData.serviceUUIDs?.contains(uuid) == true || advertisementData.overflowServiceUUIDs?.contains(uuid) == true else {
                 return false
             }
 
