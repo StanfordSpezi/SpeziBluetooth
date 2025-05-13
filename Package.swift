@@ -28,7 +28,7 @@ let package = Package(
         .library(name: "SpeziBluetooth", targets: ["SpeziBluetooth"])
     ],
     dependencies: [
-        .package(url: "https://github.com/StanfordSpezi/SpeziFoundation.git", branch: "fix/crash-slice-match"),
+        .package(url: "https://github.com/StanfordSpezi/SpeziFoundation.git", from: "2.1.6"),
         .package(url: "https://github.com/StanfordSpezi/Spezi.git", from: "1.8.0"),
         .package(url: "https://github.com/StanfordSpezi/SpeziViews.git", from: "1.10.1"),
         .package(url: "https://github.com/StanfordSpezi/SpeziNetworking.git", from: "2.3.0"),
