@@ -11,6 +11,7 @@ import AccessorySetupKit
 #endif
 import Foundation
 import Spezi
+import OSLog
 import Synchronization
 
 
@@ -120,30 +121,27 @@ public final class AccessorySetupKit {
     @_documentation(visibility: internal)
     @MainActor
     public func configure() {
-        Task { @SpeziBluetooth in
 #if canImport(AccessorySetupKit) && !targetEnvironment(macCatalyst) && !os(macOS)
-            await self.activate()
+        self.activate()
 #endif
-        }
     }
 
 #if canImport(AccessorySetupKit) && !targetEnvironment(macCatalyst) && !os(macOS)
     /// Manually active the underlying session.
     @MainActor
     @_spi(Internal)
-    public func activate() async {
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            // While documentation specifies "The `dispatch` the session uses to deliver events to eventHandler.", that's wrong.
-            // Even if you dispatch a different queue than `main` the `eventHandler` closure will still be dispatched on the main actor, fun right.
-            // At least this was the logic on all version of iOS 18 up to 18.4.
-            self.session.activate(on: .main) { [weak self] event in
-                if let self {
-                    MainActor.assumeIsolated {
-                        self.handleSessionEvent(event: event)
-                    }
-                }
+    public func activate() {
+        // TODO: session is now unchecked Sendable, no dance required!
 
-                continuation.resume()
+
+        // While documentation specifies "The `dispatch` the session uses to deliver events to eventHandler.", that's wrong.
+        // Even if you dispatch a different queue than `main` the `eventHandler` closure will still be dispatched on the main actor, fun right.
+        // At least this was the logic on all version of iOS 18 up to 18.4.
+        self.session.activate(on: .main) { [weak self] event in
+            if let self {
+                MainActor.assumeIsolated {
+                    self.handleSessionEvent(event: event)
+                }
             }
         }
     }
@@ -192,17 +190,11 @@ public final class AccessorySetupKit {
     /// Discover display items in picker.
     /// - Parameter items: The known display items to discover.
     @available(macCatalyst, unavailable)
-    public func showPicker(for items: [ASPickerDisplayItem]) async throws {
-        // session is not Sendable (explicitly marked as non-Sendable), therefore we cannot call async functions on that type.
-        // Even though they exist, we cannot call them in Swift 6(! ... Apple), and thus we need to manually create a continuation
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            session.showPicker(for: items) { error in
-                if let error {
-                    continuation.resume(throwing: AccessorySetupKitError.mapError(error))
-                } else {
-                    continuation.resume()
-                }
-            }
+    public nonisolated func showPicker(for items: [ASPickerDisplayItem]) async throws {
+        do {
+            try await session.showPicker(for: items)
+        } catch {
+            throw AccessorySetupKitError.mapError(error)
         }
     }
     
@@ -213,16 +205,11 @@ public final class AccessorySetupKit {
     ///   - accessory: The accessory.
     ///   - renameOptions: The rename options.
     @available(macCatalyst, unavailable)
-    public func renameAccessory(_ accessory: ASAccessory, options renameOptions: ASAccessory.RenameOptions = []) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            session.renameAccessory(accessory, options: renameOptions) { error in
-                if let error {
-                    continuation.resume(throwing: AccessorySetupKitError.mapError(error))
-                } else {
-                    continuation.resume()
-                }
-            }
-        }
+    public nonisolated func renameAccessory(_ accessory: ASAccessory, options renameOptions: ASAccessory.RenameOptions = []) async throws {
+        // Funnily enough AccessorySetupKit might just deallocate the completion handler and never call the completion handler
+        // this even causes the automatically synthesized async/await version to suspend forever.
+        // This might be fixed in the future, just make sure to not rely on this (this used to work in initial iOS 18 builds).
+        try await session.renameAccessory(accessory, options: renameOptions)
     }
     
     /// Remove an accessory from the application.
@@ -230,15 +217,11 @@ public final class AccessorySetupKit {
     /// If this application is the last one to access the accessory, it will be permanently un-paired from the device.
     /// - Parameter accessory: The accessory to remove or forget.
     @available(macCatalyst, unavailable)
-    public func removeAccessory(_ accessory: ASAccessory) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            session.removeAccessory(accessory) { error in
-                if let error {
-                    continuation.resume(throwing: AccessorySetupKitError.mapError(error))
-                } else {
-                    continuation.resume()
-                }
-            }
+    public nonisolated func removeAccessory(_ accessory: ASAccessory) async throws {
+        do {
+            try await session.removeAccessory(accessory)
+        } catch {
+            throw AccessorySetupKitError.mapError(error)
         }
     }
 
@@ -247,30 +230,22 @@ public final class AccessorySetupKit {
     ///   - accessory: The accessory awaiting authorization.
     ///   - settings: The accessory settings.
     @available(macCatalyst, unavailable)
-    public func finishAuthorization(for accessory: ASAccessory, settings: ASAccessorySettings) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            session.finishAuthorization(for: accessory, settings: settings) { error in
-                if let error {
-                    continuation.resume(throwing: AccessorySetupKitError.mapError(error))
-                } else {
-                    continuation.resume()
-                }
-            }
+    public nonisolated func finishAuthorization(for accessory: ASAccessory, settings: ASAccessorySettings) async throws {
+        do {
+            try await session.finishAuthorization(for: accessory, settings: settings)
+        } catch {
+            throw AccessorySetupKitError.mapError(error)
         }
     }
 
     /// Fail accessory setup awaiting authorization.
     /// - Parameter accessory: The accessory awaiting authorization.
     @available(macCatalyst, unavailable)
-    public func failAuthorization(for accessory: ASAccessory) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            session.failAuthorization(for: accessory) { error in
-                if let error {
-                    continuation.resume(throwing: AccessorySetupKitError.mapError(error))
-                } else {
-                    continuation.resume()
-                }
-            }
+    public nonisolated func failAuthorization(for accessory: ASAccessory) async throws {
+        do {
+            try await session.failAuthorization(for: accessory)
+        } catch {
+            throw AccessorySetupKitError.mapError(error)
         }
     }
 
