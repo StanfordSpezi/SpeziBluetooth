@@ -111,6 +111,12 @@
         }
       }
     },
+    "Device disconnected" : {
+
+    },
+    "Device disconnected due to unknown reasons." : {
+
+    },
     "Discovery session timed out." : {
       "localizations" : {
         "en" : {
