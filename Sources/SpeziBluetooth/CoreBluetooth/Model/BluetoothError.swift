@@ -26,6 +26,10 @@ public enum BluetoothError: Error, CustomStringConvertible, LocalizedError {
     ///
     /// You cannot connect or disconnect peripherals if the underlying central manager is not powered on.
     case invalidState(BluetoothState)
+    /// Device disconnected while the operation was in progress.
+    ///
+    /// This error is used as a fallback only. If the device disconnected with an error, SpeziBluetooth will forward the error and only use this error if no other error or reason is available.
+    case deviceDisconnected
 
     
     /// Provides a human-readable description of the error.
@@ -45,6 +49,8 @@ public enum BluetoothError: Error, CustomStringConvertible, LocalizedError {
             String(localized: "Control Point Error", bundle: .module)
         case .invalidState:
             String(localized: "Invalid State", bundle: .module)
+        case .deviceDisconnected:
+            String(localized: "Device disconnected", bundle: .module)
         }
     }
 
@@ -61,6 +67,8 @@ public enum BluetoothError: Error, CustomStringConvertible, LocalizedError {
             String(localized: "Control point request was sent to \(characteristic.description) on \(service.description) while waiting for a response to a previous request.", bundle: .module)
         case .invalidState:
             String(localized: "Bluetooth must be powered on for this operation.", bundle: .module)
+        case .deviceDisconnected:
+            String(localized: "Device disconnected due to unknown reasons.", bundle: .module)
         }
     }
 }

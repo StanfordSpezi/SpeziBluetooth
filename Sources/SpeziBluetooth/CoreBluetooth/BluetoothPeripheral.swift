@@ -74,7 +74,7 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
     /// Manage asynchronous accesses per characteristic.
     private let characteristicAccesses = CharacteristicAccesses()
     /// Managed asynchronous accesses for an ongoing writhe without response.
-    private let writeWithoutResponseAccess = ManagedAsynchronousAccess<Void, Never>()
+    private let writeWithoutResponseAccess = ManagedAsynchronousAccess<Void, Error>()
     /// Managed asynchronous accesses for the rssi read action.
     private let rssiAccess = ManagedAsynchronousAccess<Int, Error>()
     /// Managed asynchronous accesses for service discovery.
@@ -458,17 +458,19 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
 
         disconnectAccess.resume() // the error describes the disconnect reason, but the disconnect itself cannot throw
 
-        connectAccess.cancelAll(error: error)
-        writeWithoutResponseAccess.cancelAll()
-        rssiAccess.cancelAll(error: error)
-        discoverServicesAccess.cancelAll(error: error)
+        let operationError = error ?? BluetoothError.deviceDisconnected
 
-        characteristicAccesses.cancelAll(disconnectError: error)
+        connectAccess.resume(throwing: operationError)
+        // error won't reach the client; writeWithoutResponse is best effort anyways and doesn't check if it is erroneous
+        writeWithoutResponseAccess.resume(throwing: operationError)
+        rssiAccess.resume(throwing: operationError)
+        discoverServicesAccess.resume(throwing: operationError)
+        characteristicAccesses.resume(throwing: operationError)
 
         let discoverCharacteristicAccesses = discoverCharacteristicAccesses
         self.discoverCharacteristicAccesses.removeAll()
         for access in discoverCharacteristicAccesses.values {
-            access.cancelAll(error: error)
+            access.resume(throwing: operationError)
         }
     }
 
@@ -667,9 +669,11 @@ public class BluetoothPeripheral { // swiftlint:disable:this type_body_length
             try await writeWithoutResponseAccess.perform {
                 cbPeripheral.writeValue(data, for: characteristic.underlyingCharacteristic, type: .withoutResponse)
             }
+        } catch is CancellationError {
+            // task go cancelled, so just throw away the written value
         } catch {
-            // task got cancelled, so just throw away the written value
-            return
+            // writeResponse is best effort anyways and doesn't report errors. Just log it.
+            logger.warning("Write without response failed to write value for characteristic \(characteristic.debugDescription): \(error)")
         }
     }
 

@@ -49,6 +49,20 @@ class CharacteristicAccess: Sendable {
             break
         }
     }
+
+    func resume(throwing error: any Error) {
+        let access = value
+        self.consume()
+
+        switch access {
+        case let .read(continuation):
+            continuation.resume(throwing: error)
+        case let .write(continuation), let .notify(continuation):
+            continuation.resume(throwing: error)
+        case .none:
+            break
+        }
+    }
 }
 
 
@@ -141,6 +155,15 @@ final class CharacteristicAccesses: Sendable {
 
         for access in accesses.values {
             access.cancelAll(disconnectError: error)
+        }
+    }
+
+    func resume(throwing error: any Error) {
+        let accesses = ongoingAccesses
+        ongoingAccesses.removeAll()
+
+        for access in accesses.values {
+            access.resume(throwing: error)
         }
     }
 }
