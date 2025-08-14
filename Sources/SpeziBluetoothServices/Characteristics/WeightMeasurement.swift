@@ -16,12 +16,12 @@ import NIOCore
 /// Refer to GATT Specification Supplement, 3.252 Weight Measurement.
 public struct WeightMeasurement {
     fileprivate struct Flags: OptionSet {
-        let rawValue: UInt8
-
         static let isImperialUnit = Flags(rawValue: 1 << 0)
         static let timeStampPresent = Flags(rawValue: 1 << 1)
         static let userIdPresent = Flags(rawValue: 1 << 2)
         static let bmiAndHeightPresent = Flags(rawValue: 1 << 3)
+
+        let rawValue: UInt8
 
         init(rawValue: UInt8) {
             self.rawValue = rawValue

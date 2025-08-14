@@ -17,8 +17,6 @@ import NIOCore
 public struct CurrentTime {
     /// The reason why a peripheral adjusted its current time.
     public struct AdjustReason: OptionSet {
-        public let rawValue: UInt8
-
         /// The time information on the device was manually set or changed.
         ///
         /// - Note: Also set this flag if the time zone or DST offset were changed manually.
@@ -29,6 +27,8 @@ public struct CurrentTime {
         public static let changeOfTimeZone = AdjustReason(rawValue: 1 << 2)
         /// The time information was changed due to a change of Daylight Savings Time (DST).
         public static let changeOfDST = AdjustReason(rawValue: 1 << 3)
+
+        public let rawValue: UInt8
 
         public init(rawValue: UInt8) {
             self.rawValue = rawValue

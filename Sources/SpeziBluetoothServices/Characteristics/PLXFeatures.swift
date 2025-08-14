@@ -15,7 +15,7 @@ import SpeziNumerics
 /// The features supported by a Bluetooth-enabled Pulse Oximeter.
 public struct PLXFeatures: ByteCodable, Hashable, Sendable, Codable {
     /// The measurement-status-fields supported by this device.
-    /// - Note: Even though this is the same type as ``PLXContinuousMeasurement.MeasurementStatus``
+    /// - Note: Even though this is the same type as ``PLXContinuousMeasurement/MeasurementStatus-swift.struct``
     ///     used for continuous measurements, in the ``PLXFeatures``-context, the fields here are interpreted as indicating
     ///     whether the device supports the field, and not whether the field's described thing is currently true.
     ///     E.g.: `MeasurementStatus.measurementIsOngoing` being present on `PLXFeatures.measurementStatusSupport`
@@ -23,7 +23,7 @@ public struct PLXFeatures: ByteCodable, Hashable, Sendable, Codable {
     ///     It does not mean that there is a measurement ongoing right now.
     public typealias MeasurementStatusSupport = PLXContinuousMeasurement.MeasurementStatus
     /// The device- and sensor-status-fields supported by this device.
-    /// - Note: Even though this is the same type as ``PLXContinuousMeasurement.DeviceAndSensorStatus``
+    /// - Note: Even though this is the same type as ``PLXContinuousMeasurement/DeviceAndSensorStatus-swift.struct``
     ///     used for continuous measurements, in the ``PLXFeatures``-context, the fields here are interpreted as indicating
     ///     whether the device supports the field, and not whether the field's described thing is currently true.
     ///     E.g.: `DeviceAndSensorStatus.erraticSignalDetected` being present on `PLXFeatures.deviceAndSensorStatusSupport`
@@ -33,6 +33,15 @@ public struct PLXFeatures: ByteCodable, Hashable, Sendable, Codable {
     
     /// The features supported by the device.
     public struct SupportedFeatures: OptionSet, ByteCodable, Hashable, Sendable, Codable {
+        public static let hasMeasurementStatusSupport = Self(rawValue: 1 << 0)
+        public static let hasDeviceAndSensorStatusSupport = Self(rawValue: 1 << 1)
+        public static let hasSpotCheckMeasurementsStorage = Self(rawValue: 1 << 2)
+        public static let hasSpotCheckTimestampSupport = Self(rawValue: 1 << 3)
+        public static let hasSpO2PRFastSupport = Self(rawValue: 1 << 4)
+        public static let hasSpO2PRSlowSupport = Self(rawValue: 1 << 5)
+        public static let hasPulseAmplitudeIndexSupport = Self(rawValue: 1 << 6)
+        public static let supportsMultipleBonds = Self(rawValue: 1 << 7)
+
         public let rawValue: UInt16
         public init(rawValue: UInt16) {
             self.rawValue = rawValue
@@ -48,15 +57,6 @@ public struct PLXFeatures: ByteCodable, Hashable, Sendable, Codable {
         public func encode(to byteBuffer: inout ByteBuffer) {
             byteBuffer.writeInteger(rawValue, endianness: .little)
         }
-        
-        public static let hasMeasurementStatusSupport = Self(rawValue: 1 << 0)
-        public static let hasDeviceAndSensorStatusSupport = Self(rawValue: 1 << 1)
-        public static let hasSpotCheckMeasurementsStorage = Self(rawValue: 1 << 2)
-        public static let hasSpotCheckTimestampSupport = Self(rawValue: 1 << 3)
-        public static let hasSpO2PRFastSupport = Self(rawValue: 1 << 4)
-        public static let hasSpO2PRSlowSupport = Self(rawValue: 1 << 5)
-        public static let hasPulseAmplitudeIndexSupport = Self(rawValue: 1 << 6)
-        public static let supportsMultipleBonds = Self(rawValue: 1 << 7)
     }
     
     

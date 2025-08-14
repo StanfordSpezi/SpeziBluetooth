@@ -8,6 +8,7 @@
 
 import CoreBluetooth
 import Foundation
+import SpeziFoundation
 
 
 struct CharacteristicAccessorCapture: Sendable {
@@ -26,7 +27,6 @@ struct GATTCharacteristicCapture: Sendable {
     let value: Data?
     let properties: CBCharacteristicProperties
     let descriptors: CBInstance<[CBDescriptor]>?
-
     init(from characteristic: CBCharacteristic) {
         self.isNotifying = characteristic.isNotifying
         self.value = characteristic.value

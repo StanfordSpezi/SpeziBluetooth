@@ -17,13 +17,13 @@ import SpeziNumerics
 /// Refer to GATT Specification Supplement, 3.31 Blood Pressure Measurement.
 public struct BloodPressureMeasurement {
     fileprivate struct Flags: OptionSet {
-        let rawValue: UInt8
-
         static let kPaUnit = Flags(rawValue: 1 << 0)
         static let timeStampPresent = Flags(rawValue: 1 << 1)
         static let pulseRatePresent = Flags(rawValue: 1 << 2)
         static let userIdPresent = Flags(rawValue: 1 << 3)
         static let measurementStatusPresent = Flags(rawValue: 1 << 4)
+
+        let rawValue: UInt8
 
         init(rawValue: UInt8) {
             self.rawValue = rawValue
@@ -42,8 +42,6 @@ public struct BloodPressureMeasurement {
     ///
     /// Refer to GATT Specification Supplement, 3.31.3 Measurement Status field.
     public struct Status: OptionSet {
-        public let rawValue: UInt16
-
         /// Body movement detected during measurement.
         public static let bodyMovementDetected = Status(rawValue: 1 << 0)
         /// Cuff fit detection detected cuff too loose.
@@ -56,6 +54,8 @@ public struct BloodPressureMeasurement {
         public static let pulseRateBelowLowerLimit = Status(rawValue: 1 << 4)
         /// Improper measurement position detected.
         public static let improperMeasurementPosition = Status(rawValue: 1 << 5)
+
+        public let rawValue: UInt16
 
         /// Initialize new status option set.
         public init(rawValue: UInt16) {
