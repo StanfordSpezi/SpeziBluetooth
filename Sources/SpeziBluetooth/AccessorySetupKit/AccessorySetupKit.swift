@@ -274,7 +274,7 @@ public final class AccessorySetupKit {
         case .invalidated:
             self.invalidated = true
         case .migrationComplete:
-            break
+            callHandler(with: .migrationComplete)
         case .accessoryAdded:
             guard let accessory = event.accessory else {
                 return
@@ -335,6 +335,8 @@ extension AccessorySetupKit {
         case removed(ASAccessory)
         /// An accessory was changed.
         case changed(ASAccessory)
+        /// AccessorySetupKit migration is complete.
+        case migrationComplete
 #endif
     }
 }
@@ -367,6 +369,8 @@ extension AccessorySetupKit.AccessoryEvent: CustomStringConvertible, CustomDebug
             ".removed(\(accessory))"
         case let .changed(accessory):
             ".changed(\(accessory))"
+        case .migrationComplete:
+            ".migrationComplete"
 #endif
         }
     }
