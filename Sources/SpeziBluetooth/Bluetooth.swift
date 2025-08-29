@@ -9,7 +9,6 @@
 import OrderedCollections
 import OSLog
 @_spi(APISupport)
-@_spi(Spezi)
 import Spezi
 
 
