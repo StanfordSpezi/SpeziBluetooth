@@ -13,4 +13,6 @@
 SpeziBluetooth contributors
 ====================
 
+* [Andreas Bauer](https://github.com/bauer-andreas)
 * [Paul Schmiedmayer](https://github.com/PSchmiedmayer)
+* [Lukas Kollmer](https://github.com/lukaskollmer)
