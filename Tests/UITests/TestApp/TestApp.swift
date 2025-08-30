@@ -7,7 +7,7 @@
 //
 
 import Spezi
-@_spi(Internal)
+@_spi(TestingSupport)
 import SpeziBluetooth
 import SpeziViews
 import SwiftUI

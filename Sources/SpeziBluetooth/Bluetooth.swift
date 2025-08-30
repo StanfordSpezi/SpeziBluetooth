@@ -9,7 +9,6 @@
 import OrderedCollections
 import OSLog
 @_spi(APISupport)
-@_spi(Spezi)
 import Spezi
 
 
@@ -445,7 +444,7 @@ public final class Bluetooth: Module, EnvironmentAccessible, @unchecked Sendable
     }
 
 
-    @_spi(Internal)
+    @_spi(TestingSupport)
     @SpeziBluetooth
     public func _initializedDevicesCount() -> Int { // swiftlint:disable:this identifier_name
         initializedDevices.count
