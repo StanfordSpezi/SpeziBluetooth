@@ -1,7 +1,7 @@
 #
 # This source file is part of the Stanford Spezi open source project
 #
-# SPDX-FileCopyrightText: 2022 Stanford University and the project authors (see CONTRIBUTORS.md)
+# SPDX-FileCopyrightText: 2025 Stanford University and the project authors (see CONTRIBUTORS.md)
 #
 # SPDX-License-Identifier: MIT
 #
@@ -15,60 +15,61 @@ on:
   pull_request:
   workflow_dispatch:
 
+concurrency:
+  group: Build-and-Test-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  package_ios:
-    name: Build and Test Swift Package iOS
-    uses: StanfordSpezi/.github/.github/workflows/xcodebuild-or-fastlane.yml@v2
+  package_tests:
+    name: Build and Test Swift Package ${{ matrix.platform.name }} (${{ matrix.config }})
+    uses: StanfordBDHG/.github/.github/workflows/xcodebuild-or-fastlane.yml@v2
+    strategy:
+      matrix:
+        config: [Debug, Release]
+        platform:
+          - name: iOS
+            destination: 'platform=iOS Simulator,name=iPhone 17 Pro'
+          - name: macOS
+            destination: 'platform=macOS,arch=arm64'
+          - name: 'Mac Catalyst'
+            destination: 'platform=macOS,arch=arm64,variant=Mac Catalyst'
+          - name: watchOS
+            destination: 'platform=watchOS Simulator,name=Apple Watch Series 11 (46mm)'
+          - name: visionOS
+            destination: 'platform=visionOS Simulator,name=Apple Vision Pro'
+          - name: tvOS
+            destination: 'platform=tvOS Simulator,name=Apple TV 4K (3rd generation)'
+      fail-fast: false
     with:
       runsonlabels: '["macOS", "self-hosted", "spezi"]'
       scheme: SpeziBluetooth-Package
-      resultBundle: SpeziBluetooth-iOS.xcresult
-      artifactname: SpeziBluetooth-iOS.xcresult
-  buildandtest_visionos:
-    name: Build and Test Swift Package visionOS
+      destination: ${{ matrix.platform.destination }}
+      buildConfig: ${{ matrix.config }}
+      resultBundle: ${{ format('SpeziBluetooth-{0}-{1}.xcresult', matrix.platform.name, matrix.config) }}
+      artifactname: ${{ format('SpeziBluetooth-{0}-{1}.xcresult', matrix.platform.name, matrix.config) }}
+  ui_tests:
+    name: Build and Test UI Tests ${{ matrix.platform.name }} (${{ matrix.config }})
     uses: StanfordSpezi/.github/.github/workflows/xcodebuild-or-fastlane.yml@v2
-    with:
-      runsonlabels: '["macOS", "self-hosted", "spezi"]'
-      scheme: SpeziBluetooth-Package
-      destination: 'platform=visionOS Simulator,name=Apple Vision Pro'
-      resultBundle: SpeziBluetooth-visionOS.xcresult
-      artifactname: SpeziBluetooth-visionOS.xcresult
-  buildandtest_watchos:
-    name: Build and Test Swift Package watchOS
-    uses: StanfordSpezi/.github/.github/workflows/xcodebuild-or-fastlane.yml@v2
-    with:
-      runsonlabels: '["macOS", "self-hosted", "spezi"]'
-      scheme: SpeziBluetooth-Package
-      destination: 'platform=watchOS Simulator,name=Apple Watch Series 10 (46mm)'
-      resultBundle: SpeziBluetooth-watchOS.xcresult
-      artifactname: SpeziBluetooth-watchOS.xcresult
-  ios:
-    name: Build and Test iOS
-    uses: StanfordSpezi/.github/.github/workflows/xcodebuild-or-fastlane.yml@v2
-    with:
-      runsonlabels: '["macOS", "self-hosted", "spezi"]'
-      path: 'Tests/UITests'
-      scheme: TestApp
-      artifactname: TestApp-iOS.xcresult
-      resultBundle: TestApp-iOS.xcresult
-  macos:
-    name: Build and Test macOS
-    uses: StanfordSpezi/.github/.github/workflows/xcodebuild-or-fastlane.yml@v2
-    permissions:
-      contents: read
+    strategy:
+      matrix:
+        config: [Debug, Release]
+        platform:
+          - name: macOS
+            destination: 'platform=iOS Simulator,name=iPhone 17 Pro'
+      fail-fast: false
     with:
       runsonlabels: '["macOS", "self-hosted", "bluetooth"]'
       path: 'Tests/UITests'
       setupsigning: true
-      artifactname: TestApp-macOS.xcresult
-      resultBundle: TestApp-macOS.xcresult
-      customcommand: "set -o pipefail && xcodebuild test -scheme 'TestApp' -configuration 'Test' -destination 'platform=macOS,arch=arm64,variant=Mac Catalyst' -derivedDataPath '.derivedData' -resultBundlePath 'TestApp-macOS.xcresult' -skipPackagePluginValidation -skipMacroValidation | xcbeautify"
+      customcommand: "set -o pipefail && xcodebuild test -scheme 'TestApp' -configuration '${{ matrix.config }}' -destination 'platform=macOS,arch=arm64,variant=Mac Catalyst' -derivedDataPath '.derivedData' -resultBundlePath '${{ format('TestApp-{0}-{1}.xcresult', matrix.platform.name, matrix.config) }}' -skipPackagePluginValidation -skipMacroValidation | xcbeautify"
+      resultBundle: ${{ format('TestApp-{0}-{1}.xcresult', matrix.platform.name, matrix.config) }}
+      artifactname: ${{ format('TestApp-{0}-{1}.xcresult', matrix.platform.name, matrix.config) }}
     secrets: inherit
   uploadcoveragereport:
     name: Upload Coverage Report
-    needs: [package_ios, buildandtest_visionos, buildandtest_watchos, ios, macos]
-    uses: StanfordSpezi/.github/.github/workflows/create-and-upload-coverage-report.yml@v2
+    needs: [package_tests, ui_tests]
+    uses: StanfordBDHG/.github/.github/workflows/create-and-upload-coverage-report.yml@v2
     with:
-      coveragereports: SpeziBluetooth-iOS.xcresult SpeziBluetooth-visionOS.xcresult SpeziBluetooth-watchOS.xcresult TestApp-iOS.xcresult TestApp-macOS.xcresult
+      coveragereports: SpeziBluetooth-*.xcresult TestApp-*.xcresult
     secrets:
       token: ${{ secrets.CODECOV_TOKEN }}

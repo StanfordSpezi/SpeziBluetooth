@@ -153,7 +153,7 @@ struct DescriptorTests {
         #expect(deviceAppearance.deviceName(variantId: "id2") == "Product A2")
     }
 
-#if canImport(AccessorySetupKit) && !os(macOS)
+#if canImport(AccessorySetupKit) && !os(macOS) && !targetEnvironment(macCatalyst)
     @Test("DeviceVariantCriteria AccessorySetupKit")
     func testAccessorySetupKit() {
         let criteria = DeviceVariantCriteria(from: [
