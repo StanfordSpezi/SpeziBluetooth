@@ -38,7 +38,7 @@ jobs:
           - name: visionOS
             destination: 'platform=visionOS Simulator,name=Apple Vision Pro'
           - name: tvOS
-            destination: 'platform=tvOS Simulator,name=Apple TV 4K'
+            destination: 'platform=tvOS Simulator,name=Apple TV 4K (3rd generation)'
       fail-fast: false
     with:
       runsonlabels: '["macOS", "self-hosted", "spezi"]'
@@ -60,7 +60,6 @@ jobs:
     with:
       runsonlabels: '["macOS", "self-hosted", "bluetooth"]'
       path: 'Tests/UITests'
-      setupsigning: true
       customcommand: "set -o pipefail && xcodebuild test -scheme 'TestApp' -configuration 'Test' -destination 'platform=macOS,arch=arm64,variant=Mac Catalyst' -derivedDataPath '.derivedData' -resultBundlePath 'TestApp-macOS.xcresult' -skipPackagePluginValidation -skipMacroValidation | xcbeautify"
       resultBundle: ${{ format('TestApp-{0}-{1}.xcresult', matrix.platform.name, matrix.config) }}
       artifactname: ${{ format('TestApp-{0}-{1}.xcresult', matrix.platform.name, matrix.config) }}
