@@ -49,7 +49,7 @@ jobs:
       artifactname: ${{ format('SpeziBluetooth-{0}-{1}.xcresult', matrix.platform.name, matrix.config) }}
   ui_tests:
     name: Build and Test UI Tests ${{ matrix.platform.name }} (${{ matrix.config }})
-    uses: StanfordBDHG/.github/.github/workflows/xcodebuild-or-fastlane.yml@v2
+    uses: StanfordSpezi/.github/.github/workflows/xcodebuild-or-fastlane.yml@v2
     strategy:
       matrix:
         config: [Debug, Release]
@@ -60,9 +60,11 @@ jobs:
     with:
       runsonlabels: '["macOS", "self-hosted", "bluetooth"]'
       path: 'Tests/UITests'
+      setupsigning: true
       customcommand: "set -o pipefail && xcodebuild test -scheme 'TestApp' -configuration 'Test' -destination 'platform=macOS,arch=arm64,variant=Mac Catalyst' -derivedDataPath '.derivedData' -resultBundlePath 'TestApp-macOS.xcresult' -skipPackagePluginValidation -skipMacroValidation | xcbeautify"
       resultBundle: ${{ format('TestApp-{0}-{1}.xcresult', matrix.platform.name, matrix.config) }}
       artifactname: ${{ format('TestApp-{0}-{1}.xcresult', matrix.platform.name, matrix.config) }}
+    secrets: inherit
   uploadcoveragereport:
     name: Upload Coverage Report
     needs: [package_tests, ui_tests]
