@@ -61,7 +61,7 @@ jobs:
       runsonlabels: '["macOS", "self-hosted", "bluetooth"]'
       path: 'Tests/UITests'
       setupsigning: true
-      customcommand: "set -o pipefail && xcodebuild test -scheme 'TestApp' -configuration '${{ matrix.config }}' -destination 'platform=macOS,arch=arm64,variant=Mac Catalyst' -derivedDataPath '.derivedData' -resultBundlePath '${{ format('TestApp-{0}-{1}.xcresult', matrix.platform.name, matrix.config) }}' -skipPackagePluginValidation -skipMacroValidation OTHER_SWIFT_FLAGS='-enable-testing' | xcbeautify"
+      customcommand: "set -o pipefail && xcodebuild test -scheme 'TestApp' -configuration '${{ matrix.config }}' -destination 'platform=macOS,arch=arm64,variant=Mac Catalyst' -derivedDataPath '.derivedData' -resultBundlePath '${{ format('TestApp-{0}-{1}.xcresult', matrix.platform.name, matrix.config) }}' -skipPackagePluginValidation -skipMacroValidation | xcbeautify"
       resultBundle: ${{ format('TestApp-{0}-{1}.xcresult', matrix.platform.name, matrix.config) }}
       artifactname: ${{ format('TestApp-{0}-{1}.xcresult', matrix.platform.name, matrix.config) }}
     secrets: inherit

@@ -676,7 +676,7 @@ extension Bluetooth {
 
     @SpeziBluetooth
     private func _notifyDeviceDeinit(for uuid: UUID) {
-        #if DEBUG || TEST
+        #if DEBUG
         Task { @MainActor in
             assert(nearbyDevices[uuid] == nil, "\(#function) was wrongfully called for a device that is still referenced: \(uuid)")
         }
