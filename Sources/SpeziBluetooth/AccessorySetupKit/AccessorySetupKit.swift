@@ -406,7 +406,9 @@ extension AccessorySetupKit {
 @available(macCatalyst, unavailable)
 extension AccessorySetupKit.SupportedProtocol {
     /// Discover accessories using Bluetooth or Bluetooth Low Energy.
+    @available(iOS 18.0, *)
     public static let bluetooth = AccessorySetupKit.SupportedProtocol(rawValue: "Bluetooth")
     /// Discover accessories using wifi SSIDs.
+    @available(iOS 18.0, *)
     public static let wifi = AccessorySetupKit.SupportedProtocol(rawValue: "WiFi")
 }

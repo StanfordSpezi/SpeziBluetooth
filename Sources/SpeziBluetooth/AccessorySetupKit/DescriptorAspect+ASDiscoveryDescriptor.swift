@@ -14,6 +14,7 @@ import SpeziFoundation
 @available(iOS 18.0, *)
 @available(macCatalyst, unavailable)
 extension DescriptorAspect {
+    @available(iOS 18.0, *)
     func apply(to descriptor: ASDiscoveryDescriptor) {
         switch self {
         case let .nameSubstring(substring):
@@ -36,6 +37,7 @@ extension DescriptorAspect {
         }
     }
 
+    @available(iOS 18.0, *)
     func matches(_ descriptor: ASDiscoveryDescriptor) -> Bool {
         switch self {
         case let .nameSubstring(substring):

@@ -14,6 +14,7 @@ import AccessorySetupKit
 @available(macCatalyst, unavailable)
 extension DiscoveryCriteria {
     /// Retrieve the `ASDiscoveryDescriptor` representation for the discovery criteria.
+    @available(iOS 18.0, *)
     public var discoveryDescriptor: ASDiscoveryDescriptor {
         let descriptor = ASDiscoveryDescriptor()
 
@@ -36,6 +37,7 @@ extension DiscoveryCriteria {
     /// Determine if a discovery descriptor matches the discovery criteria.
     /// - Parameter descriptor: The discovery descriptor.
     /// - Returns: Returns `true` if all discovery aspects are present and matching on the discovery descriptor. The discovery descriptor might have other fields set.
+    @available(iOS 18.0, *)
     public func matches(descriptor: ASDiscoveryDescriptor) -> Bool {
         aspects.allSatisfy { aspect in
             aspect.matches(descriptor)
