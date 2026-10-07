@@ -21,6 +21,8 @@ extension ASAccessoryEventType: @retroactive CustomStringConvertible, @retroacti
             "invalidated"
         case .migrationComplete:
             "migrationComplete"
+        case .accessoryDiscovered:
+            "accessoryDiscovered"
         case .accessoryAdded:
             "accessoryAdded"
         case .accessoryRemoved:
