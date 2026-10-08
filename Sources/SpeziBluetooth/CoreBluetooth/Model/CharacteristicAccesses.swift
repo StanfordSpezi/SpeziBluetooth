@@ -83,7 +83,7 @@ final class CharacteristicAccesses: Sendable {
 
     private func perform<Value>(
         for characteristic: CBCharacteristic,
-        returning value: Value.Type = Void.self,
+        returning value: Value.Type,
         action: () -> Void,
         mapping: (CheckedContinuation<Value, Error>) -> CharacteristicAccess.Access
     ) async throws -> Value {
@@ -103,13 +103,13 @@ final class CharacteristicAccesses: Sendable {
     }
 
     func performWrite(for characteristic: CBCharacteristic, action: () -> Void) async throws {
-        try await self.perform(for: characteristic, action: action) { continuation in
+        try await self.perform(for: characteristic, returning: Void.self, action: action) { continuation in
             .write(continuation)
         }
     }
 
     func performNotify(for characteristic: CBCharacteristic, action: () -> Void) async throws {
-        try await self.perform(for: characteristic, action: action) { continuation in
+        try await self.perform(for: characteristic, returning: Void.self, action: action) { continuation in
             .notify(continuation)
         }
     }
