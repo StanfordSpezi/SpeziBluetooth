@@ -303,6 +303,8 @@ public final class AccessorySetupKit {
             }
         case .pickerSetupBridging, .pickerSetupFailed, .pickerSetupPairing, .pickerSetupRename:
             break
+        case .accessoryDiscovered:
+            break
         case .unknown:
             break
         @unknown default:
